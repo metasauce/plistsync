@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Generator, Iterable
 from uuid import uuid4
 
 from lxml import etree
-from lxml.etree import Element, SubElement
+from lxml.etree import Element, SubElement, _Element
 
 from plistsync.core import Collection, Track, TrackIdentifiers
 from plistsync.logger import log
@@ -13,7 +13,7 @@ from plistsync.logger import log
 from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
 
 if TYPE_CHECKING:
-    from lxml.etree import _Element, _ElementTree
+    from lxml.etree import _ElementTree
 
 
 def xpath_string_escape(input_str: str) -> str:

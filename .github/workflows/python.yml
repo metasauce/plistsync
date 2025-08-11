@@ -121,23 +121,3 @@ jobs:
               with:
                   name: coverage-report
                   path: .reports/coverage.xml
-
-    upload-coverage:
-        name: Upload coverage report
-        needs: test
-        runs-on: ubuntu-latest
-        permissions:
-            id-token: write
-        steps:
-            - uses: actions/checkout@v4
-
-            - name: Get the coverage report
-              uses: actions/download-artifact@v4
-              with:
-                  name: coverage-report
-
-            - name: Upload code coverage
-              uses: codecov/codecov-action@v4
-              with:
-                  files: ./coverage.xml
-                  use_oidc: ${{ !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork) }}
