@@ -1,0 +1,138 @@
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+
+from eyconf import EYConf
+from eyconf.validation import ConfigurationError
+
+# ---------------------------------------------------------------------------- #
+#                                 Config schema                                #
+# ---------------------------------------------------------------------------- #
+
+
+@dataclass
+class OptionalService:
+    enabled: bool
+
+
+@dataclass
+class BeetsConfig(OptionalService):
+    database: str
+
+
+@dataclass
+class PlexConfig(OptionalService):
+    server_url: str
+    auth_token: str
+
+
+@dataclass
+class TidalConfig(OptionalService):
+    client_id: str
+    client_secret: str
+    redirect_port: int
+
+
+@dataclass
+class LoggingConfig:
+    level: str
+
+
+@dataclass
+class ConfigSchema:
+    beets: Optional[BeetsConfig] = None
+    plex: Optional[PlexConfig] = None
+    tidal: Optional[TidalConfig] = None
+    logging: Optional[LoggingConfig] = None
+
+
+# ---------------------------------------------------------------------------- #
+#                                 Default yaml                                 #
+# ---------------------------------------------------------------------------- #
+
+default = """
+# Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# For production we recommend INFO or higher
+logging:
+    level: INFO
+
+
+# Optional services:
+# The sync should work without these services but using some
+# of them will improve matching tremendously
+# See the setup guide for more information!
+beets:
+    enabled: false
+    database: ./config/beets/beets.db
+plex:
+    enabled: false
+    server_url: http://localhost:32400
+    auth_token: place_your_token_here
+tidal:
+    enabled: false
+    client_id: XhEgdcjkjfqTqw1y
+    client_secret: gqRrRCYaxcCxZJmPswXM7NMUjH1DFNIS2O6DRFe5ZF8=
+    redirect_port: 5001
+"""
+
+
+# ---------------------------------------------------------------------------- #
+#                                 Config class                                 #
+# ---------------------------------------------------------------------------- #
+# Uses the eyconf library to handle configuration
+
+
+class Config(EYConf[ConfigSchema]):
+    def __init__(self):
+        super().__init__(ConfigSchema)
+
+    def default_yaml(self) -> str:
+        # Overwrite the default_yaml method to return the custom default config
+        return default
+
+    @property
+    def logging_level(self) -> str:
+        return getattr(self._data.logging, "level", "INFO")
+
+    @staticmethod
+    def get_dir() -> Path:
+        """Get the path to the config directory."""
+        c_dir = Path(os.getenv("PSYNC_CONFIG_DIR", "./config"))
+        os.makedirs(c_dir, exist_ok=True)
+        return c_dir.resolve()
+
+    @staticmethod
+    def get_file() -> Path:
+        """Get the path to the config file."""
+        path = Config.get_dir() / "config.yml"
+        return path
+
+    # ---------------------------------------------------------------------------- #
+    #                         Services/ Optional Extensions                        #
+    # ---------------------------------------------------------------------------- #
+    @property
+    def plex(self) -> PlexConfig:
+        if not self._data.plex or not self._data.plex.enabled:
+            raise ConfigurationError(
+                "'plex' is not enabled or missing in the configuration."
+            )
+        return self._data.plex
+
+    @property
+    def beets(self) -> BeetsConfig:
+        if not self._data.beets or not self._data.beets.enabled:
+            raise ConfigurationError(
+                "'beets' is not enabled or missing in the configuration."
+            )
+        return self._data.beets
+
+    @property
+    def tidal(self) -> TidalConfig:
+        if not self._data.tidal or not self._data.tidal.enabled:
+            raise ConfigurationError(
+                "'tidal' is not enabled or missing in the configuration."
+            )
+        return self._data.tidal

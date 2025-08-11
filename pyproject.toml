@@ -1,0 +1,97 @@
+[project]
+name = "plistsync"
+version = "0.0.1"
+requires-python = ">=3.11"
+dependencies = [
+    "quart",
+    "uvicorn[standard]",
+    "rq",
+    "requests",
+    "requests_oauth2client",
+    "sqlalchemy",
+    "beets",
+    "jsonschema",
+    "numpy",
+    "mutagen",
+    "cachetools",
+    "asyncache",
+    "tinytag",
+    "levenshtein",
+    "typer",
+    "eyconf[cli]>=0.1.0",
+    "lxml",
+]
+
+[project.scripts]
+plistsync = "plistsync.__main__:cli"
+
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-benchmark"]
+dev = ["ruff", "pre-commit"]
+bench = ["tinytag", "mutagen", "pytaglib", "music-tag", "eyeD3"]
+typed = ["mypy", "types-lxml", "types-cachetools"]
+docs = [
+    "sphinx>=8.0.2",
+    "furo>=2024.8.6",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-inline-tabs>=2023.4.21",
+    "sphinxcontrib-typer[html]>=0.5.0",
+    "myst-parser>=4.0.0",
+    "myst-nb>=1.1.2",
+]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["plistsync", "plistsync_server"]
+
+[tool.hatch.metadata]
+# Needed to install from git directly
+allow-direct-references = true
+
+[tool.ruff]
+include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py"]
+
+
+[tool.ruff.lint]
+select = [
+    "I",
+    "D",
+    # Augment the convention by requiring an imperative mood for all docstrings.
+    "D401",
+    # Unused imports
+]
+ignore = [
+    # Ignore req. for public facing functions docstrings
+    "F401",
+    "D10",
+    "D202",
+]
+fixable = ["ALL"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/**" = ["D", "I", "S", "W"]
+"**__main__.py" = ["D103"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib", "--cov=."]
+filterwarnings = ["error", "ignore::DeprecationWarning"]
+pythonpath = ["."]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.report]
+omit = ["*/tests/*"]
+exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_untyped_decorators = true
+allow_redefinition = true

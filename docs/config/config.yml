@@ -1,0 +1,24 @@
+
+# Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# For production we recommend INFO or higher
+logging:
+    level: INFO
+
+
+# Optional services:
+# The sync should work without these services but using some
+# of them will improve matching tremendously
+# See the setup guide for more information!
+beets:
+    enabled: false
+    database: ./config/beets/beets.db
+plex:
+    enabled: false
+    server_url: http://localhost:32400
+    auth_token: place_your_token_here
+tidal:
+    enabled: false
+    client_id: XhEgdcjkjfqTqw1y
+    client_secret: gqRrRCYaxcCxZJmPswXM7NMUjH1DFNIS2O6DRFe5ZF8=
+    redirect_port: 5001
+
