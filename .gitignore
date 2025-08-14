@@ -4,6 +4,9 @@ __pycache__
 *custom.yml
 local_data/*
 
+config/*
+tidal_token.json
+
 # Logs
 logs
 *.log
