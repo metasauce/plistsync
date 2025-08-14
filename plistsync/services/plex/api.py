@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
 from plistsync.config.yaml import Config, PlexConfig
 from plistsync.logger import log
-from plistsync.services.plex.track import PlexTrack
+
+from .api_types import PlexApiPlaylistResponse, PlexApiTrackResponse
 
 
 def plex_config() -> PlexConfig:
@@ -65,21 +68,58 @@ def playlist_id_or_name(func):
     return wrapper
 
 
-def resolve_playlist_id(playlist_id: str | int) -> int:
+def resolve_playlist_id(playlist_name_or_id: str | int) -> int:
     """Resolve a playlist ID from a name or return the ID if already numeric."""
     try:
-        return int(playlist_id)  # Check if playlist_id is numeric
+        playlist_id = int(playlist_name_or_id)
+        res = request(f"/playlists/{playlist_id}")
+        for playlist in res["MediaContainer"].get("Metadata", []):
+            if (int(playlist.get("ratingKey")) == playlist_id) and (
+                playlist.get("type") == "playlist"
+            ):
+                log.debug(
+                    f"Resolved section {playlist_id} with title '{playlist.get('title')}'."
+                )
+                return playlist_id
+        raise ValueError()
     except ValueError:
         # playlist_id is a name, not a number; look up the ID
         data = fetch_playlists()
         for playlist in data.get("Metadata", []):
-            if playlist.get("title") == playlist_id:
+            if playlist.get("title") == playlist_name_or_id and (
+                playlist.get("type") == "playlist"
+            ):
                 return playlist.get("ratingKey")
-    raise ValueError(f"Playlist '{playlist_id}' not found.")
+    raise ValueError(f"Playlist '{playlist_name_or_id}' not found.")
+
+
+def resolve_section_id(section_name_or_id: str | int) -> int:
+    """Resolve a Plex library section by name (or id) to get its id."""
+    try:
+        section_id = int(section_name_or_id)
+        # Check if section_id exists and is a valid section
+        res = request("/library/sections")
+        for section in res["MediaContainer"].get("Directory", []):
+            if int(section.get("key")) == section_id:
+                log.debug(
+                    f"Resolved section {section_id} with title '{section.get('title')}'."
+                )
+                return section_id
+        raise ValueError()
+    except ValueError:
+        res = request("/library/sections")
+        for section in res["MediaContainer"].get("Directory", []):
+            if section.get("title") == section_name_or_id:
+                section_id = int(section.get("key"))
+                log.debug(
+                    f"Resolved section {section_id} with title '{section.get('title')}'."
+                )
+                return section_id
+    raise ValueError(f"Library '{section_name_or_id}' not found.")
 
 
 @playlist_id_or_name
-def fetch_playlist(playlist_id: str | int) -> dict[str, Any]:
+def fetch_playlist(playlist_id: str | int) -> list[PlexApiPlaylistResponse]:
     """Fetch a Plex playlist by its ID.
 
     Parameters
@@ -90,7 +130,17 @@ def fetch_playlist(playlist_id: str | int) -> dict[str, Any]:
 
     response = request(f"/playlists/{playlist_id}")
 
-    return response["MediaContainer"]
+    playlist_data = response["MediaContainer"].get("Metadata", [])
+    if len(playlist_data) == 0:
+        raise ValueError(f"Playlist with ID '{playlist_id}' not found.")
+    for pd in playlist_data:
+        # Not sure why this endpoint returns non-playlist items, but it happens.
+        if pd.get("type") != "playlist":
+            raise ValueError(
+                f"ID '{playlist_id}' has type '{pd.get('type')}', not 'playlist'."
+            )
+
+    return playlist_data
 
 
 @playlist_id_or_name
@@ -114,14 +164,137 @@ def fetch_playlists() -> dict[str, Any]:
     return response["MediaContainer"]
 
 
-def fetch_track(track_id: str | int) -> dict[str, Any]:
+def fetch_tracks_by_id(
+    track_id: str | int, cache: list[PlexApiTrackResponse] | None = None
+) -> list[PlexApiTrackResponse]:
     """Fetch a Plex track by its ID.
+
+    We here return the MediaContainer, and to be consistent with other fetch methods,
+    this _could_ (but shouldnt) contain multiple results.
+
+    Access track track data via `.get("Metadata", [])`
 
     Parameters
     ----------
     track_id : str
         The ID of the Plex track to fetch.
+    cache : list[PlexApiTrackResponse] | None
+        Optional cache of previously fetched tracks to speed up lookups.
+        TODO: benchmark, for me the lookup by id was pretty snappy, felt no difference.
     """
 
-    response = request(f"/library/metadata/{track_id}")
-    return response["MediaContainer"]
+    if cache is None or len(cache) == 0:
+        response = request(f"/library/metadata/{track_id}")
+        return response["MediaContainer"].get("Metadata", [])
+
+    # search cache instead
+    found_tracks = []
+    for track in cache:
+        found_key = track.get("ratingKey")
+        # ratingKeys are strings, but in my lib seem to always be ints.
+        # maybe better use strings?
+        if found_key is not None and int(found_key) == int(track_id):
+            found_tracks.append(track)
+
+    return found_tracks
+
+
+def fetch_tracks_by_path(
+    file_path: Path | str,
+    section_id: int,
+    cache: list[PlexApiTrackResponse] | None = None,
+) -> list[PlexApiTrackResponse]:
+    """
+    Fetch a track from Plex by its file path, within a given library.
+
+    We here return the MediaContainer, and it _could_ contain multiple results.
+
+    Access actual track data via `.get("Metadata", [])`
+
+    Takes about 5 seconds on my library - we will need to cache this.
+
+    Parameters
+    ----------
+    file_path : str
+        The full file path to search for.
+    section_id : int
+        The id of the Plex library section to search. See `get_section_id`.
+    cache : list[PlexApiTrackResponse] | None
+        Optional cache of previously fetched tracks to speed up lookups.
+        TODO: benchmark, but here its worth it - this is a search, much slower than id based.
+
+    Returns
+    -------
+    dict: The track metadata, or None if not found.
+    """
+    file_path = Path(file_path).resolve()
+    encoded_path = quote(str(file_path))
+
+    if cache is None or len(cache) == 0:
+        response = request(
+            f"/library/sections/{section_id}/all",
+            params={"type": 10, "filename": encoded_path},
+        )
+        return response["MediaContainer"].get("Metadata", [])
+
+    # search cache instead
+    found_tracks = []
+    for track in cache:
+        found_path = track.get("Media", [{}])[0].get("Part", [{}])[0].get("file")
+        if found_path is not None and str(file_path) == str(Path(found_path).resolve()):
+            found_tracks.append(track)
+
+    return found_tracks
+
+
+def fetch_tracks(section_id: int, page_size: int = 5000) -> list[PlexApiTrackResponse]:
+    """
+    Fetch all tracks in a Plex library section, paginated.
+
+    TODO: PS@SM this is inconsistent with other fetch_track methods.
+    I guess in all fetch_tracks, by default we should not return the MediaContainer,
+    and rather unpack directly?
+    I'd prefer the pagination to be handled here, in the api.py and fetch methods,
+    but and yielding tracks directly.
+    For non-paginated fetches, we could add an argument `return_media_container=False`?
+
+    Parameters
+    ----------
+    library : str | int
+        The name or id of the Plex library (section).
+    page_size : int
+        Number of tracks to fetch per request (default: 1000).
+
+    Returns
+    -------
+    list[dict]: List of track metadata dicts.
+    """
+
+    all_tracks = []
+    start = 0
+    total_size = 0
+    while True:
+        response = request(
+            f"/library/sections/{section_id}/all",
+            params={
+                "type": 10,
+                "X-Plex-Container-Start": start,
+                "X-Plex-Container-Size": page_size,
+            },
+        )
+        tracks = response["MediaContainer"].get("Metadata", [])
+        if not tracks:
+            break
+        all_tracks.extend(tracks)
+        if len(tracks) < page_size:
+            break
+        start += page_size
+
+        # log some progress
+        total_size = response["MediaContainer"].get("totalSize", 0)
+        if total_size != 0:
+            log.debug(
+                f"Fetched {len(all_tracks)} of {total_size} tracks from section {section_id}."
+            )
+
+    return all_tracks
