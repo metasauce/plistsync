@@ -9,7 +9,6 @@
 
 <!-- end intro -->
 
-
 ## Features
 
 <!-- start features -->
@@ -17,7 +16,6 @@
 -   todo
 
 <!-- end features -->
-
 
 ## What works
 
@@ -38,10 +36,19 @@ plistsync -v plex playlist-as-m3u 108310 -o ./foo.m3u -rw /media/music/clean:/Vo
         -   insert track into traktor playlist
 -   manually sync (overwrite) playlist from traktor to plex
 
-- cleanup:
-    - remove all flask routes as we are focusing on the package/cli functionality
-    - remove all unused code
-    - remove old tests
+-   cleanup:
 
-- tests:
-    - create abc collection test to use with all services, migrate test_collections
+    -   remove all flask routes as we are focusing on the package/cli functionality
+    -   remove all unused code
+    -   remove old tests
+
+-   tests:
+    -   create abc collection test to use with all services, migrate test_collections
+
+## Developing
+
+```
+pip install -e '.[dev]'
+cd plistsync
+mypy .
+```

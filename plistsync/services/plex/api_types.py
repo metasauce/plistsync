@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import List, TypedDict, Union
+from typing import List, Required, TypedDict, Union
 
 
 # ---------------------------------- Tracks ---------------------------------- #
 
 
 class PlexApiTrackResponse(TypedDict, total=False):
-    ratingKey: str  # '106387'
+    ratingKey: Required[str]  # '106387'
     key: str  # '/library/metadata/106387'
     parentRatingKey: str  # '106386'
     grandparentRatingKey: str  # '55906'
@@ -71,7 +71,7 @@ class PlexApiTrackImage(TypedDict, total=False):
 
 
 class PlexApiPlaylistResponse(TypedDict, total=False):
-    ratingKey: str  # '109486'
+    ratingKey: Required[str]  # '109486'
     key: str  # '/playlists/109486/items'
     guid: str  # 'com.plexapp.agents.none://0579aebf-a0f0-4ffb-bdc7-a69685a69adf'
     type: str  # 'playlist'

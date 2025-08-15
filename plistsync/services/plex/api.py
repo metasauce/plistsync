@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 from urllib.parse import quote
 
 import requests
@@ -49,25 +49,6 @@ def request(route: str, **kwargs) -> Any:
     return res.json()
 
 
-from functools import wraps
-
-
-def playlist_id_or_name(func):
-    """Convert a playlist name to its ID.
-
-    If the provided `playlist_id` is not numeric.
-    Assumes the wrapped function has a `playlist_id` parameter.
-    """
-
-    @wraps(func)
-    def wrapper(playlist_id: str | int, *args, **kwargs):
-        playlist_id = resolve_playlist_id(playlist_id)
-
-        return func(playlist_id, *args, **kwargs)
-
-    return wrapper
-
-
 def resolve_playlist_id(playlist_name_or_id: str | int) -> int:
     """Resolve a playlist ID from a name or return the ID if already numeric."""
     try:
@@ -94,7 +75,13 @@ def resolve_playlist_id(playlist_name_or_id: str | int) -> int:
 
 
 def resolve_section_id(section_name_or_id: str | int) -> int:
-    """Resolve a Plex library section by name (or id) to get its id."""
+    """
+    Resolve a Plex library section by name (or id) to get its id.
+
+    Note on ids and rating keys (strings vs ints):
+    - Plex uses ratingKey as a unique identifier for items, which is a string.
+    - However, some endpoints like `/library/sections/5` give you the id of the section as `'librarySectionID': 5` so we are quite sure that they are always integers.
+    """
     try:
         section_id = int(section_name_or_id)
         # Check if section_id exists and is a valid section
@@ -118,8 +105,27 @@ def resolve_section_id(section_name_or_id: str | int) -> int:
     raise ValueError(f"Library '{section_name_or_id}' not found.")
 
 
-@playlist_id_or_name
-def fetch_playlist(playlist_id: str | int) -> list[PlexApiPlaylistResponse]:
+def fetch_section_root_path(section_id: str | int) -> list[Path]:
+    """Fetch the root path of a Plex library section by its ID.
+
+    Parameters
+    ----------
+    section_id : str | int
+        The ID of the Plex library section to fetch.
+    """
+    root_paths = []
+    res = request("/library/sections")
+    for section in res["MediaContainer"].get("Directory", []):
+        if int(section.get("key")) == int(section_id):
+            locations = section.get("Location", [{}])
+            for l in locations:
+                if "path" in l:
+                    root_paths.append(Path(l.get("path")))
+
+    return root_paths
+
+
+def fetch_playlist(playlist_id: str | int) -> PlexApiPlaylistResponse:
     """Fetch a Plex playlist by its ID.
 
     Parameters
@@ -140,15 +146,19 @@ def fetch_playlist(playlist_id: str | int) -> list[PlexApiPlaylistResponse]:
                 f"ID '{playlist_id}' has type '{pd.get('type')}', not 'playlist'."
             )
 
-    return playlist_data
+    if len(playlist_data) > 1:
+        log.error(
+            f"Multiple playlists found for ID '{playlist_id}'. Returning the first one."
+        )
+
+    return playlist_data[0]
 
 
-@playlist_id_or_name
-def fetch_playlist_items(playlist_id: str | int) -> dict[str, Any]:
+def fetch_playlist_items(playlist_id: str | int) -> list[PlexApiTrackResponse]:
     """Fetch itemsa Plex playlist by its ID."""
 
     response = request(f"/playlists/{playlist_id}/items")
-    return response["MediaContainer"]
+    return response["MediaContainer"].get("Metadata", [])
 
 
 def fetch_playlists() -> dict[str, Any]:
@@ -169,11 +179,6 @@ def fetch_tracks_by_id(
 ) -> list[PlexApiTrackResponse]:
     """Fetch a Plex track by its ID.
 
-    We here return the MediaContainer, and to be consistent with other fetch methods,
-    this _could_ (but shouldnt) contain multiple results.
-
-    Access track track data via `.get("Metadata", [])`
-
     Parameters
     ----------
     track_id : str
@@ -193,7 +198,7 @@ def fetch_tracks_by_id(
         found_key = track.get("ratingKey")
         # ratingKeys are strings, but in my lib seem to always be ints.
         # maybe better use strings?
-        if found_key is not None and int(found_key) == int(track_id):
+        if found_key is not None and str(found_key) == str(track_id):
             found_tracks.append(track)
 
     return found_tracks
@@ -206,10 +211,6 @@ def fetch_tracks_by_path(
 ) -> list[PlexApiTrackResponse]:
     """
     Fetch a track from Plex by its file path, within a given library.
-
-    We here return the MediaContainer, and it _could_ contain multiple results.
-
-    Access actual track data via `.get("Metadata", [])`
 
     Takes about 5 seconds on my library - we will need to cache this.
 
@@ -247,20 +248,15 @@ def fetch_tracks_by_path(
     return found_tracks
 
 
-def fetch_tracks(section_id: int, page_size: int = 5000) -> list[PlexApiTrackResponse]:
+def fetch_tracks(
+    section_id: str | int, page_size: int = 5000
+) -> Iterable[PlexApiTrackResponse]:
     """
     Fetch all tracks in a Plex library section, paginated.
 
-    TODO: PS@SM this is inconsistent with other fetch_track methods.
-    I guess in all fetch_tracks, by default we should not return the MediaContainer,
-    and rather unpack directly?
-    I'd prefer the pagination to be handled here, in the api.py and fetch methods,
-    but and yielding tracks directly.
-    For non-paginated fetches, we could add an argument `return_media_container=False`?
-
     Parameters
     ----------
-    library : str | int
+    section_id : str | int
         The name or id of the Plex library (section).
     page_size : int
         Number of tracks to fetch per request (default: 1000).
@@ -270,9 +266,9 @@ def fetch_tracks(section_id: int, page_size: int = 5000) -> list[PlexApiTrackRes
     list[dict]: List of track metadata dicts.
     """
 
-    all_tracks = []
     start = 0
     total_size = 0
+    num_fetched = 0
     while True:
         response = request(
             f"/library/sections/{section_id}/all",
@@ -285,7 +281,7 @@ def fetch_tracks(section_id: int, page_size: int = 5000) -> list[PlexApiTrackRes
         tracks = response["MediaContainer"].get("Metadata", [])
         if not tracks:
             break
-        all_tracks.extend(tracks)
+        num_fetched += tracks
         if len(tracks) < page_size:
             break
         start += page_size
@@ -294,7 +290,9 @@ def fetch_tracks(section_id: int, page_size: int = 5000) -> list[PlexApiTrackRes
         total_size = response["MediaContainer"].get("totalSize", 0)
         if total_size != 0:
             log.debug(
-                f"Fetched {len(all_tracks)} of {total_size} tracks from section {section_id}."
+                f"Fetched {num_fetched} of {total_size} tracks from section {section_id}."
             )
 
-    return all_tracks
+        yield from tracks
+
+    return

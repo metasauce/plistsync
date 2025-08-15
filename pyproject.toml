@@ -30,7 +30,7 @@ plistsync = "plistsync.__main__:cli"
 test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-benchmark"]
 dev = ["ruff", "pre-commit"]
 bench = ["tinytag", "mutagen", "pytaglib", "music-tag", "eyeD3"]
-typed = ["mypy", "types-lxml", "types-cachetools"]
+typed = ["mypy", "types-lxml", "types-cachetools", "types-requests"]
 docs = [
     "sphinx>=8.0.2",
     "furo>=2024.8.6",
@@ -95,3 +95,7 @@ exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true
+
+[[tool.mypy.overrides]]
+module = ["eyconf.*"]
+ignore_missing_imports = true

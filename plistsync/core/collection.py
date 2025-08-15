@@ -34,7 +34,6 @@ class Collection(ABC):
     The only requirement is that the collection should be iterable and provide a way to find tracks by their identifiers.
     """
 
-    @abstractmethod
     def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
         """Return the track with the given identifier if it exists in the collection.
 
