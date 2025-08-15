@@ -230,4 +230,7 @@ def _path_to_traktor(path: Path) -> str:
 
 def _traktor_to_path(traktor_path: str) -> Path:
     """Convert a Traktor path format to a Path."""
-    return Path(traktor_path.replace("/:", "/")).resolve()
+    p = Path(traktor_path.replace("/:", "/"))
+    if not p.is_absolute():
+        p = Path("/") / p
+    return p.resolve()

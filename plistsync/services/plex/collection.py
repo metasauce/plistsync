@@ -4,7 +4,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Generator, Sequence
 
-from plistsync.core import Collection, Track, TrackIdentifiers
+from plistsync.core import Collection, PathRewrite, Track, TrackIdentifiers
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
@@ -19,7 +19,7 @@ from .api import (
     resolve_playlist_id,
     resolve_section_id,
 )
-from .track import PathRewrite, PlexTrack
+from .track import PlexTrack
 
 
 class PlexLibrarySectionCollection(Collection):

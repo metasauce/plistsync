@@ -6,8 +6,6 @@ from pprint import pprint
 
 import typer
 
-from plistsync.services.plex.track import PathRewrite
-
 # --------------------------------- App Setup -------------------------------- #
 plex_cli = typer.Typer(rich_markup_mode="rich", help="Interact with plex")
 

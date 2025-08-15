@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed

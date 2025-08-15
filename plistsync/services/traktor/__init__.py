@@ -1,3 +1,4 @@
-from .collection import NMLCollection, NMLTrack
+from .collection import NMLCollection
+from .track import NMLPlaylistTrack, NMLTrack
 
-__all__ = ["NMLCollection", "NMLTrack"]
+__all__ = ["NMLCollection", "NMLPlaylistTrack", "NMLTrack"]

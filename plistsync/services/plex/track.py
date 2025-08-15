@@ -6,16 +6,11 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Self
 
-from plistsync.core import Track, TrackIdentifiers
+from plistsync.core import PathRewrite, Track, TrackIdentifiers
 from plistsync.logger import log
 from plistsync.services.plex.api_types import PlexApiTrackResponse
 
 from ..local.track import FileCache, LocalTrack
-
-
-class PathRewrite(NamedTuple):
-    old: str
-    new: str
 
 
 class PlexTrack(LocalTrack, Track):
@@ -69,8 +64,10 @@ class PlexTrack(LocalTrack, Track):
             p_str = self.data.get("Media", [])[0].get("Part", [])[0].get("file")
             if p_str is None:
                 raise IndexError("Track has no file path")
-            if self.path_rewrite and p_str.startswith(self.path_rewrite.old):
-                p_str = p_str.replace(self.path_rewrite.old, self.path_rewrite.new, 1)
+            if self.path_rewrite and p_str.startswith(str(self.path_rewrite.old)):
+                p_str = p_str.replace(
+                    str(self.path_rewrite.old), str(self.path_rewrite.new), 1
+                )
         except IndexError:
             log.error(f"Could not get path from track: {self.data}")
             raise
