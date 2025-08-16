@@ -2,7 +2,7 @@ import itertools
 from functools import cached_property
 from pathlib import Path
 from pprint import pprint
-from typing import Generator, Sequence
+from typing import Any, Generator, Sequence
 
 from plistsync.core import Collection, PathRewrite, Track, TrackIdentifiers
 from plistsync.logger import log
@@ -16,6 +16,7 @@ from .api import (
     fetch_playlist_items,
     fetch_section_root_path,
     fetch_tracks,
+    insert_track_into_playlist_by_id,
     resolve_playlist_id,
     resolve_section_id,
 )
@@ -110,12 +111,16 @@ class PlexPlaylistCollection(Collection):
     plex_playlist_data: PlexApiPlaylistResponse
     plex_items_data: list[PlexApiTrackResponse]
 
+    # parent library for adding tracks
+    library_collection: PlexLibrarySectionCollection | None = None
+
     path_rewrite: None | PathRewrite = None
 
     def __init__(
         self,
         playlist_name_or_id: str | int,
         path_rewrite: None | PathRewrite = None,
+        library_collection: PlexLibrarySectionCollection | None = None,
     ):
         """Initialize the PlexPlaylistCollection from plex given a playlist id.
 
@@ -131,11 +136,12 @@ class PlexPlaylistCollection(Collection):
         # TODO: maybe fetch on access, not init?
         self.plex_playlist_data = fetch_playlist(self.playlist_id)
         self.plex_items_data = fetch_playlist_items(self.playlist_id)
+        self.library_collection = library_collection
 
     def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
         return super().find_by_identifiers(identifiers)
 
-    def __iter__(self) -> Generator[Track, None, None]:
+    def __iter__(self) -> Generator[PlexTrack, None, None]:
         """Iterate over the tracks in the collection.
 
         Returns
@@ -154,3 +160,52 @@ class PlexPlaylistCollection(Collection):
         if name is None:
             raise ValueError("Playlist name not found in plex_playlist_data.")
         return name
+
+    def insert(self, track: Any) -> None:
+        """
+        PS 2025-08-16: thoughts on `insert` methods.
+
+        I think PlaylistCollections should implement a general `insert` method
+        that delegates to the appropriate sub-methods.
+
+        Those sub-methods depend on the service,
+        but likely scenarios:
+        - insert_by_path
+        - insert_by_id (service specific id)
+
+        """
+        raise NotImplementedError()
+
+    def insert_by_path(
+        self,
+        path: Path | str,
+        library_collection: PlexLibrarySectionCollection | None = None,
+    ):
+        """
+        Insert a track into the playlist by its file path.
+
+        To find the track, this needs a plex library to search,
+        either already linked to the playlist, or passed as an argument.
+
+        """
+        library_collection = library_collection or self.library_collection
+        if library_collection is None:
+            raise ValueError("Library collection needs to be set to insert by path.")
+
+        path = Path(path)
+
+        # Find the track in the library collection
+        track = next((t for t in self.library_collection if t.path == path), None)
+        if track is None:
+            raise ValueError(f"Track with path {path} not found in library collection.")
+
+        return insert_track_into_playlist_by_id(
+            track_id=track.plex_id, playlist_id=self.playlist_id
+        )
+
+    def insert_by_id(self, track_id: str | int):
+        """Insert a track into the playlist by its Plex ID."""
+
+        return insert_track_into_playlist_by_id(
+            track_id=track_id, playlist_id=self.playlist_id
+        )

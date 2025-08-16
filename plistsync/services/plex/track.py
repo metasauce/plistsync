@@ -44,8 +44,8 @@ class PlexTrack(LocalTrack, Track):
             log.debug(f"Could not get path from track: {self.data}")
             Track.__init__(self)
         except FileNotFoundError as e:
-            log.warning(f"Could not find file for track: {e}")
-            log.warning("Might be due to inconsistent mount points or permissions.")
+            log.debug(f"Could not find file for track: {e}")
+            log.debug("Might be due to inconsistent mount points or permissions.")
             Track.__init__(self)
 
     @property

@@ -27,6 +27,7 @@ class BeetsConfig(OptionalService):
 class PlexConfig(OptionalService):
     server_url: str
     auth_token: str
+    machine_id: str
 
 
 @dataclass
@@ -71,6 +72,7 @@ plex:
     enabled: false
     server_url: http://localhost:32400
     auth_token: place_your_token_here
+    machine_id: 'curl -X GET "http://localhost:32400/identity/?X-Plex-Token=your_auth_token"'
 tidal:
     enabled: false
     client_id: XhEgdcjkjfqTqw1y

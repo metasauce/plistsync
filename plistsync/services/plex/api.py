@@ -38,13 +38,15 @@ def request(route: str, **kwargs) -> Any:
     baseurl = plex_config().server_url
     token = plex_config().auth_token
 
+    method = kwargs.pop("method", "get").lower()
+
     kwargs["params"] = kwargs.get("params", {})
     kwargs["params"]["X-Plex-Token"] = token
 
     kwargs["headers"] = kwargs.get("headers", {})
     kwargs["headers"]["Accept"] = "application/json"
 
-    res = requests.get(f"{baseurl}{route}", **kwargs)
+    res = requests.request(method, f"{baseurl}{route}", **kwargs)
     res.raise_for_status()
     return res.json()
 
@@ -279,11 +281,9 @@ def fetch_tracks(
             },
         )
         tracks = response["MediaContainer"].get("Metadata", [])
-        if not tracks:
-            break
-        num_fetched += tracks
         if len(tracks) < page_size:
             break
+        num_fetched += len(tracks)
         start += page_size
 
         # log some progress
@@ -296,3 +296,37 @@ def fetch_tracks(
         yield from tracks
 
     return
+
+
+def insert_track_into_playlist_by_id(
+    track_id: str | int,
+    playlist_id: str | int,
+):
+    """Insert a track into a Plex playlist by its ID.
+
+    Parameters
+    ----------
+    track_id : str | int
+        The ID of the track to insert.
+    playlist_id : str | int
+        The ID of the playlist to insert the track into.
+
+    Note
+    ----
+    - The currently used endpoint does not add duplicates.
+      Calling twice with the same track_id will not add the track again.
+    """
+    log.debug(f"Inserting track {track_id} into playlist {playlist_id}.")
+
+    machine_id = plex_config().machine_id
+
+    response = request(
+        f"/playlists/{playlist_id}/items",
+        method="PUT",
+        params={
+            "uri": f"server://{machine_id}/com.plexapp.plugins.library"
+            + f"/library/metadata/{track_id}"
+        },
+    )
+
+    return response
