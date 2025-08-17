@@ -99,6 +99,11 @@ class PlexPlaylistCollection(Collection):
     """
     A collection of all tracks in a Plex playlist.
 
+    # TODO: PS 2025-08-17: I think we should make the
+    # libraray_collection mandatory, and match the `create=True`
+    # behavior that we use in Traktor. I dont see a Scenario where
+    # we would want to create a playlist without a library collection.
+
     Notes
     -----
     - Plex Playlist Collections are loaded once during initialization.

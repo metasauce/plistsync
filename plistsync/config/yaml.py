@@ -54,6 +54,7 @@ class ConfigSchema:
 #                                 Default yaml                                 #
 # ---------------------------------------------------------------------------- #
 
+
 default = """
 # Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL
 # For production we recommend INFO or higher
@@ -72,6 +73,7 @@ plex:
     enabled: false
     server_url: http://localhost:32400
     auth_token: place_your_token_here
+    # TODO: automate machine id like tidal.
     machine_id: 'curl -X GET "http://localhost:32400/identity/?X-Plex-Token=your_auth_token"'
 tidal:
     enabled: false

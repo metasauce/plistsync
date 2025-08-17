@@ -56,7 +56,10 @@ class NMLCollection(Collection):
     def playlists(self) -> Iterable[NMLPlaylistCollection]:
         """Get all playlists in the NML file as NMLPlaylistCollection objects."""
         for node in self._playlist_nodes():
-            yield NMLPlaylistCollection(self, node)
+            pl = NMLPlaylistCollection(self, node)
+            if pl.name.startswith("_"):
+                continue
+            yield pl
 
     def playlist(self, playlist: str) -> NMLPlaylistCollection:
         return NMLPlaylistCollection(self, playlist)
@@ -187,6 +190,13 @@ class NMLPlaylistCollection(Collection):
         root_node: _Element | None = None
         playlist_node: _Element | None = None
         if isinstance(playlist, str):
+            # sanitize the playlist name, traktor is picky with special characters
+            p_name = playlist.replace("$", "*").replace("\\", "|").lstrip("_")
+            if p_name != playlist:
+                log.warning(
+                    f"Had to change playlist name from {playlist} to {p_name} to avoid issues with Traktor."
+                )
+            playlist = p_name
             root_node = self.library_collection._get_playlist_root_node(playlist)
         elif isinstance(playlist, _Element):
             # We assume the node is a valid playlist node

@@ -18,3 +18,8 @@ class PathRewrite(NamedTuple):
         if self.old in path.parents:
             return self.new / path.relative_to(self.old)
         return path
+
+    @property
+    def invert(self) -> PathRewrite:
+        """Invert the rewrite rule."""
+        return PathRewrite(self.new, self.old)
