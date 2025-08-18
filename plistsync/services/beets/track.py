@@ -5,7 +5,7 @@ from typing import Any, List, Self
 
 from plistsync.errors import NotFoundError
 
-from ...core import Track, TrackIdentifiers
+from ...core import Track, GlobalTrackIDs
 
 
 class BeetsTrack(Track):
@@ -95,8 +95,8 @@ class BeetsTrack(Track):
         return []
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
-        idents: TrackIdentifiers = {}
+    def global_ids(self) -> GlobalTrackIDs:
+        idents: GlobalTrackIDs = {}
         # TODO: How to get tidal id from beets db?
         isrc = self.row.get("isrc", None)
 

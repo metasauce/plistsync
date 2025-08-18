@@ -4,7 +4,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Any, Generator, Sequence
 
-from plistsync.core import Collection, PathRewrite, Track, TrackIdentifiers
+from plistsync.core import Collection, PathRewrite, Track, GlobalTrackIDs
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
@@ -143,7 +143,7 @@ class PlexPlaylistCollection(Collection):
         self.plex_items_data = fetch_playlist_items(self.playlist_id)
         self.library_collection = library_collection
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
+    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> Track | None:
         return super().find_by_identifiers(identifiers)
 
     def __iter__(self) -> Generator[PlexTrack, None, None]:

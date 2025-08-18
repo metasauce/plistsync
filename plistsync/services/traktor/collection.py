@@ -7,7 +7,7 @@ from uuid import uuid4
 from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core import Collection, Track, TrackIdentifiers
+from plistsync.core import Collection, Track, GlobalTrackIDs
 from plistsync.logger import log
 
 from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
@@ -50,7 +50,7 @@ class NMLCollection(Collection):
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> None:
+    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> None:
         return None
 
     def playlists(self) -> Iterable[NMLPlaylistCollection]:
@@ -269,7 +269,7 @@ class NMLPlaylistCollection(Collection):
         """Set the name of the playlist."""
         self.root_node.set("NAME", value)
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
+    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> Track | None:
         return super().find_by_identifiers(identifiers)
 
     def find_by_traktor_path(self, path: str) -> NMLPlaylistTrack | None:

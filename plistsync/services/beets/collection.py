@@ -3,7 +3,7 @@ from typing import Any, Generator, Iterable, List
 
 from sqlalchemy import String, cast, select
 
-from ...core import Collection, TrackIdentifiers
+from ...core import Collection, GlobalTrackIDs
 from ...logger import log
 from .database import BeetsDatabase
 from .track import BeetsTrack
@@ -20,7 +20,7 @@ class BeetsCollection(Collection):
         else:
             self.db = BeetsDatabase(db_path)
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> BeetsTrack | None:
+    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> BeetsTrack | None:
         isrc = identifiers.get("isrc")
         if isrc is not None:
             tracks = self.get_by_isrc(isrc)

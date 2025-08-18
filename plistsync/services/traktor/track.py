@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from lxml.etree import Element, SubElement
 
-from plistsync.core import Track, TrackIdentifiers
+from plistsync.core import Track, GlobalTrackIDs
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -73,11 +73,11 @@ class NMLTrack(Track):
         return [title] if title != "" else []
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
+    def global_ids(self) -> GlobalTrackIDs:
         """Sadly no unique identifier in NML files.
         There exists an audio_id, but no idea how to use it or what it is.
         """  # noqa: D205
-        return TrackIdentifiers()
+        return GlobalTrackIDs()
 
     def serialize(self) -> dict:
         return {
@@ -208,9 +208,9 @@ class NMLPlaylistTrack(Track):
         return []
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
+    def global_ids(self) -> GlobalTrackIDs:
         """NMLPlaylistTrack does not have identifiers."""
-        return TrackIdentifiers()
+        return GlobalTrackIDs()
 
     def serialize(self) -> dict:
         raise NotImplementedError()

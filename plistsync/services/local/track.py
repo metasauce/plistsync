@@ -7,7 +7,7 @@ from typing import List, Self, cast
 from beets import art
 from tinytag import TinyTag
 
-from plistsync.core import Collection, Track, TrackIdentifiers
+from plistsync.core import Collection, Track, GlobalTrackIDs
 
 from ...logger import log
 
@@ -147,7 +147,7 @@ class LocalTrack(Track):
         return albums
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
+    def global_ids(self) -> GlobalTrackIDs:
         isrc_raw = self.tags.get("isrc", [])
         isrc: str | None = None
 
@@ -174,7 +174,7 @@ class LocalTrack(Track):
             isrc = isrc_raw[0]
 
         # Create typechecked identifiers dict
-        res = TrackIdentifiers()
+        res = GlobalTrackIDs()
         if isrc is not None:
             res["isrc"] = isrc
 

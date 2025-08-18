@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Generator, List, Self
 
-from plistsync.core import Track, TrackIdentifiers
+from plistsync.core import Track, GlobalTrackIDs
 
 from ...errors import NotFoundError
 from ...logger import log
@@ -141,8 +141,8 @@ class TidalTrack(Track):
         ]
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
-        idents: TrackIdentifiers = {}
+    def global_ids(self) -> GlobalTrackIDs:
+        idents: GlobalTrackIDs = {}
 
         if isrc := self.data.get("attributes", {}).get("isrc"):
             idents["isrc"] = isrc

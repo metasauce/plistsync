@@ -50,14 +50,14 @@ class TestLocalTrack(TrackTestBase):
 
         # Test valid isrc identifier
         for track in self.create_track():
-            assert track.identifiers.get("isrc") == isrc, "ISRC should be correct"
+            assert track.global_ids.get("isrc") == isrc, "ISRC should be correct"
 
         # Test empty isrc identifier
         set_tags(self._audio_files, {"isrc": ""})
         for track in self.create_track():
-            assert track.identifiers.get("isrc") == None, "ISRC should be None"
+            assert track.global_ids.get("isrc") == None, "ISRC should be None"
 
         # Test multiple isrc identifiers
         set_tags(self._audio_files, {"isrc": [isrc, isrc + "2"]})
         for track in self.create_track():
-            assert track.identifiers.get("isrc") == isrc, "First ISRC should be used"
+            assert track.global_ids.get("isrc") == isrc, "First ISRC should be used"
