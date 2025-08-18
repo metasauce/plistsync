@@ -3,8 +3,6 @@
 import typer
 from eyconf.cli import create_config_cli
 
-from .cli.plex import plex_cli
-from .cli.redis import redis_cli
 from .config import Config
 from .logger import log, overwrite_log_level
 from .services.tidal.authenticate import tidal_cli
@@ -15,8 +13,6 @@ cli = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 
-cli.add_typer(redis_cli, name="redis")
-cli.add_typer(plex_cli, name="plex")
 cli.add_typer(tidal_cli, name="tidal")
 cli.add_typer(create_config_cli(Config), name="config")
 
