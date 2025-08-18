@@ -20,7 +20,7 @@ import numpy.typing as npt
 from plistsync.logger import log
 
 from .track import Track, TrackIdentifiers
-from .translator import Similarity, fuzzy_match
+from .matching import Similarity, fuzzy_match
 
 R = TypeVar("R")
 P = ParamSpec("P")
