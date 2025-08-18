@@ -97,5 +97,5 @@ disallow_untyped_decorators = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-module = ["eyconf.*"]
+module = ["eyconf.*", "beets.*"]
 ignore_missing_imports = true

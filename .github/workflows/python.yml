@@ -55,7 +55,6 @@ jobs:
               run: |
                   pip install ruff
             - name: Check style with Ruff
-              continue-on-error: true
               id: ruff
               run: |
                   ruff check --output-format=github .
@@ -76,7 +75,6 @@ jobs:
               run: |
                   pip install .[typed]
             - name: Check type hints with mypy
-              continue-on-error: true
               id: mypy
               run: |
                   mypy --show-error-codes --check-untyped-defs --config-file ./pyproject.toml ./
