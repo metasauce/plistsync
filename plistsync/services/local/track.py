@@ -4,6 +4,7 @@ from itertools import chain
 from pathlib import Path
 from typing import List, Self, cast
 
+from beets import art
 from tinytag import TinyTag
 
 from plistsync.core import Collection, Track, TrackIdentifiers
@@ -118,32 +119,32 @@ class LocalTrack(Track):
 
     @property
     def title(self) -> str:
-        title = self.tags.get("title", self.path.stem)
+        title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
         if not isinstance(title, list):
             title = [title]
-        return cast(str, title[0])
+        return title[0]
 
     @property
     def artists(self) -> List[str]:
-        artists = self.tags.get("artist", [])
+        artists: str | list[str] = self.tags.get("artist", [])  # type: ignore[assignment]
         if not isinstance(artists, list):
             artists = [artists]
 
         # In theory the type can also by List[float]
         # but this makes no sense for an artist field
         # and also it isnt supported by id3 and vorbis tags
-        return cast(List[str], artists)
+        return artists
 
     @property
     def albums(self) -> List[str]:
-        albums = self.tags.get("album", [])
+        albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
         if not isinstance(albums, list):
             albums = [albums]
 
         # In theory the type can also by List[float]
         # but this makes no sense for an albums field
         # and also it isnt supported by id3 and vorbis tags
-        return cast(List[str], albums)
+        return albums
 
     @property
     def identifiers(self) -> TrackIdentifiers:

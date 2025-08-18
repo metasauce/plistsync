@@ -97,5 +97,5 @@ disallow_untyped_decorators = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-module = ["eyconf.*", "beets.*"]
+module = ["eyconf.*", "beets.*", "taglib.*", "music_tag.*"]
 ignore_missing_imports = true

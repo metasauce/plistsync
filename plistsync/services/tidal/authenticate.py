@@ -159,7 +159,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
 
 def get_auth_code_server(port):
     """Start the local HTTP server to listen for redirect."""
-    results = {}
+    results: dict[str, str | None] = {}
     httpd = None
 
     class ReusableTCPServer(socketserver.TCPServer):

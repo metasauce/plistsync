@@ -83,8 +83,8 @@ class Collection(ABC):
         List[Match]
             A list of matches containing the similar tracks and their similarity metric. The list is sorted by similarity in descending order. I.e. the first element is the most similar track!
         """
-        similarities: Sequence[Similarity] = []
-        tracks: Sequence[Track] = []
+        similarities: list[Similarity] = []
+        tracks: list[Track] = []
         for similarities_chunk, tracks_chunk in self.iter_threadpool(
             fuzzy_match,
             chunk_size=1000,
@@ -101,7 +101,7 @@ class Collection(ABC):
         sorted_pairs = sorted(
             zip(similarities, tracks), key=lambda x: x[0], reverse=True
         )
-        similarities, tracks = zip(*sorted_pairs) if sorted_pairs else ([], [])
+        similarities, tracks = zip(*sorted_pairs) if sorted_pairs else ([], [])  # pyright: ignore[reportAssignmentType]
 
         return list(similarities)[:max_matches], list(tracks)[:max_matches]
 

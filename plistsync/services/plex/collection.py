@@ -200,7 +200,7 @@ class PlexPlaylistCollection(Collection):
         path = Path(path)
 
         # Find the track in the library collection
-        track = next((t for t in self.library_collection if t.path == path), None)
+        track = next((t for t in library_collection if t.path == path), None)
         if track is None:
             raise ValueError(f"Track with path {path} not found in library collection.")
 

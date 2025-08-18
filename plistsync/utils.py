@@ -77,16 +77,3 @@ def chunk_list(lst: list[A], chunk_size: int):
 
     """
     return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
-
-
-class Singleton(type):
-    _instances = {}
-
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        else:
-            # If the class has already been instantiated, reinitialize it
-            # This reloads the config file
-            cls._instances[cls].__init__(*args, **kwargs)
-        return cls._instances[cls]

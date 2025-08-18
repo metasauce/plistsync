@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Generator, List
+from typing import Any, Generator, Iterable, List
 
 from sqlalchemy import String, cast, select
 
@@ -42,10 +42,9 @@ class BeetsCollection(Collection):
         """Get a list of tracks that match an ISRC."""
         table = self.db.get_table("items")
 
-        rows = []
         stmt = select(table).filter(table.columns.isrc == isrc)
         with self.db.session() as session:
-            rows = session.execute(stmt)
+            rows: Iterable[Any] = session.execute(stmt)
             cols = table.columns.keys()
             rows = [dict(zip(cols, row)) for row in rows]
 
@@ -55,12 +54,11 @@ class BeetsCollection(Collection):
         """Get a track by its file path."""
         table = self.db.get_table("items")
 
-        rows = []
         stmt = select(table).filter(
             cast(table.columns.path, String).like(f"%{str(path)}%")
         )
         with self.db.session() as session:
-            rows = session.execute(stmt)
+            rows: Iterable[Any] = session.execute(stmt)
             cols = table.columns.keys()
             rows = [dict(zip(cols, row)) for row in rows]
 

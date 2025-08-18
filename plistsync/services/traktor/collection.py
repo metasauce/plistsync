@@ -336,12 +336,12 @@ class NMLPlaylistCollection(Collection):
         self.playlist_node.append(ptrack.entry)
 
         # Update the number of entries in the playlist
-        entries = self.playlist_node.get("ENTRIES", "0")
+        entries_raw = self.playlist_node.get("ENTRIES", "0")
         try:
-            entries = int(entries)
+            entries = int(entries_raw)
         except ValueError:
             # If the entries are not a valid integer, we assume it's 0
-            log.warning(f"Invalid number of entries in playlist: {entries}")
+            log.warning(f"Invalid number of entries in playlist: {entries_raw}")
             entries = 0
         entries += 1
         self.playlist_node.set("ENTRIES", str(entries))

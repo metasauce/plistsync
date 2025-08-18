@@ -3,6 +3,7 @@ from typing import Generator
 
 import pytest
 from plistsync.services.plex import PlexTrack
+from plistsync.services.plex.api_types import PlexApiTrackResponse
 from tests.abc import TrackTestBase
 from tests.conftest import set_tags
 
@@ -25,72 +26,74 @@ class TestPlexTrack(TrackTestBase):
         for audio_file in self._audio_files.iterdir():
             # TODO: dynamically create plex DATA from audio file, i.e. fix inconsistencies
             yield PlexTrack(
-                {
-                    "Image": [
-                        {
-                            "alt": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
-                            "type": "coverPoster",
-                            "url": "/library/metadata/58473/thumb/1713284425",
-                        },
-                        {
-                            "alt": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
-                            "type": "background",
-                            "url": "/library/metadata/55906/art/1713284398",
-                        },
-                    ],
-                    "Media": [
-                        {
-                            "Part": [
-                                {
-                                    "container": "mp3",
-                                    "duration": 629032,
-                                    "file": audio_file,
-                                    "hasThumbnail": "1",
-                                    "id": 112271,
-                                    "key": "/library/parts/112271/1716780133/file.mp3",
-                                    "size": 26170369,
-                                }
-                            ],
-                            "audioChannels": 2,
-                            "audioCodec": "mp3",
-                            "bitrate": 320,
-                            "container": "mp3",
-                            "duration": 629032,
-                            "hasVoiceActivity": False,
-                            "id": 58357,
-                        }
-                    ],
-                    "addedAt": 1713284375,
-                    "art": "/library/metadata/55906/art/1713284398",
-                    "duration": 629032,
-                    "grandparentArt": "/library/metadata/55906/art/1713284398",
-                    "grandparentGuid": "plex://artist/5d07bbfc403c6402904a5ec9",
-                    "grandparentKey": "/library/metadata/55906",
-                    "grandparentRatingKey": "55906",
-                    "grandparentThumb": "/library/metadata/55906/thumb/1713284398",
-                    "grandparentTitle": "Various Artists",
-                    "guid": "local://58516",
-                    "index": 43,
-                    "key": "/library/metadata/58516",
-                    "lastViewedAt": 1725619057,
-                    "librarySectionID": 5,
-                    "librarySectionKey": "/library/sections/5",
-                    "librarySectionTitle": "Music",
-                    "musicAnalysisVersion": "1",
-                    "originalTitle": "Sharam Vs Justice",
-                    "parentGuid": "local://58473",
-                    "parentIndex": 1,
-                    "parentKey": "/library/metadata/58473",
-                    "parentRatingKey": "58473",
-                    "parentThumb": "/library/metadata/58473/thumb/1713284425",
-                    "parentTitle": "Tech And Minimal Collection Volume 20",
-                    "parentYear": 2011,
-                    "ratingKey": "58516",
-                    "summary": "",
-                    "thumb": "/library/metadata/58473/thumb/1713284425",
-                    "title": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
-                    "type": "track",
-                }
+                PlexApiTrackResponse(
+                    **{
+                        "Image": [
+                            {
+                                "alt": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
+                                "type": "coverPoster",
+                                "url": "/library/metadata/58473/thumb/1713284425",
+                            },
+                            {
+                                "alt": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
+                                "type": "background",
+                                "url": "/library/metadata/55906/art/1713284398",
+                            },
+                        ],
+                        "Media": [
+                            {
+                                "Part": [
+                                    {
+                                        "container": "mp3",
+                                        "duration": 629032,
+                                        "file": str(audio_file),
+                                        "hasThumbnail": "1",
+                                        "id": 112271,
+                                        "key": "/library/parts/112271/1716780133/file.mp3",
+                                        "size": 26170369,
+                                    }
+                                ],
+                                "audioChannels": 2,
+                                "audioCodec": "mp3",
+                                "bitrate": 320,
+                                "container": "mp3",
+                                "duration": 629032,
+                                "hasVoiceActivity": False,
+                                "id": 58357,
+                            }
+                        ],
+                        "addedAt": 1713284375,
+                        "art": "/library/metadata/55906/art/1713284398",
+                        "duration": 629032,
+                        "grandparentArt": "/library/metadata/55906/art/1713284398",
+                        "grandparentGuid": "plex://artist/5d07bbfc403c6402904a5ec9",
+                        "grandparentKey": "/library/metadata/55906",
+                        "grandparentRatingKey": "55906",
+                        "grandparentThumb": "/library/metadata/55906/thumb/1713284398",
+                        "grandparentTitle": "Various Artists",
+                        "guid": "local://58516",
+                        "index": 43,
+                        "key": "/library/metadata/58516",
+                        "lastViewedAt": 1725619057,
+                        "librarySectionID": 5,
+                        "librarySectionKey": "/library/sections/5",
+                        "librarySectionTitle": "Music",
+                        "musicAnalysisVersion": "1",
+                        "originalTitle": "Sharam Vs Justice",
+                        "parentGuid": "local://58473",
+                        "parentIndex": 1,
+                        "parentKey": "/library/metadata/58473",
+                        "parentRatingKey": "58473",
+                        "parentThumb": "/library/metadata/58473/thumb/1713284425",
+                        "parentTitle": "Tech And Minimal Collection Volume 20",
+                        "parentYear": 2011,
+                        "ratingKey": "58516",
+                        "summary": "",
+                        "thumb": "/library/metadata/58473/thumb/1713284425",
+                        "title": "We Are Your Crazy Friends (Baramuda Bootleg Mix)",
+                        "type": "track",
+                    }
+                )
             )
 
     def test_plex_identifiers(self):

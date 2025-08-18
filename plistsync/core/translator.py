@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable, List
+from typing import TYPE_CHECKING, Iterable
 
 from Levenshtein import ratio as levenshtein_ratio
 
@@ -24,8 +24,8 @@ Similarity = float
 @dataclass
 class Match:
     truth: Track
-    found: List[Track] = field(default_factory=list)
-    found_similarities: List[Similarity] = field(default_factory=list)
+    found: list[Track] = field(default_factory=list)
+    found_similarities: list[Similarity] = field(default_factory=list)
 
     @property
     def similarity(self) -> Similarity:
@@ -46,18 +46,10 @@ class Match:
         similarity is a list of floats and found is a list of tracks.
         """
 
-        f = self.found
-        if not isinstance(f, list):
-            f = [f]
-
-        s = self.similarity
-        if not isinstance(s, list):
-            s = [s]
-
         return {
-            "similarity": s,
+            "found_similarities": self.found_similarities,
             "truth": self.truth.to_dict(),
-            "found": [t.to_dict() for t in f if t is not None],
+            "found": [t.to_dict() for t in self.found],
         }
 
 
@@ -147,7 +139,7 @@ def fuzzy_match(a: Track, b: Track) -> Similarity:
 
     metadata_a = a.info
     metadata_b = b.info
-    distances: List[float] = []
+    distances: list[float] = []
 
     if len(metadata_a) > len(metadata_b):
         metadata_a, metadata_b = metadata_b, metadata_a
@@ -225,9 +217,9 @@ def _matched_iter_items(
     Iterate over the keys of two TrackInfo objects and yield
     the key and the values of both objects if they are present in both.
     """
-    for key in a.keys():
-        value_a: str | list[str] = a[key]
-        value_b: str | list[str] | None = b.get(key, None)
+    for key in a:
+        value_a: str | list[str] = a[key]  # type: ignore
+        value_b: str | list[str] | None = b.get(key, None)  # type: ignore
         if value_b is None:
             continue
         yield key, value_a, value_b

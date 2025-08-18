@@ -37,6 +37,9 @@ class PlexApiTrackResponse(TypedDict, total=False):
     musicAnalysisVersion: str  # '1'
     Media: List[PlexApiTrackMedia]
     Image: List[PlexApiTrackImage]
+    librarySectionID: int  # 5
+    librarySectionKey: str  # '/library/sections/5'
+    librarySectionTitle: str  # 'Music'
 
 
 class PlexApiTrackMedia(TypedDict, total=False):

@@ -74,6 +74,7 @@ jobs:
             - name: Install dependencies
               run: |
                   pip install .[typed]
+                  pip install .[test]
             - name: Check type hints with mypy
               id: mypy
               run: |

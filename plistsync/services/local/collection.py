@@ -78,6 +78,8 @@ class LocalCollection(Collection):
                 if value == found_value:
                     return track
 
+        return None
+
     def __iter__(self) -> Generator[LocalTrack, None, None]:
         pattern = str(self.path / "**" / "*")
         for file_path in iglob(pattern, recursive=True):
