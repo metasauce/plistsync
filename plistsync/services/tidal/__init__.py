@@ -1,4 +1,4 @@
-from . import api
+from . import api, authenticate
 from .track import *
 
-__all__ = ["TidalTrack", "api"]
+__all__ = ["TidalTrack", "api", "authenticate"]

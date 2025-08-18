@@ -14,9 +14,9 @@ from typing import (
 import requests
 from requests_oauth2client import BearerToken
 
-from ...config.yaml import Config
-from ...errors import ConfigurationError
-from ...logger import log
+from plistsync.config import Config
+from plistsync.errors import ConfigurationError
+from plistsync.logger import log
 
 
 class TidalBearerToken:
