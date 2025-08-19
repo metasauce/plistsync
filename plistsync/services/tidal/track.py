@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Generator, List, Self
 
-from plistsync.core import Track, GlobalTrackIDs
+from plistsync.core import GlobalTrackIDs, Track
 
 from ...errors import NotFoundError
 from ...logger import log

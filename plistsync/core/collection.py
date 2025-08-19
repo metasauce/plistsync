@@ -52,6 +52,7 @@ from typing import (
     List,
     ParamSpec,
     Protocol,
+    TypeGuard,
     TypeVar,
     runtime_checkable,
 )

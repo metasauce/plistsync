@@ -7,7 +7,7 @@ from typing import List, Self, cast
 from beets import art
 from tinytag import TinyTag
 
-from plistsync.core import Collection, Track, GlobalTrackIDs
+from plistsync.core import Collection, GlobalTrackIDs, Track
 
 from ...logger import log
 

@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Self
 
 from lxml.etree import Element, SubElement
 
-from plistsync.core import Track, GlobalTrackIDs
+from plistsync.core import GlobalTrackIDs, Track
 
 if TYPE_CHECKING:
     from lxml.etree import _Element

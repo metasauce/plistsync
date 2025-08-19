@@ -5,7 +5,7 @@ from typing import Any, List, Self
 
 from plistsync.errors import NotFoundError
 
-from ...core import Track, GlobalTrackIDs
+from ...core import GlobalTrackIDs, Track
 
 
 class BeetsTrack(Track):

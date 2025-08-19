@@ -7,7 +7,7 @@ from uuid import uuid4
 from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core import Collection, Track, GlobalTrackIDs
+from plistsync.core import Collection, GlobalTrackIDs, Track
 from plistsync.logger import log
 
 from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor

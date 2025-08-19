@@ -4,7 +4,7 @@ from pathlib import Path
 from pprint import pprint
 from typing import Any, Generator, Sequence
 
-from plistsync.core import Collection, PathRewrite, Track, GlobalTrackIDs
+from plistsync.core import Collection, GlobalTrackIDs, PathRewrite, Track
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,

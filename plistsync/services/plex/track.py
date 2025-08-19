@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Self
 
-from plistsync.core import PathRewrite, Track, GlobalTrackIDs
+from plistsync.core import GlobalTrackIDs, PathRewrite, Track
 from plistsync.logger import log
 from plistsync.services.plex.api_types import PlexApiTrackResponse
 

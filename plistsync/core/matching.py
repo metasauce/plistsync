@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Iterator
 
 from Levenshtein import ratio as levenshtein_ratio
 
@@ -69,7 +69,7 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
         The similarity metric between the two tracks.
     """
 
-    distances: List[float] = []
+    distances: list[float] = []
 
     if len(a) > len(b):
         a, b = b, a
