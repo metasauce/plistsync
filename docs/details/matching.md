@@ -5,35 +5,71 @@
 
 # Matching Usage Guide
 
-This guide covers the recommended **developer-facing API** for matching tracks in the `plistsync` library. It focuses on how to use the matching functions for two core tasks:
+This guide covers the **user-facing API** for matching tracks using the `plistsync` library. It focuses on how to use the matching functions for two core tasks:
 
-1. [**Single-track search**](single_track_search) - Find best match(es) for one track in a target collection  
-2. [**Full-collection comparison**](full_collection_comparison) - Find matches between two collections (one-to-many/many-to-many)
+1. [**Single-track search**](single_track_search) - Find best match(es) for one track in a target collection (one-to-many)
+2. [**Full-collection comparison**](full_collection_comparison) - Find matches between two collections (many-to-many)
 
 ```{important}
 The matching system uses a **three-layer strategy** (global ID → local ID → metadata) as described in the {ref}`three_layer_matching_strategy` section. Understanding this approach might be beneficial for effective API usage.
 ```
 
-
 ## Quick References
 
 ```python
-# TODO
+# Matching a single track in a collection
+# Any combination of collection and track should work here
+track = LocalTrack("./path_to_track.mp3")
+collection = BeetsCollection("./path_to_beets_db.db")
+
+matches = collection.match_by_track(track)
+for match, similarity in matches:
+    print(f"Found match: {match}, similarity: {similarity}")
 ```
 
 (single_track_search)=
 ## Single-track search
 
+Single-track search is performed using the high-level {meth}`~plistsync.core.collection.Collection.match_by_track` method. This method returns tracks from the target collection that are similar (or identical) to the source track, prioritizing global ID matches, local ID matches, and metadata similarity in that order.
+
+
+Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You want to check if this track already exists in your Beets music collection, which maintains a large database of your music library. With the `match_by_track` method, you can automate this lookup efficiently:
+
 ```python
-# TODO
+from plistsync.services.local import LocalTrack
+from plistsync.services.beets import BeetsCollection
+
+# This represents a single track on your local filesystem
+source_track = LocalTrack("./path_to_source_track.mp3")
+
+# BeetsCollection is an implementation of the Collection ABC, tailored to interact with a Beets database
+target_collection = BeetsCollection("./path_to_beets_db.db")
+
+# Perform the match operation
+matches = target_collection.match_by_track(source_track)
+
+# Output the matches found
+if len(matches.found) == 0:
+    print("No matches found.")
+else:
+    for match, similarity in matches:
+        print(f"Found match: {match.title} by {match.artist} from album {match.album}, similarity: {similarity}")
 ```
+
+The similarity is calculated using the track's metadata and leveraging a levenstein distance algorithm for fuzzy matching. If you want to compute the distance between two tracks manually you may use the {meth}`~plistsync.core.matching.fuzzy_match` method.
+
+
+### Advanced usage
+
+Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.TrackSearch` and {class}`~plistsync.core.collection.TrackStream` interfaces, which provide different methods for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match_by_track` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific interface methods for more tailored search options.
+
 
 (full_collection_comparison)=
 ## Full-collection comparison
 
-```python
-# TODO
-```
+This features is currently work in progress and not available in optimized form yet. For now
+you may iterate over the tracks in both collections and match them individually.
+
 
 (three_layer_matching_strategy)=
 ## Three-layer matching strategy
