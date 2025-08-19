@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterable
+from typing import TYPE_CHECKING, Generator, Iterable, Iterator
 from uuid import uuid4
 
 from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core import Collection, GlobalTrackIDs, Track
+from plistsync.core import Collection, Track
+from plistsync.core.collection import LocalLookup, TrackStream
+from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
@@ -27,7 +29,7 @@ def xpath_string_escape(input_str: str) -> str:
     return "concat('" + "', \"'\" , '".join(parts) + "', '')"
 
 
-class NMLCollection(Collection):
+class NMLCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML collection.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
@@ -49,9 +51,6 @@ class NMLCollection(Collection):
 
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
-
-    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> None:
-        return None
 
     def playlists(self) -> Iterable[NMLPlaylistCollection]:
         """Get all playlists in the NML file as NMLPlaylistCollection objects."""
@@ -113,17 +112,17 @@ class NMLCollection(Collection):
 
         return NMLTrack(entry[0])
 
-    def find_by_path(self, path: Path) -> NMLTrack | None:
-        """Find a track by its file path.
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
+        """Find a track by its local IDs.
 
-        Parameter
-        ---------
-        path : Path
-            The file path of the track to find. This should be the full path including the filename.
+        We only support lookup by path here.
         """
-        return self.find_by_traktor_path(_path_to_traktor(path))
+        if file_path := local_ids.get("file_path"):
+            # If the file_path is set, we can use it to find the track
+            return self.find_by_traktor_path(_path_to_traktor(file_path))
+        return None
 
-    def __iter__(self) -> Generator[NMLTrack, None, None]:
+    def __iter__(self) -> Iterator[NMLTrack]:
         collection = self.tree.find("COLLECTION")
         if collection is None:
             raise ValueError("Could not find COLLECTION in NML file")
@@ -146,7 +145,7 @@ class NMLCollection(Collection):
         log.debug(f"Committed changes to {self.path}")
 
 
-class NMLPlaylistCollection(Collection):
+class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML playlist collection.
 
     Allows to parse and interact with a Traktor NML file that contains playlists.
@@ -269,9 +268,6 @@ class NMLPlaylistCollection(Collection):
         """Set the name of the playlist."""
         self.root_node.set("NAME", value)
 
-    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> Track | None:
-        return super().find_by_identifiers(identifiers)
-
     def find_by_traktor_path(self, path: str) -> NMLPlaylistTrack | None:
         """Find a track by its file path.
 
@@ -293,17 +289,21 @@ class NMLPlaylistCollection(Collection):
 
         return NMLPlaylistTrack(entries[0])
 
-    def find_by_path(self, path: Path) -> NMLPlaylistTrack | None:
-        """Find a track by its file path.
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLPlaylistTrack | None:
+        """Find a track by its local IDs.
+
+        Note
+        -----
+        We only support lookup by file_path here. Other local ids are ignored.
 
         Parameter
         ---------
-        path : Path
-            The file path of the track to find. This should be the full path including the filename.
+        local_ids : LocalTrackIDs
         """
-        p = _path_to_traktor(path)
-        print(f"Finding track by path: {p}")
-        return self.find_by_traktor_path(_path_to_traktor(path))
+        if file_path := local_ids.get("file_path"):
+            # If the file_path is set, we can use it to find the track
+            return self.find_by_traktor_path(_path_to_traktor(file_path))
+        return None
 
     def __len__(self) -> int:
         """Get the number of tracks in the playlist."""

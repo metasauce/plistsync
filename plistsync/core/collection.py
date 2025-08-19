@@ -230,14 +230,14 @@ class Collection(ABC):
 
         # 1. Try global ID lookup first (exact match, highest priority)
         if has_global_lookup:
-            if found_track := self.find_by_global_ids(track.global_ids):
+            if found_track := self.find_by_global_ids(track.global_ids):  # type: ignore[attr-defined]
                 return Matches(
                     truth=track, found=[found_track], found_similarities=[1.0]
                 )
 
         # 2. Try local ID lookup (exact match with similarity check)
         if has_local_lookup:
-            if found_track := self.find_by_local_ids(track.local_ids):
+            if found_track := self.find_by_local_ids(track.local_ids):  # type: ignore[attr-defined]
                 similarity = fuzzy_match(track.info, found_track.info)
 
                 if similarity >= cutoff:
@@ -253,7 +253,7 @@ class Collection(ABC):
 
         # 3. Try info-based search (similarity match)
         if has_info_lookup:
-            for found_track in self.search_by_info(track.info):
+            for found_track in self.search_by_info(track.info):  # type: ignore[attr-defined]
                 similarity = fuzzy_match(track.info, found_track.info)
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
@@ -265,7 +265,7 @@ class Collection(ABC):
         ):
             # TODO: we might to skip the fuzzy match for the global
             # id case
-            for similarity, found_track in self.map_threadpool(
+            for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
                 fuzzy_match, chunk_size=1000, b=track.info
             ):
                 if not has_global_lookup:

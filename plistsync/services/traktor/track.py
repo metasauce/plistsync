@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Self
 from lxml.etree import Element, SubElement
 
 from plistsync.core import GlobalTrackIDs, Track
+from plistsync.core.track import LocalTrackIDs
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -78,6 +79,12 @@ class NMLTrack(Track):
         There exists an audio_id, but no idea how to use it or what it is.
         """  # noqa: D205
         return GlobalTrackIDs()
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        return LocalTrackIDs(
+            file_path=self.path.resolve(),
+        )
 
     def serialize(self) -> dict:
         return {
@@ -211,6 +218,13 @@ class NMLPlaylistTrack(Track):
     def global_ids(self) -> GlobalTrackIDs:
         """NMLPlaylistTrack does not have identifiers."""
         return GlobalTrackIDs()
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        """NMLPlaylistTrack does not have identifiers."""
+        return LocalTrackIDs(
+            file_path=self.path.resolve(),
+        )
 
     def serialize(self) -> dict:
         raise NotImplementedError()

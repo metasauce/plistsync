@@ -37,7 +37,7 @@ class LocalTrackIDs(TypedDict, total=False):
     for identifying a track within that local scope and may not be unique globally.
     """
 
-    file_path: str
+    file_path: Path
     """Local filesystem path to the track file.
 
     This is not globally unique because file paths may differ across devices
