@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Self
 
+from plistsync.core.track import LocalTrackIDs
 from plistsync.errors import NotFoundError
 
 from ...core import GlobalTrackIDs, Track
@@ -110,6 +111,17 @@ class BeetsTrack(Track):
                 idents["isrc"] = isrc
 
         return idents
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        """The local identifiers of this track.
+
+        This is the path to the file.
+        """
+        return LocalTrackIDs(
+            file_path=self.path.resolve(),
+            beets_id=self.row["id"],
+        )
 
     def serialize(self) -> dict:
         return {

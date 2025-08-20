@@ -67,7 +67,7 @@ select = [
 ]
 ignore = [
     # Ignore req. for public facing functions docstrings
-    "F401",
+    #"F401",
     "D10",
     "D202",
 ]

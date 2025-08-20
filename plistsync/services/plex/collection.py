@@ -2,9 +2,10 @@ import itertools
 from functools import cached_property
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Generator, Sequence
+from typing import Any, Generator, Iterator, Sequence
 
 from plistsync.core import Collection, GlobalTrackIDs, PathRewrite, Track
+from plistsync.core.collection import TrackStream
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
@@ -95,7 +96,7 @@ class PlexLibrarySectionCollection(Collection):
         return fetch_section_root_path(self.section_id)
 
 
-class PlexPlaylistCollection(Collection):
+class PlexPlaylistCollection(Collection, TrackStream):
     """
     A collection of all tracks in a Plex playlist.
 
@@ -143,10 +144,7 @@ class PlexPlaylistCollection(Collection):
         self.plex_items_data = fetch_playlist_items(self.playlist_id)
         self.library_collection = library_collection
 
-    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> Track | None:
-        return super().find_by_identifiers(identifiers)
-
-    def __iter__(self) -> Generator[PlexTrack, None, None]:
+    def __iter__(self) -> Iterator[PlexTrack]:
         """Iterate over the tracks in the collection.
 
         Returns

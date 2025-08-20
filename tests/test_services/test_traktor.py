@@ -183,5 +183,5 @@ class TestPlaylistCollection:
         example_path = Path(
             "/D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
-        track = p1.find_by_path(example_path)
+        track = p1.find_by_local_ids({"file_path": example_path})
         assert track is not None

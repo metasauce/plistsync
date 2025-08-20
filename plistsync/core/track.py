@@ -44,7 +44,7 @@ class LocalTrackIDs(TypedDict, total=False):
     or mount points, even if the underlying track is the same.
     """
 
-    beets_id: str
+    beets_id: int
     """Track ID from a local Beets library.
 
     Unique only within a local Beets library. Different libraries may assign

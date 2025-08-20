@@ -148,7 +148,7 @@ class TidalTrack(Track):
             idents["isrc"] = isrc
 
         if tidal_id := self.data.get("id"):
-            idents["tidal"] = tidal_id
+            idents["tidal_id"] = tidal_id
 
         return idents
 
