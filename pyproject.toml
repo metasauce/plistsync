@@ -88,9 +88,10 @@ pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.report]
+exclude_lines = ["if TYPE_CHECKING"]
+
 omit = ["*/tests/*"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
-
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_decorators = true

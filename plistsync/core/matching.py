@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable, Iterator
+from typing import TYPE_CHECKING, Iterable, Iterator, Sequence
 
 from Levenshtein import ratio as levenshtein_ratio
 
@@ -23,7 +23,7 @@ Similarity = float
 @dataclass
 class Matches:
     truth: Track
-    found: list[Track] = field(default_factory=list)
+    found: Sequence[Track] = field(default_factory=list)
     found_similarities: list[Similarity] = field(default_factory=list)
 
     @property
@@ -93,6 +93,8 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
 def distance(a: str | list[str], b: str | list[str]) -> float | None:
     """Calculate the distance between two values.
 
+    Lists are permutation invariant.
+
     Return
     ------
     float
@@ -100,8 +102,14 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
         between 0 and 1.
     """
 
-    if len(a) == 0 or len(b) == 0:
+    a_seq = isinstance(a, Sequence)
+    b_seq = isinstance(b, Sequence)
+
+    if a_seq and b_seq and len(a) == 0 or len(b) == 0:
         return None
+
+    if a == b:
+        return 1.0
 
     # String values are compared with the Levenshtein distance
     if isinstance(a, str) and isinstance(b, str):
@@ -110,8 +118,9 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
         # normalized to a similarity metric between 0 and 1
         # see https://rapidfuzz.github.io/Levenshtein/levenshtein.html
         return levenshtein_ratio(a, b)
+
     # List values are compared by their elements for each permutation
-    if isinstance(a, list) and isinstance(b, list):
+    if a_seq and b_seq:
         if len(a) > len(b):
             a, b = b, a  # Ensure a is the shorter one
 
@@ -125,14 +134,9 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
                 if d is not None:
                     distances.append(d)
 
-        if len(distances) == 0:
-            return None
+        # We return the max with a penalty if list have different lengths
+        return max(distances) * (len(a) / len(b))
 
-        # We return the average distance
-        return sum(distances) / len(distances)
-
-    if a == b:
-        return 1.0
     log.warning(
         f"Cannot calculate distance between {a} and {b}. Type '{type(a)}' and '{type(b)}' not supported."
     )
