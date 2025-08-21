@@ -8,7 +8,7 @@ from tinytag import TinyTag
 
 from plistsync.core import Collection, GlobalTrackIDs, Track
 from plistsync.core.collection import TrackStream
-from plistsync.core.track import LocalTrackIDs
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 
 from ...logger import log
 
@@ -84,12 +84,11 @@ class LocalTrack(Track):
     of most metadata.
     """
 
-    __path: Path
     __cache: FileCache | None = None
+    __path: Path
 
     def __init__(self, path: Path | str, cache: FileCache | None = None):
-        if isinstance(path, str):
-            path = Path(path)
+        path = Path(path).resolve()
         self.__path = path
         self.__cache = cache
 
@@ -101,7 +100,7 @@ class LocalTrack(Track):
 
     @property
     def path(self) -> Path:
-        return self.__path
+        return self.local_ids.get("file_path", self.__path)
 
     @property
     def tags(self) -> TagDict:
@@ -114,38 +113,7 @@ class LocalTrack(Track):
         else:
             return FileCache.get_from_disk(self.path)
 
-    # ---------------------------------------------------------------------------- #
-    #                                 ABC methods                                  #
-    # ---------------------------------------------------------------------------- #
-
-    @property
-    def title(self) -> str:
-        title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
-        if not isinstance(title, list):
-            title = [title]
-        return title[0]
-
-    @property
-    def artists(self) -> List[str]:
-        artists: str | list[str] = self.tags.get("artist", [])  # type: ignore[assignment]
-        if not isinstance(artists, list):
-            artists = [artists]
-
-        # In theory the type can also by List[float]
-        # but this makes no sense for an artist field
-        # and also it isnt supported by id3 and vorbis tags
-        return artists
-
-    @property
-    def albums(self) -> List[str]:
-        albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
-        if not isinstance(albums, list):
-            albums = [albums]
-
-        # In theory the type can also by List[float]
-        # but this makes no sense for an albums field
-        # and also it isnt supported by id3 and vorbis tags
-        return albums
+    # --------------------------------- Contracts -------------------------------- #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -179,6 +147,8 @@ class LocalTrack(Track):
         if isrc is not None:
             res["isrc"] = isrc
 
+        # TODO: recover beets meta data tidal_id, spotify_id, etc.
+
         return res
 
     @property
@@ -191,11 +161,39 @@ class LocalTrack(Track):
             file_path=self.path.resolve(),
         )
 
-    def serialize(self) -> dict:
-        return {
-            "path": str(self.path),
-        }
+    @property
+    def info(self) -> TrackInfo:
+        # TODO: add more _generic_ fields here, and map them to our _unified_ fields
+        # of TrackInfo.
 
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["path"])
+        # the tags might or might not come as lists, so we work with lists by default.
+
+        title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
+        if not isinstance(title, list):
+            title = [title]
+            if len(title) > 1:
+                log.warning(
+                    f"Multiple titles found for {self.path}: {title}. "
+                    + "Using the first one. Tags broken?"
+                )
+
+        artists: str | list[str] = self.tags.get("artist", [])  # type: ignore[assignment]
+        if not isinstance(artists, list):
+            # In theory the type can also by List[float]
+            # but this makes no sense for an artist field
+            # and also it isnt supported by id3 and vorbis tags
+            artists = [artists]
+
+        albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
+        if not isinstance(albums, list):
+            # In theory the type can also by List[float], same as for artists
+            albums = [albums]
+
+        info = TrackInfo(
+            artists=[str(a) for a in artists],
+            albums=[str(a) for a in albums],
+        )
+        if len(title) > 0:
+            info["title"] = str(title[0])
+
+        return info

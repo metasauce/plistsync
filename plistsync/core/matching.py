@@ -38,19 +38,6 @@ class Matches:
             return 0.0
         return max(self.found_similarities)
 
-    def to_dict(self) -> dict:
-        """Convert to dictionary representation.
-
-        Always assumes the multiple matches representation. I.e.
-        similarity is a list of floats and found is a list of tracks.
-        """
-
-        return {
-            "found_similarities": self.found_similarities,
-            "truth": self.truth.to_dict(),
-            "found": [t.to_dict() for t in self.found],
-        }
-
     def __iter__(self) -> Iterator[tuple[Track, Similarity]]:
         """Iterate over the found tracks."""
         # TODO: sort by similarity, best matches first

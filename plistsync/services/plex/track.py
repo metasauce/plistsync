@@ -14,6 +14,10 @@ from ..local.track import FileCache, LocalTrack
 
 
 class PlexTrack(LocalTrack, Track):
+    # TODO: Update plan: remove LocalTrack inheritance, and use
+    # LocalTrack(PathRewrite(my_plex_track.path, ...)) instead.
+    # maybe we have `.get_offline_info(path_rewrite)` property that does this for us.
+
     data: PlexApiTrackResponse
     path_rewrite: None | PathRewrite = None
 

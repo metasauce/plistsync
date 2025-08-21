@@ -171,6 +171,10 @@ class NMLPlaylistTrack(Track):
     @classmethod
     def from_track(cls, track: Track) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack with underlying XML Entry from any track with a path."""
+        if track.path is None:
+            raise ValueError(
+                "Track does not have a path, cannot create NMLPlaylistTrack."
+            )
         return cls.from_path(track.path)
 
     def to_nml_track(self, collection: NMLCollection) -> NMLTrack | None:
