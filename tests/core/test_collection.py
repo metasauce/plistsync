@@ -5,14 +5,14 @@ import pytest
 from plistsync.core.collection import (
     GlobalLookup,
     LocalLookup,
-    TrackSearch,
+    InfoLookup,
     TrackStream,
 )
 
 from .mock_collections import (
     MockGlobalLookupCollection,
     MockLocalLookupCollection,
-    MockTrackSearchCollection,
+    MockInfoLookupCollection,
     MockTrackStreamCollection,
     MockFullCapabilityCollection,
 )
@@ -26,18 +26,18 @@ class TestProtocolRuntimeChecking:
         [
             (MockGlobalLookupCollection, GlobalLookup),
             (MockLocalLookupCollection, LocalLookup),
-            (MockTrackSearchCollection, TrackSearch),
+            (MockInfoLookupCollection, InfoLookup),
             (MockTrackStreamCollection, TrackStream),
             (
                 MockFullCapabilityCollection,
-                (GlobalLookup, LocalLookup, TrackSearch, TrackStream),
+                (GlobalLookup, LocalLookup, InfoLookup, TrackStream),
             ),
         ],
     )
     def test_runtime_checkable_global_lookup(self, collection_type, check):
         """Test runtime checking for GlobalLookup protocol."""
         col = collection_type([])
-        for ins in [GlobalLookup, LocalLookup, TrackSearch, TrackStream]:
+        for ins in [GlobalLookup, LocalLookup, InfoLookup, TrackStream]:
             if (isinstance(check, tuple) and (ins in check)) or check == ins:
                 assert isinstance(col, ins)
             else:

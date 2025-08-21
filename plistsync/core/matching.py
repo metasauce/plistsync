@@ -53,6 +53,7 @@ class Matches:
 
     def __iter__(self) -> Iterator[tuple[Track, Similarity]]:
         """Iterate over the found tracks."""
+        # TODO: sort by similarity, best matches first
         return iter(zip(self.found, self.found_similarities))
 
 
@@ -97,9 +98,12 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
 
     Return
     ------
-    float
+    float or None
         The distance between the two values. Normalized to a ratio
-        between 0 and 1.
+        between 0 and 1, where 0 is no match and 1 is a perfect match.
+        Returns None when invalid objects are passed or empty strings
+        (or empty lists) are compared.
+
     """
 
     a_seq = isinstance(a, Sequence)

@@ -22,18 +22,18 @@ The matching system uses a **three-layer strategy** (global ID → local ID → 
 track = LocalTrack("./path_to_track.mp3")
 collection = BeetsCollection("./path_to_beets_db.db")
 
-matches = collection.match_by_track(track)
+matches = collection.match(track)
 for match, similarity in matches:
     print(f"Found match: {match}, similarity: {similarity}")
 ```
 
 (single_track_search)=
+
 ## Single-track search
 
-Single-track search is performed using the high-level {meth}`~plistsync.core.collection.Collection.match_by_track` method. This method returns tracks from the target collection that are similar (or identical) to the source track, prioritizing global ID matches, local ID matches, and metadata similarity in that order.
+Single-track search is performed using the high-level {meth}`~plistsync.core.collection.Collection.match` method. This method returns tracks from the target collection that are similar (or identical) to the source track, prioritizing global ID matches, local ID matches, and metadata similarity in that order.
 
-
-Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You want to check if this track already exists in your Beets music collection, which maintains a large database of your music library. With the `match_by_track` method, you can automate this lookup efficiently:
+Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You want to check if this track already exists in your Beets music collection, which maintains a large database of your music library. With the `match` method, you can automate this lookup efficiently:
 
 ```python
 from plistsync.services.local import LocalTrack
@@ -42,11 +42,12 @@ from plistsync.services.beets import BeetsCollection
 # This represents a single track on your local filesystem
 source_track = LocalTrack("./path_to_source_track.mp3")
 
-# BeetsCollection is an implementation of the Collection ABC, tailored to interact with a Beets database
+# BeetsCollection is an implementation of the Collection ABC, tailored to interact with a Beets database.
+# It supports TrackStream (you can iterate over its tracks) and lookups via global ID or local ID
 target_collection = BeetsCollection("./path_to_beets_db.db")
 
 # Perform the match operation
-matches = target_collection.match_by_track(source_track)
+matches = target_collection.match(source_track)
 
 # Output the matches found
 if len(matches.found) == 0:
@@ -58,27 +59,26 @@ else:
 
 The similarity is calculated using the track's metadata and leveraging a levenstein distance algorithm for fuzzy matching. If you want to compute the distance between two tracks manually you may use the {meth}`~plistsync.core.matching.fuzzy_match` method.
 
-
 ### Advanced usage
 
-Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.TrackSearch` and {class}`~plistsync.core.collection.TrackStream` interfaces, which provide different methods for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match_by_track` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific interface methods for more tailored search options.
-
+Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.InfoLookup` and {class}`~plistsync.core.collection.TrackStream` interfaces, which provide different methods for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific interface methods for more tailored search options.
 
 (full_collection_comparison)=
+
 ## Full-collection comparison
 
 This features is currently work in progress and not available in optimized form yet. For now
 you may iterate over the tracks in both collections and match them individually.
 
-
 (three_layer_matching_strategy)=
+
 ## Three-layer matching strategy
 
 Our toolbox uses a **three-layer matching strategy**:
 
 ### 1. Global Unique Identifiers (`guid`)
 
-Global Unique Identifiers are fields that are intended to uniquely identify a track across services and collections, such as ISRC, Spotify ID, Tidal ID, or MusicBrainz Recording ID. Because these identifiers are globally unique and stable across devices, a match found on one machine will reliably resolve on another. This makes `guid` matching the most reliable and fastest method in our system. 
+Global Unique Identifiers are fields that are intended to uniquely identify a track across services and collections, such as ISRC, Spotify ID, Tidal ID, or MusicBrainz Recording ID. Because these identifiers are globally unique and stable across devices, a match found on one machine will reliably resolve on another. This makes `guid` matching the most reliable and fastest method in our system.
 
 Each {class}`~plistsync.core.track.Track` exposes a {py:attr}`~plistsync.core.track.Track.global_ids` property, which returns a {class}`~plistsync.core.track.GlobalTrackIDs` instance containing the track's global identifiers.
 

@@ -68,7 +68,6 @@ class TrackInfo(TypedDict):
     title: str
     artists: list[str]
     albums: list[str]
-    path: NotRequired[str]
 
 
 class TrackDict(TrackInfo, TypedDict):
@@ -147,10 +146,6 @@ class Track(ABC):
             artists=self.artists,
             albums=self.albums,
         )
-        try:
-            ret["path"] = str(self.path)
-        except NotImplementedError:
-            pass
 
         return ret
 

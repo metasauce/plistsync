@@ -46,34 +46,6 @@ class TestMatching:
     @pytest.mark.parametrize(
         "a, b, expected",
         [
-            ("foo", "foo", 1.0),
-            ("foo", "foo_similar", (0.5, 1.0)),  # Similar but not identical
-            ("foo", "bar", (0.0, 0.5)),
-            ("empty", "foo", 0.0),
-        ],
-    )
-    def test_fuzzy(self, foo, foo_similar, bar, a, b, expected):
-        track_map = {
-            "foo": foo,
-            "foo_similar": foo_similar,
-            "bar": bar,
-            "empty": TrackInfo(),  # type:ignore
-        }
-        a_track = track_map[a]
-        b_track = track_map[b]
-
-        similarity = fuzzy_match(a_track, b_track)
-        if isinstance(expected, tuple):
-            assert expected[0] <= similarity < expected[1]
-        else:
-            assert similarity == expected
-
-        similarity_reverse = fuzzy_match(b_track, a_track)
-        assert similarity_reverse == similarity, "Fuzzy match should be symmetric"
-
-    @pytest.mark.parametrize(
-        "a, b, expected",
-        [
             ("hello", "hello", 1.0),
             ("hello", "hell0", (0.5, 1.0)),  # Similar but not identical
             ("hello", "world", (0.0, 0.5)),
@@ -86,7 +58,6 @@ class TestMatching:
         ],
     )
     def test_distance(self, a, b, expected):
-        """Test string distance with identical strings."""
         result = distance(a, b)
         if isinstance(expected, tuple):
             assert expected[0] <= result < expected[1]
@@ -109,6 +80,35 @@ class TestMatching:
             )
             is None
         )
+
+    @pytest.mark.parametrize(
+        "a, b, expected",
+        [
+            ("foo", "foo", 1.0),
+            ("foo", "foo_similar", (0.5, 1.0)),  # Similar but not identical
+            ("foo", "bar", (0.0, 0.5)),
+            ("empty", "foo", 0.0),
+        ],
+    )
+    def test_fuzzy(self, foo, foo_similar, bar, a, b, expected):
+        """fuzzy_match uses distance, on all properties of the track info."""
+        track_map = {
+            "foo": foo,
+            "foo_similar": foo_similar,
+            "bar": bar,
+            "empty": TrackInfo(),  # type:ignore
+        }
+        a_track = track_map[a]
+        b_track = track_map[b]
+
+        similarity = fuzzy_match(a_track, b_track)
+        if isinstance(expected, tuple):
+            assert expected[0] <= similarity < expected[1]
+        else:
+            assert similarity == expected
+
+        similarity_reverse = fuzzy_match(b_track, a_track)
+        assert similarity_reverse == similarity, "Fuzzy match should be symmetric"
 
 
 class TestMatches:
