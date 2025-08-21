@@ -1,22 +1,62 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
 
-# Define the allowed identifiers with `total=False`
-class TrackIdentifiers(TypedDict):
-    """Unique identifiers for a track.
+class GlobalTrackIDs(TypedDict, total=False):
+    """Global Unique identifiers for a track.
 
-    Each identifier has to uniquely identify a track!
+    Each identifier in this collection should uniquely identify a track
+    across all systems and collections. Unlike local identifiers, these
+    are intended to allow unambiguous track matching across devices,
+    libraries, or services.
     """
 
-    # Tidal ID of the track normally a number
-    tidal: NotRequired[str]
-    # International Standard Recording Code
-    # TODO: Add multiple isrcs support in the future
-    isrc: NotRequired[str]
-    # Path is not a unique identifier, because mount points might change.
-    # but matching also works via TrackInfo, where we give path the highest prio.
+    tidal_id: str
+    """Tidal ID of the track.
+
+    Globally unique within the Tidal service.
+    """
+
+    isrc: str
+    """International Standard Recording Code.
+
+    A standardized identifier intended to be globally unique for a recording.
+    TODO: A track may have multiple ISRCs (e.g., different releases or regions),
+    so this field may need to support multiple values in the future.
+    """
+
+
+class LocalTrackIDs(TypedDict, total=False):
+    """Locally scoped identifiers for a track.
+
+    These identifiers are unique only within a specific collection or context,
+    such as a local library, playlist, database, or device. They are intended
+    for identifying a track within that local scope and may not be unique globally.
+    """
+
+    file_path: Path
+    """Local filesystem path to the track file.
+
+    This is not globally unique because file paths may differ across devices
+    or mount points, even if the underlying track is the same.
+    """
+
+    beets_id: int
+    """Track ID from a local Beets library.
+
+    Unique only within a local Beets library. Different libraries may assign
+    different IDs to the same track.
+    """
+
+    plex_id: str
+    """Track ID from a Plex media server library.
+
+    Unique only within a single Plex library. The same track in another Plex
+    server or library may have a different ID.
+    """
 
 
 class TrackInfo(TypedDict):
@@ -28,7 +68,6 @@ class TrackInfo(TypedDict):
     title: str
     artists: list[str]
     albums: list[str]
-    path: NotRequired[str]
 
 
 class TrackDict(TrackInfo, TypedDict):
@@ -37,7 +76,8 @@ class TrackDict(TrackInfo, TypedDict):
     This is the dictionary representation of a track with identifiers.
     """
 
-    identifiers: TrackIdentifiers
+    global_ids: GlobalTrackIDs
+    local_ids: LocalTrackIDs
 
 
 class Track(ABC):
@@ -69,14 +109,22 @@ class Track(ABC):
 
         If the track is not in any album, return empty list.
 
-        TODO: Eventually we want to use an album object here. E.g.
-        {
-            "name": "Album name",
-            "release_date": "2021-01-01",
-            "artists": ["Artist 1", "Artist 2"],
-            "cover": "https://example"| "file:///path/to/file"
-        }
-        could be typed as a TypedDict.
+        TODO:
+        -----
+        Eventually we might want to use an album object
+        here. E.g.:
+
+        .. code-block:: json
+
+            {
+                "name": "Album name",
+                "release_date": "2021-01-01",
+                "artists": ["Artist 1", "Artist 2"],
+                "cover": "file:///path/to/file"
+            }
+
+
+
         """
 
     @property
@@ -88,41 +136,37 @@ class Track(ABC):
 
     @property
     def info(self) -> TrackInfo:
-        """Get the track information without identifiers."""
+        """Get this tracks information.
+
+        This may not include any identifiers.
+        """
 
         ret = TrackInfo(
             title=self.title,
             artists=self.artists,
             albums=self.albums,
         )
-        try:
-            ret["path"] = str(self.path)
-        except NotImplementedError:
-            pass
 
         return ret
 
-    # -------------------------------- Identifiers -------------------------------- #
+    # -------------------------------- Matching --------------------------------- #
 
     @property
     @abstractmethod
-    def identifiers(self) -> TrackIdentifiers:
-        """The identifiers of this track.
+    def global_ids(self) -> GlobalTrackIDs:
+        """The globally unique identifiers of this track."""
+        ...
 
-        The keys are the name of the identifier, the values are the ids.
-
-        For example:
-        ```python
-        {
-            "isrc": "USAT29900609"
-        }
-        ```
-        """
+    @property
+    @abstractmethod
+    def local_ids(self) -> LocalTrackIDs:
+        """The locally unique identifiers of this track."""
+        ...
 
     @property
     def isrc(self) -> str | None:
         """International Standard Recording Code."""
-        return self.identifiers.get("isrc")
+        return self.global_ids.get("isrc")
 
     # ------------------------------- Serialization ------------------------------ #
 
@@ -139,7 +183,8 @@ class Track(ABC):
 
         return TrackDict(
             **self.info,
-            identifiers=self.identifiers,
+            global_ids=self.global_ids,
+            local_ids=self.local_ids,
         )
 
     @abstractmethod

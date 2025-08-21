@@ -4,10 +4,11 @@ from itertools import chain
 from pathlib import Path
 from typing import List, Self, cast
 
-from beets import art
 from tinytag import TinyTag
 
-from plistsync.core import Collection, Track, TrackIdentifiers
+from plistsync.core import Collection, GlobalTrackIDs, Track
+from plistsync.core.collection import TrackStream
+from plistsync.core.track import LocalTrackIDs
 
 from ...logger import log
 
@@ -40,7 +41,7 @@ class FileCache:
         Reads all files defined in collection and stores the metadata in the cache.
         """
 
-        if not collection.is_iterable():
+        if not isinstance(collection, TrackStream):
             raise ValueError("The collection is not iterable, cant build cache.")
 
         for track in collection:
@@ -147,7 +148,7 @@ class LocalTrack(Track):
         return albums
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
+    def global_ids(self) -> GlobalTrackIDs:
         isrc_raw = self.tags.get("isrc", [])
         isrc: str | None = None
 
@@ -174,11 +175,21 @@ class LocalTrack(Track):
             isrc = isrc_raw[0]
 
         # Create typechecked identifiers dict
-        res = TrackIdentifiers()
+        res = GlobalTrackIDs()
         if isrc is not None:
             res["isrc"] = isrc
 
         return res
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        """The local identifiers of this track.
+
+        This is the path to the file.
+        """
+        return LocalTrackIDs(
+            file_path=self.path.resolve(),
+        )
 
     def serialize(self) -> dict:
         return {

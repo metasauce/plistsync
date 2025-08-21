@@ -26,13 +26,13 @@ def test_find_by_identifiers(audio_files: Path):
     # Test finding a track by isrc
     track = collection.find_by_identifiers({"isrc": isrc})
     assert track is not None, "Track should be found"
-    assert track.identifiers.get("isrc") == isrc, "Track should have the correct isrc"
+    assert track.global_ids.get("isrc") == isrc, "Track should have the correct isrc"
 
     # Test finding with different capitalization
     track = collection.find_by_identifiers({"isrc": isrc.lower()})
 
     assert track is not None, "Track should be found"
-    assert track.identifiers.get("isrc") == isrc, "Track should have the correct isrc"
+    assert track.global_ids.get("isrc") == isrc, "Track should have the correct isrc"
 
 
 def test_nested_audio_folder(audio_files_nested: Path):

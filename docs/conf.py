@@ -60,7 +60,7 @@ autoapi_options = [
 autoapi_keep_files = True
 autodoc_typehints = "signature"
 autoapi_root = "api"
-
+autoapi_ignore = ["*services*"]
 
 html_theme = "furo"
 html_static_path = ["_static"]

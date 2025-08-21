@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Generator, Iterable
+from typing import TYPE_CHECKING, Generator, Iterable, Iterator
 from uuid import uuid4
 
 from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core import Collection, Track, TrackIdentifiers
+from plistsync.core import Collection, Track
+from plistsync.core.collection import LocalLookup, TrackStream
+from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
@@ -27,7 +29,7 @@ def xpath_string_escape(input_str: str) -> str:
     return "concat('" + "', \"'\" , '".join(parts) + "', '')"
 
 
-class NMLCollection(Collection):
+class NMLCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML collection.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
@@ -49,9 +51,6 @@ class NMLCollection(Collection):
 
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
-
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> None:
-        return None
 
     def playlists(self) -> Iterable[NMLPlaylistCollection]:
         """Get all playlists in the NML file as NMLPlaylistCollection objects."""
@@ -83,6 +82,19 @@ class NMLCollection(Collection):
         )
         return node[0] if len(node) > 0 else None
 
+    def __len__(self) -> int:
+        e = self.tree.find("COLLECTION")
+        if e is None:
+            return 0
+
+        n_str = e.get("ENTRIES", 0)
+        return int(n_str)
+
+    def commit(self):
+        """Write the changes back to the NML file."""
+        self.tree.write(self.path, encoding="utf-8", xml_declaration=True)
+        log.debug(f"Committed changes to {self.path}")
+
     def find_by_traktor_path(self, path: str) -> NMLTrack | None:
         """Find a track by its file path.
 
@@ -113,17 +125,19 @@ class NMLCollection(Collection):
 
         return NMLTrack(entry[0])
 
-    def find_by_path(self, path: Path) -> NMLTrack | None:
-        """Find a track by its file path.
+    # ------------------------------- Protocols ------------------------------ #
 
-        Parameter
-        ---------
-        path : Path
-            The file path of the track to find. This should be the full path including the filename.
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
+        """Find a track by its local IDs.
+
+        We only support lookup by path here.
         """
-        return self.find_by_traktor_path(_path_to_traktor(path))
+        if file_path := local_ids.get("file_path"):
+            # If the file_path is set, we can use it to find the track
+            return self.find_by_traktor_path(_path_to_traktor(file_path))
+        return None
 
-    def __iter__(self) -> Generator[NMLTrack, None, None]:
+    def __iter__(self) -> Iterator[NMLTrack]:
         collection = self.tree.find("COLLECTION")
         if collection is None:
             raise ValueError("Could not find COLLECTION in NML file")
@@ -132,21 +146,8 @@ class NMLCollection(Collection):
         for entry in entries:
             yield NMLTrack(entry)
 
-    def __len__(self) -> int:
-        e = self.tree.find("COLLECTION")
-        if e is None:
-            return 0
 
-        n_str = e.get("ENTRIES", 0)
-        return int(n_str)
-
-    def commit(self):
-        """Write the changes back to the NML file."""
-        self.tree.write(self.path, encoding="utf-8", xml_declaration=True)
-        log.debug(f"Committed changes to {self.path}")
-
-
-class NMLPlaylistCollection(Collection):
+class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML playlist collection.
 
     Allows to parse and interact with a Traktor NML file that contains playlists.
@@ -269,55 +270,10 @@ class NMLPlaylistCollection(Collection):
         """Set the name of the playlist."""
         self.root_node.set("NAME", value)
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
-        return super().find_by_identifiers(identifiers)
-
-    def find_by_traktor_path(self, path: str) -> NMLPlaylistTrack | None:
-        """Find a track by its file path.
-
-        Parameter
-        ---------
-        path : str
-            The file path of the track to find. This should be the full path including the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified, it should will be ignored for the search.
-        """
-
-        entries = self.playlist_node.xpath(
-            f".//ENTRY/PRIMARYKEY[@TYPE='TRACK'][@KEY={xpath_string_escape(path)}]"
-        )
-        if len(entries) == 0:
-            return None
-        elif len(entries) > 1:
-            log.warning(
-                f"Found duplicate entries for path {path} in playlist, using first one."
-            )
-
-        return NMLPlaylistTrack(entries[0])
-
-    def find_by_path(self, path: Path) -> NMLPlaylistTrack | None:
-        """Find a track by its file path.
-
-        Parameter
-        ---------
-        path : Path
-            The file path of the track to find. This should be the full path including the filename.
-        """
-        p = _path_to_traktor(path)
-        print(f"Finding track by path: {p}")
-        return self.find_by_traktor_path(_path_to_traktor(path))
-
     def __len__(self) -> int:
         """Get the number of tracks in the playlist."""
         entries = self.playlist_node.get("ENTRIES", "0")
         return int(entries) if entries.isdigit() else 0
-
-    def __iter__(self) -> Generator[NMLPlaylistTrack, None, None]:
-        """Iterate over the tracks in the playlist."""
-
-        # Playlist on include a primarykey node which we still have
-        # to match to the collection
-        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
-        for entry in entries:
-            yield NMLPlaylistTrack(entry)
 
     def insert(self, track: Path | Track) -> NMLPlaylistTrack:
         """Insert a track into the playlist.
@@ -351,3 +307,51 @@ class NMLPlaylistCollection(Collection):
     def commit(self):
         """Write the changes back to the NML file."""
         self.library_collection.commit()
+
+    def find_by_traktor_path(self, path: str) -> NMLPlaylistTrack | None:
+        """Find a track by its file path.
+
+        Parameter
+        ---------
+        path : str
+            The file path of the track to find. This should be the full path including the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified, it should will be ignored for the search.
+        """
+
+        entries = self.playlist_node.xpath(
+            f".//ENTRY/PRIMARYKEY[@TYPE='TRACK'][@KEY={xpath_string_escape(path)}]"
+        )
+        if len(entries) == 0:
+            return None
+        elif len(entries) > 1:
+            log.warning(
+                f"Found duplicate entries for path {path} in playlist, using first one."
+            )
+
+        return NMLPlaylistTrack(entries[0])
+
+    # ------------------------------- Protocols ------------------------------ #
+
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLPlaylistTrack | None:
+        """Find a track by its local IDs.
+
+        Note
+        -----
+        We only support lookup by file_path here. Other local ids are ignored.
+
+        Parameter
+        ---------
+        local_ids : LocalTrackIDs
+        """
+        if file_path := local_ids.get("file_path"):
+            # If the file_path is set, we can use it to find the track
+            return self.find_by_traktor_path(_path_to_traktor(file_path))
+        return None
+
+    def __iter__(self) -> Generator[NMLPlaylistTrack, None, None]:
+        """Iterate over the tracks in the playlist."""
+
+        # Playlist on include a primarykey node which we still have
+        # to match to the collection
+        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
+        for entry in entries:
+            yield NMLPlaylistTrack(entry)

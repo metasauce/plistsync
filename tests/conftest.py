@@ -98,6 +98,7 @@ def beets_lib(plist_config):
 
     # Yield the library for other functions to use
     yield lib
+    lib._close()
 
     # Remove the beets database
     os.remove(temp_dir / "beets.db")

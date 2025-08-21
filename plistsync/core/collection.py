@@ -1,3 +1,44 @@
+"""Collection Protocols for Track Management.
+
+This module defines a set of protocols that model different capabilities a track collection
+might support. These protocols use Python's structural subtyping (PEP 544) rather than
+inheritance-based interfaces, offering flexibility in composing complex behaviors while
+maintaining strong type safety and clarity.
+
+Key Design Principles:
+----------------------
+1. Capability-based Design:
+   Collections declare what operations they support by implementing specific protocols:
+   - **GlobalLookup**: Enables exact matching via globally unique identifiers.
+   - **LocalLookup**: Supports context-specific identifier matching.
+   - **InfoLookup**: Facilitates metadata-based similarity searches.
+   - **TrackStream**: Provides iteration and bulk processing abilities.
+
+2. Progressive Enhancement:
+   Collections can implement additional protocols for more sophisticated matching
+   strategies, all while maintaining backward compatibility with basic iteration.
+
+3. Runtime Flexibility:
+   The `@runtime_checkable` decorator allows collections to be verified at runtime,
+   while static type checkers can verify protocol compliance during development.
+
+The main `Collection` abstract base class (ABC) demonstrates the integration of these
+protocols into a comprehensive track matching strategy via the `match` method.
+Developers are encouraged to extend the `Collection` class to create new collection types
+with different internal storage strategies (e.g., in-memory, databases).
+
+Usage Example:
+--------------
+Create a custom collection by implementing the desired protocols and extend the
+`Collection` ABC, ensuring that the `match` method efficiently leverages
+all relevant capabilities offered by the collection.
+
+.. code-block:: python
+
+    class MyTrackCollection(Collection, GlobalLookup, LocalLookup, TrackStream):
+        # Implement required methods...
+"""
+
 from __future__ import annotations
 
 import itertools
@@ -6,143 +47,83 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
     Callable,
     Concatenate,
-    Generator,
+    Iterable,
+    Iterator,
     List,
     ParamSpec,
-    Sequence,
-    Tuple,
+    Protocol,
+    TypeGuard,
     TypeVar,
+    runtime_checkable,
 )
 
-import numpy as np
-import numpy.typing as npt
-
-from plistsync.logger import log
-
-from .track import Track, TrackIdentifiers
-from .translator import Similarity, fuzzy_match
+from .matching import Matches, Similarity, fuzzy_match
+from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
 
 R = TypeVar("R")
 P = ParamSpec("P")
 
 
-class Collection(ABC):
-    """A data structure that holds tracks.
+@runtime_checkable
+class GlobalLookup(Protocol):
+    """A collection that can find tracks using global unique IDs."""
 
-    Collections can be thought of as libraries, playlists, or databases that contain tracks.
-    They provide methods to access, filter, and iterate over the tracks in a collection.
+    @abstractmethod
+    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> Track | None:
+        """Find a single track by its global identifiers."""
+        ...
 
-    For this ABC there is no specific requirements in how the tracks are stored, e.g. in a database, in memory, or on disk.
-    The only requirement is that the collection should be iterable and provide a way to find tracks by their identifiers.
+
+@runtime_checkable
+class LocalLookup(Protocol):
+    """A collection that can find tracks using local context-specific IDs."""
+
+    @abstractmethod
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> Track | None:
+        """Find a single track by its local identifiers."""
+        # TODO: local ids might potentially return multiple tracks.
+        # Not decided how to handle this 100% yet. For now, we raise warnings
+        # and return the first match. (Same goes for global ids, actually.)
+        ...
+
+
+@runtime_checkable
+class InfoLookup(Protocol):
+    """A collection that can search for tracks using metadata."""
+
+    @abstractmethod
+    def find_by_info(self, info: TrackInfo) -> Iterable[Track]:
+        """Find tracks matching the given metadata."""
+        ...
+
+
+T = TypeVar("T", bound=Track)
+
+
+@runtime_checkable
+class TrackStream(Protocol[T]):
+    """Supports iteration and parallel processing of tracks.
+
+    A collection implementing this protocol must support iteration,
+    yielding `Track` objects one by one. This makes it possible to
+    traverse all tracks in the collection, for example when scanning
+    a library or processing all items in a playlist.
     """
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
-        """Return the track with the given identifier if it exists in the collection.
+    @abstractmethod
+    def __iter__(self) -> Iterator[T]: ...
 
-        This method return only one track, as each identifier's value should uniquely identify a track.
-        The default implementation iterates over all tracks in linear time. For large collections,
-        override this method to use optimized lookups (e.g., database indices).
-
-        Parameters
-        ----------
-        identifier
-            The identifier to search for. I.e. a dictionary containing the identifier keys and values. E.g. {"isrc": "USAT29900609"}
-        """
-        for track in self:
-            for key, value in identifiers.items():
-                if track.identifiers.get(key) == value:
-                    return track
-
-        return None
-
-    def find_by_track(
+    def map_threadpool_chunked(
         self,
-        track: Track,
-        cutoff: float = 0.6,
-        max_matches: int = 3,
-    ) -> Tuple[List[Similarity], List[Track]]:
-        """Find the most similar tracks to a given one.
-
-        Search for the most similar tracks to the given one in this collection. Defaults to a relative slow iterative approach, but parent classes can override this method with a more efficient implementation.
-
-        Before using this method try the `find_by_identifiers` method as it is probably faster.
-
-        See `translator.fuzzy_match` for details on the matching algorithm.
-
-        Parameters
-        ----------
-        track
-            The track to compare to.
-        cutoff
-            The similarity cutoff. Only tracks with a similarity greater than or equal to this cutoff are returned.
-        n_matches
-            The maximum number of matches to return. If None all matches that are above the cutoff are returned.
-
-        Return:
-        -------
-        List[Match]
-            A list of matches containing the similar tracks and their similarity metric. The list is sorted by similarity in descending order. I.e. the first element is the most similar track!
-        """
-        similarities: list[Similarity] = []
-        tracks: list[Track] = []
-        for similarities_chunk, tracks_chunk in self.iter_threadpool(
-            fuzzy_match,
-            chunk_size=1000,
-            b=track,
-        ):
-            # We should be able to optimize this with numpy if
-            # we have performance issues
-            for s, t in zip(similarities_chunk, tracks_chunk):
-                if s >= cutoff:
-                    similarities.append(s)
-                    tracks.append(t)
-
-        # Sort by similarities in descending order
-        sorted_pairs = sorted(
-            zip(similarities, tracks), key=lambda x: x[0], reverse=True
-        )
-        similarities, tracks = zip(*sorted_pairs) if sorted_pairs else ([], [])  # pyright: ignore[reportAssignmentType]
-
-        return list(similarities)[:max_matches], list(tracks)[:max_matches]
-
-    def get_similarities(
-        self,
-        tracks: Sequence[Track],
-    ) -> Tuple[Sequence[Track], npt.NDArray[np.float64]]:
-        r"""Track similarities matrix.
-
-        Get a matrix of similarities between the given tracks and the tracks in this collection. The matrix is of shape (len(tracks), len(self)) and contains the similarity values between each track in `tracks` and each track in the collection.
-
-        We might also need a function to get for multiple tracks at once. Think about playlists with multiple tracks which you want to match with a collection most efficiently.
-
-        Notes
-        -----
-        This might be a memory intensive operation, e.b. 300 tracks playlist with 100k tracks in the collection would be a 300x100k matrix, I don't think we want to store this in memory. Only the similarities for the tracks are :math:`300 * 100k * 8 \text{bytes} = 229 \text{MB}`.
-        """
-        raise NotImplementedError("This method is not implemented yet.")
-
-    def is_iterable(self) -> bool:
-        """Check if the collection is iterable.
-
-        True if the collection is iterable, False otherwise.
-        """
-        try:
-            iter(self)
-            return True
-        except NotImplementedError:
-            return False
-
-    def iter_threadpool(
-        self,
-        func: Callable[Concatenate[Track, P], R],
+        func: Callable[Concatenate[T, P], R],
         chunk_size: int = 100,
-        max_workers=4,
+        max_workers: int = 4,
         *args: P.args,
         **kwargs: P.kwargs,
-    ) -> Generator[Tuple[List[R], List[Track]], None, None]:
-        """Apply a function to each track in parallel.
+    ) -> Iterable[tuple[List[R], List[T]]]:
+        """Map a function to each track in parallel.
 
-        Iterate over all tracks in the collection and apply a function to each track. Use a threadpool to parallelize a computation.This method should be used to parallelize compute heavy operations on the collection or to speed up the processing of large collections.
+        Iterate over all tracks in the collection and apply a function to each track. Use a threadpool to parallelize a computation. This method should be used to parallelize compute heavy operations on the collection or to speed up the processing of large collections.
 
         To allow processing large collections we process the collection in chunks of `chunk_size` tracks. This should help to reduce the memory footprint.
 
@@ -165,7 +146,7 @@ class Collection(ABC):
             def heavy_computation(track: Track, *args) -> int:
                 pass # Do some heavy computation on the track and return a result
 
-            for results, tracks in collection.iter_threadpool(heavy_computation, chunk_size=100, *args):
+            for results, tracks in collection.map_threadpool(heavy_computation, chunk_size=100, *args):
                 # do something with the results and related tracks
                 pass
         """
@@ -193,9 +174,163 @@ class Collection(ABC):
                 yield results, tracks
                 offset += chunk_size
 
-    def __iter__(self) -> Generator[Track, None, None]:
-        """Return an iterator over all tracks in the collection.
+    def map_threadpool(
+        self,
+        func: Callable[Concatenate[T, P], R],
+        chunk_size: int = 100,
+        max_workers: int = 4,
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> Iterable[tuple[R, T]]:
+        """Map a function to each track in parallel and return a list of results.
 
-        Throws and not implemented error if the collection is not iterable, e.g. remote collections.
+        This is a convenience method that uses `map_threadpool_chunked` to process the entire collection and return a flat list of results.
         """
-        raise NotImplementedError("This collection is not iterable.")
+        for chunk in self.map_threadpool_chunked(
+            func, chunk_size, max_workers, *args, **kwargs
+        ):
+            yield from zip(*chunk)
+
+
+class Collection(ABC):
+    """A data structure that holds tracks.
+
+    Collections can be thought of as libraries, playlists, or databases that contain tracks.
+    They provide methods to access, filter, and iterate over the tracks in a collection.
+
+    For this ABC there is no specific requirements in how the tracks are stored, e.g. in a database, in memory, or on disk.
+    The only requirement is that the collection should be iterable and provide a way to find tracks by their identifiers.
+    """
+
+    def match(
+        self,
+        track: Track,
+        skip_after_local_match: bool = False,
+        skip_after_perfect_fuzzy_match: bool = False,
+        cutoff=0.6,
+    ) -> Matches:
+        """Return potential matches for the given track based on different lookup strategies.
+
+        The method checks for matches in this order:
+        1. Global IDs (exact match, returns immediately if found)
+        2. Local IDs (exact match with similarity check)
+        3. Track info (similarity-based search)
+        4. Fallback to iterating through all tracks if needed.
+           This still uses the three methods above, but is way less efficient.
+
+        Parameters
+        ----------
+        track
+            The track to match against this collection
+        skip_after_local_match
+            If True, return after first successful match when searching local IDs
+        cutoff
+            Minimum similarity score (0-1) for a match to be considered
+        """
+        # Initialize result containers
+        found_tracks: list[Track] = []
+        similarities: list[Similarity] = []
+
+        # Check capabilities of this collection, protocol instance checks can be expensive
+        has_global_lookup = isinstance(self, GlobalLookup)
+        has_local_lookup = isinstance(self, LocalLookup)
+        has_info_lookup = isinstance(self, InfoLookup)
+        is_stream = isinstance(self, TrackStream)
+
+        # 1. Try global ID lookup first (exact match, highest priority)
+        if has_global_lookup:
+            if found_track := self.find_by_global_ids(track.global_ids):  # type: ignore[attr-defined]
+                return Matches(
+                    truth=track, found=[found_track], found_similarities=[1.0]
+                )
+
+        # 2. Try local ID lookup (exact match with similarity check)
+        if has_local_lookup:
+            if found_track := self.find_by_local_ids(track.local_ids):  # type: ignore[attr-defined]
+                similarity = fuzzy_match(track.info, found_track.info)
+
+                if similarity >= cutoff:
+                    found_tracks.append(found_track)
+                    similarities.append(similarity)
+
+                    if skip_after_local_match:
+                        return Matches(
+                            truth=track,
+                            found=found_tracks,
+                            found_similarities=similarities,
+                        )
+
+                    if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                        return Matches(
+                            truth=track,
+                            found=found_tracks,
+                            found_similarities=similarities,
+                        )
+
+        # 3. Try info-based search (similarity match)
+        if has_info_lookup:
+            for found_track in self.find_by_info(track.info):  # type: ignore[attr-defined]
+                similarity = fuzzy_match(track.info, found_track.info)
+                if similarity >= cutoff:
+                    found_tracks.append(found_track)
+                    similarities.append(similarity)
+
+                if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                    return Matches(
+                        truth=track,
+                        found=found_tracks,
+                        found_similarities=similarities,
+                    )
+
+        # 4. Fallback to iterating through all tracks,
+        # but only if the collection does not implement all other protocols
+        # (in this case, we have already checked all three options)
+        if is_stream and not (
+            has_global_lookup and has_local_lookup and has_info_lookup
+        ):
+            # TODO: we might to skip the fuzzy match for the global
+            # id case
+            for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
+                fuzzy_match, chunk_size=1000, b=track.info
+            ):
+                if not has_global_lookup:
+                    for key, value in track.global_ids.items():
+                        if found_track.global_ids.get(key) == value:
+                            return Matches(
+                                truth=track,
+                                found=[found_track],
+                                found_similarities=[1.0],
+                            )
+
+                if similarity < cutoff:
+                    continue
+
+                if not has_local_lookup:
+                    for key, value in track.local_ids.items():
+                        if found_track.local_ids.get(key) == value:
+                            found_tracks.append(found_track)
+                            similarities.append(similarity)
+
+                            if skip_after_local_match:
+                                return Matches(
+                                    truth=track,
+                                    found=found_tracks,
+                                    found_similarities=similarities,
+                                )
+
+                if not has_info_lookup:
+                    found_tracks.append(found_track)
+                    similarities.append(similarity)
+
+                if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                    return Matches(
+                        truth=track,
+                        found=found_tracks,
+                        found_similarities=similarities,
+                    )
+
+        return Matches(
+            truth=track,
+            found=found_tracks,
+            found_similarities=similarities,
+        )

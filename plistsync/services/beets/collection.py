@@ -1,15 +1,17 @@
 from pathlib import Path
-from typing import Any, Generator, Iterable, List
+from typing import Any, Generator, Iterable, Iterator, List
 
-from sqlalchemy import String, cast, select
+from sqlalchemy import ColumnExpressionArgument, Row, String, cast, or_, select
 
-from ...core import Collection, TrackIdentifiers
+from plistsync.core.collection import Collection, GlobalLookup, LocalLookup, TrackStream
+from plistsync.core.track import GlobalTrackIDs, LocalTrackIDs, Track
+
 from ...logger import log
 from .database import BeetsDatabase
 from .track import BeetsTrack
 
 
-class BeetsCollection(Collection):
+class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
     """A beets library collection."""
 
     db: BeetsDatabase
@@ -19,24 +21,6 @@ class BeetsCollection(Collection):
             self.db = db_path
         else:
             self.db = BeetsDatabase(db_path)
-
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> BeetsTrack | None:
-        isrc = identifiers.get("isrc")
-        if isrc is not None:
-            tracks = self.get_by_isrc(isrc)
-
-            match len(tracks):
-                case 0:
-                    pass
-                case 1:
-                    return tracks[0]
-                case _:
-                    log.warning(
-                        f"Multiple tracks found for ISRC {isrc}. Returning the first one."
-                    )
-                    return tracks[0]
-
-        return None
 
     def get_by_isrc(self, isrc: str) -> List[BeetsTrack]:
         """Get a list of tracks that match an ISRC."""
@@ -64,7 +48,58 @@ class BeetsCollection(Collection):
 
         return BeetsTrack.tracks_from_db_rows(rows)
 
-    def __iter__(self) -> Generator[BeetsTrack, None, None]:
+    def get_by_id(self, beets_id: int) -> BeetsTrack | None:
+        table = self.db.get_table("items")
+
+        stmt = select(table).filter(table.columns.id == beets_id)
+        with self.db.session() as session:
+            row: Row[Any] | None = session.execute(stmt).one_or_none()
+            if row is None:
+                return None
+            cols = table.columns.keys()
+        return BeetsTrack(dict(zip(cols, row)))
+
+    # ------------------------------- Protocols ------------------------------ #
+
+    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> BeetsTrack | None:
+        isrc = global_ids.get("isrc")
+        if isrc is not None:
+            tracks = self.get_by_isrc(isrc)
+
+            match len(tracks):
+                case 0:
+                    pass
+                case 1:
+                    return tracks[0]
+                case _:
+                    log.warning(
+                        f"Multiple tracks found for ISRC {isrc}. Returning the first one."
+                    )
+                    return tracks[0]
+
+        return None
+
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> BeetsTrack | None:
+        tracks: list[BeetsTrack] = []
+        if file_path := local_ids.get("file_path"):
+            tracks.extend(self.get_by_path(file_path))
+
+        if beets_id := local_ids.get("beets_id"):
+            track = self.get_by_id(beets_id)
+            if track:
+                tracks.append(track)
+
+        if len(tracks) == 0:
+            return None
+        elif len(tracks) == 1:
+            return tracks[0]
+        else:
+            log.warning(
+                f"Multiple tracks found for local IDs {local_ids}. Returning the first one."
+            )
+            return tracks[0]
+
+    def __iter__(self) -> Iterator[BeetsTrack]:
         table = self.db.get_table("items")
 
         stmt = select(table)

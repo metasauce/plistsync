@@ -2,9 +2,10 @@ import itertools
 from functools import cached_property
 from pathlib import Path
 from pprint import pprint
-from typing import Any, Generator, Sequence
+from typing import Any, Generator, Iterator, Sequence
 
-from plistsync.core import Collection, PathRewrite, Track, TrackIdentifiers
+from plistsync.core import Collection, GlobalTrackIDs, PathRewrite, Track
+from plistsync.core.collection import TrackStream
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
@@ -57,6 +58,21 @@ class PlexLibrarySectionCollection(Collection):
     _page_size: int = 5000
     _fetched: bool = False
 
+    def preload(self) -> None:
+        """Preload the collection data.
+
+        This ensures that the collection is fully loaded locally in memory
+        and can be iterated over without additional API calls.
+        """
+        _ = list(self)
+
+    @cached_property
+    def locations(self) -> list[Path]:
+        """To locations (on disk) of the section."""
+        return fetch_section_root_path(self.section_id)
+
+    # ------------------------------- Protocols ------------------------------ #
+
     def __iter__(self) -> Generator[PlexTrack, None, None]:
         """Iterate over the tracks in the collection."""
 
@@ -78,24 +94,8 @@ class PlexLibrarySectionCollection(Collection):
 
         self._fetched = True
 
-    def is_iterable(self) -> bool:
-        return True
 
-    def preload(self) -> None:
-        """Preload the collection data.
-
-        This ensures that the collection is fully loaded locally in memory
-        and can be iterated over without additional API calls.
-        """
-        _ = list(self)
-
-    @cached_property
-    def locations(self) -> list[Path]:
-        """To locations (on disk) of the section."""
-        return fetch_section_root_path(self.section_id)
-
-
-class PlexPlaylistCollection(Collection):
+class PlexPlaylistCollection(Collection, TrackStream):
     """
     A collection of all tracks in a Plex playlist.
 
@@ -142,21 +142,6 @@ class PlexPlaylistCollection(Collection):
         self.plex_playlist_data = fetch_playlist(self.playlist_id)
         self.plex_items_data = fetch_playlist_items(self.playlist_id)
         self.library_collection = library_collection
-
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> Track | None:
-        return super().find_by_identifiers(identifiers)
-
-    def __iter__(self) -> Generator[PlexTrack, None, None]:
-        """Iterate over the tracks in the collection.
-
-        Returns
-        -------
-        Generator[Track, None, None]
-            A generator yielding PlexTrack objects.
-        """
-        # log.warning(self.plex_items_data)
-        for item in self.plex_items_data:
-            yield PlexTrack(item, path_rewrite=self.path_rewrite)
 
     @property
     def name(self) -> str:
@@ -214,3 +199,17 @@ class PlexPlaylistCollection(Collection):
         return insert_track_into_playlist_by_id(
             track_id=track_id, playlist_id=self.playlist_id
         )
+
+    # --------------------------------- Protocols -------------------------------- #
+
+    def __iter__(self) -> Iterator[PlexTrack]:
+        """Iterate over the tracks in the collection.
+
+        Returns
+        -------
+        Generator[Track, None, None]
+            A generator yielding PlexTrack objects.
+        """
+        # log.warning(self.plex_items_data)
+        for item in self.plex_items_data:
+            yield PlexTrack(item, path_rewrite=self.path_rewrite)

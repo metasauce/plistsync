@@ -6,7 +6,7 @@ from glob import iglob
 from pathlib import Path
 from typing import Generator
 
-from plistsync.core import Collection, TrackIdentifiers
+from plistsync.core import Collection, GlobalTrackIDs
 
 from .track import LocalTrack
 
@@ -39,7 +39,7 @@ class LocalCollection(Collection):
         if not path.exists():
             raise FileNotFoundError(f"Path {path} does not exist.")
 
-    def find_by_identifiers(self, identifiers: TrackIdentifiers) -> LocalTrack | None:
+    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> LocalTrack | None:
         if len(identifiers) == 0:
             return None
 
@@ -50,8 +50,8 @@ class LocalCollection(Collection):
         # TODO: max workers should be configurable
         with ThreadPoolExecutor(max_workers=4) as executor:
 
-            def _get_track_identifiers(track: LocalTrack) -> TrackIdentifiers:
-                return track.identifiers
+            def _get_track_identifiers(track: LocalTrack) -> GlobalTrackIDs:
+                return track.global_ids
 
             futures = {
                 executor.submit(_get_track_identifiers, track): track for track in self
@@ -59,7 +59,7 @@ class LocalCollection(Collection):
 
         for future in as_completed(futures):
             track = futures[future]
-            track_ids: TrackIdentifiers = future.result()
+            track_ids: GlobalTrackIDs = future.result()
 
             # Search for each identifier in the tracks metadata
             for key, value in identifiers.items():

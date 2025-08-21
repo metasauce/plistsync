@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Self
 
-from plistsync.core import PathRewrite, Track, TrackIdentifiers
+from plistsync.core import GlobalTrackIDs, PathRewrite, Track
 from plistsync.logger import log
 from plistsync.services.plex.api_types import PlexApiTrackResponse
 
@@ -106,10 +106,10 @@ class PlexTrack(LocalTrack, Track):
         return [album]
 
     @property
-    def identifiers(self) -> TrackIdentifiers:
+    def global_ids(self) -> GlobalTrackIDs:
         if isinstance(self, LocalTrack):
-            return super().identifiers
-        return TrackIdentifiers()
+            return super().global_ids
+        return GlobalTrackIDs()
 
     def serialize(self) -> dict:
         return {

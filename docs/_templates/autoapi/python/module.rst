@@ -6,8 +6,6 @@
 {{ obj.id }}
 {{ "=" * obj.id|length }}
 
-.. py:module:: {{ obj.name }}
-
 {% if obj.docstring %}
 .. autoapi-nested-parse::
 
@@ -48,13 +46,6 @@ Overview
 {% block classes scoped %}
 {% if visible_classes %}
 {{ macros.auto_summary(visible_classes, title="Classes") }}
-
-.. toctree::
-   :hidden:
-
-    {% for klass in visible_classes %}
-   {{ klass.include_path }}
-    {% endfor %}
 
 {% endif %}
 {% endblock %}

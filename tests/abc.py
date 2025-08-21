@@ -44,7 +44,7 @@ class TrackTestBase(ABC):
 
     def test_identifiers(self):
         for track in self.create_track():
-            assert isinstance(track.identifiers, dict), "Identifiers should be a dict"
+            assert isinstance(track.global_ids, dict), "Identifiers should be a dict"
 
     def test_serialization(self):
         for track in self.create_track():

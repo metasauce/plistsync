@@ -2,6 +2,7 @@
 hide-toc: true
 ---
 
+# plistsync
 
 ```{include} ../README.md
 :start-after: <!-- start intro -->
@@ -9,11 +10,9 @@ hide-toc: true
 ```
 
 
-
 ```{note}
 This documentation is very much a work in progress. If you have any questions or suggestions, please feel free to open an issue or a pull request.
 ```
-
 
 ## Features
 
@@ -28,6 +27,7 @@ This documentation is very much a work in progress. If you have any questions or
 :caption: 📚 Usage
 
 getting-started.md
+details/matching.md
 ```
 
 ```{toctree}
@@ -43,4 +43,5 @@ services/tidal.md
 :caption: 📖 Reference
 
 api/index.md
+
 ```

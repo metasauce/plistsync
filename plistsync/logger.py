@@ -5,9 +5,7 @@ from plistsync.config import Config
 log = logging.getLogger("plistsync")
 
 # Get logging level from configuration or default to INFO
-DEFAULT_LOG_LEVEL = "INFO"
-log.setLevel(Config().logging_level.upper() or DEFAULT_LOG_LEVEL)
-
+log.setLevel(Config().logging_level.upper() if Config.exists() else "INFO")
 # Set all other loggers to warning level by default
 logging.basicConfig(level=logging.WARNING)
 

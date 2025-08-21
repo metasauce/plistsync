@@ -7,14 +7,13 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Iterator, Sequence
 
 from Levenshtein import ratio as levenshtein_ratio
 
 from plistsync.logger import log
 
 if TYPE_CHECKING:
-    from .collection import Collection
     from .track import Track, TrackInfo
 
 
@@ -22,9 +21,9 @@ Similarity = float
 
 
 @dataclass
-class Match:
+class Matches:
     truth: Track
-    found: list[Track] = field(default_factory=list)
+    found: Sequence[Track] = field(default_factory=list)
     found_similarities: list[Similarity] = field(default_factory=list)
 
     @property
@@ -52,84 +51,18 @@ class Match:
             "found": [t.to_dict() for t in self.found],
         }
 
-
-def match_collections(
-    col1: Collection,
-    col2: Collection,
-) -> Iterable[Match]:
-    """Match two collections.
-
-    The first collection is always matched to the second collection. I.e. the first
-    one has to be smaller than the second one.
-
-    Parameters
-    ----------
-    col1: Collection
-        The first collection to match. The first collection is always matched to the
-        second collection. This collection has to be of finite Size!
-    col2: Collection
-        The second collection to match.
-    """
-
-    # The first collection has a (reasonable) finite length
-    # otherwise matching is not possible
-    # At the moment I expect any iterable collection to have a (reasonable) finite length
-    # this might be a wrong assumption and should be checked in the future
-    if not col1.is_iterable():
-        raise ValueError("The first collection is not iterable.")
-
-    # For the naive approach we iterate over all tracks in the first collection
-    # and try to find a match in the second collection
-    # We might want to revise this with some parallelization or other optimizations
-    # in the future. I think just using numpy and a threadpool if there are many
-    # tracks might be a good idea.
-    for track in col1:
-        # 1. We try to match by identifiers, this should be straight forward
-        found_track = col2.find_by_identifiers(track.identifiers)
-        if found_track is not None:
-            # We found a match
-            yield Match(
-                truth=track,
-                found=[found_track],
-                found_similarities=[1.0],
-            )
-            continue
-
-        # 2. We try to match by track metadata
-        # In our approach this is called fuzzy matching
-        # This is a bit more complicated and might need some more work
-        similarities, tracks = col2.find_by_track(track, cutoff=0.6)
-        if len(similarities) > 0 and len(tracks) > 0:
-            # We found some matches
-            yield Match(
-                truth=track,
-                found=tracks,
-                found_similarities=similarities,
-            )
-            continue
-
-        # 3. No match found!
-        yield Match(
-            truth=track,
-        )
+    def __iter__(self) -> Iterator[tuple[Track, Similarity]]:
+        """Iterate over the found tracks."""
+        # TODO: sort by similarity, best matches first
+        return iter(zip(self.found, self.found_similarities))
 
 
-def fuzzy_match(a: Track, b: Track) -> Similarity:
-    """Calculate the similarity between two tracks, given their metadata.
-
-    Converts the tracks to a common format, i.e. an dict with all relevant
-    metadata. Depending on the type of the metadata different algorithms are used to get the distance between the two records.
+def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
+    """Calculate the similarity between two track infos.
 
     Interpreting the results:
     - 1.0: Every found metadata is the same. Skipping each undefined metadata this includes empty strings and None values.
     - 0.0: No metadata is the same.
-
-    Parameter:
-    ----------
-    a: Track
-        The first track to compare.
-    b: Track
-        The second track to compare.
 
     Return:
     -------
@@ -137,14 +70,12 @@ def fuzzy_match(a: Track, b: Track) -> Similarity:
         The similarity metric between the two tracks.
     """
 
-    metadata_a = a.info
-    metadata_b = b.info
     distances: list[float] = []
 
-    if len(metadata_a) > len(metadata_b):
-        metadata_a, metadata_b = metadata_b, metadata_a
+    if len(a) > len(b):
+        a, b = b, a
 
-    for _, value, other_value in _matched_iter_items(metadata_a, metadata_b):
+    for _, value, other_value in _matched_iter_items(a, b):
         # We calculate the distance between the two values
         # None values are undefined and are not considered
         d = distance(value, other_value)
@@ -163,15 +94,26 @@ def fuzzy_match(a: Track, b: Track) -> Similarity:
 def distance(a: str | list[str], b: str | list[str]) -> float | None:
     """Calculate the distance between two values.
 
+    Lists are permutation invariant.
+
     Return
     ------
-    float
+    float or None
         The distance between the two values. Normalized to a ratio
-        between 0 and 1.
+        between 0 and 1, where 0 is no match and 1 is a perfect match.
+        Returns None when invalid objects are passed or empty strings
+        (or empty lists) are compared.
+
     """
 
-    if len(a) == 0 or len(b) == 0:
+    a_seq = isinstance(a, Sequence)
+    b_seq = isinstance(b, Sequence)
+
+    if a_seq and b_seq and len(a) == 0 or len(b) == 0:
         return None
+
+    if a == b:
+        return 1.0
 
     # String values are compared with the Levenshtein distance
     if isinstance(a, str) and isinstance(b, str):
@@ -180,8 +122,9 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
         # normalized to a similarity metric between 0 and 1
         # see https://rapidfuzz.github.io/Levenshtein/levenshtein.html
         return levenshtein_ratio(a, b)
+
     # List values are compared by their elements for each permutation
-    if isinstance(a, list) and isinstance(b, list):
+    if a_seq and b_seq:
         if len(a) > len(b):
             a, b = b, a  # Ensure a is the shorter one
 
@@ -195,14 +138,9 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
                 if d is not None:
                     distances.append(d)
 
-        if len(distances) == 0:
-            return None
+        # We return the max with a penalty if list have different lengths
+        return max(distances) * (len(a) / len(b))
 
-        # We return the average distance
-        return sum(distances) / len(distances)
-
-    if a == b:
-        return 1.0
     log.warning(
         f"Cannot calculate distance between {a} and {b}. Type '{type(a)}' and '{type(b)}' not supported."
     )

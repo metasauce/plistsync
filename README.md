@@ -1,7 +1,8 @@
-<!-- start intro -->
 <p align="center">
     <h1 align="center">plistsync</h1>
 </p>
+
+<!-- start intro -->
 
 <p align="center">
     <em><b>Toolbox for transferring, converting and matching music collections</b></em>

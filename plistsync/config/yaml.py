@@ -90,6 +90,12 @@ tidal:
 
 
 class Config(EYConf[ConfigSchema]):
+    """Plistsync configuration class.
+
+    This class is responsible for loading and validating the configuration.
+    For more information see `EYConf <https://github.com/semohr/eyconf>`_.
+    """
+
     def __init__(self):
         super().__init__(ConfigSchema)
 
@@ -113,6 +119,11 @@ class Config(EYConf[ConfigSchema]):
         """Get the path to the config file."""
         path = Config.get_dir() / "config.yml"
         return path
+
+    @staticmethod
+    def exists() -> bool:
+        """Check if the config file exists."""
+        return Config.get_file().exists()
 
     # ---------------------------------------------------------------------------- #
     #                         Services/ Optional Extensions                        #
