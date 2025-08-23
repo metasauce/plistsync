@@ -119,12 +119,9 @@ class PlexPlaylistCollection(Collection, TrackStream):
     # parent library for adding tracks
     library_collection: PlexLibrarySectionCollection | None = None
 
-    path_rewrite: None | PathRewrite = None
-
     def __init__(
         self,
         playlist_name_or_id: str | int,
-        path_rewrite: None | PathRewrite = None,
         library_collection: PlexLibrarySectionCollection | None = None,
     ):
         """Initialize the PlexPlaylistCollection from plex given a playlist id.
@@ -136,7 +133,6 @@ class PlexPlaylistCollection(Collection, TrackStream):
         """
 
         self.playlist_id = resolve_playlist_id(playlist_name_or_id)
-        self.path_rewrite = path_rewrite
 
         # TODO: maybe fetch on access, not init?
         self.plex_playlist_data = fetch_playlist(self.playlist_id)
@@ -210,6 +206,5 @@ class PlexPlaylistCollection(Collection, TrackStream):
         Generator[Track, None, None]
             A generator yielding PlexTrack objects.
         """
-        # log.warning(self.plex_items_data)
         for item in self.plex_items_data:
-            yield PlexTrack(item, path_rewrite=self.path_rewrite)
+            yield PlexTrack(item)

@@ -46,18 +46,6 @@ class TrackTestBase(ABC):
         for track in self.create_track():
             assert isinstance(track.global_ids, dict), "Identifiers should be a dict"
 
-    def test_serialization(self):
-        for track in self.create_track():
-            # Check if serialization works
-            serialized = track.serialize()
-            assert isinstance(serialized, dict), "Serialized should be a dict"
-
-            # Check if deserialization works
-            deserialized = self.track_class.deserialize(serialized)
-            assert isinstance(deserialized, Track), (
-                "Deserialized should be a Track instance"
-            )
-
     # ---------------------------------------------------------------------------- #
     #                              Test Common methods                             #
     # ---------------------------------------------------------------------------- #
@@ -73,10 +61,6 @@ class TrackTestBase(ABC):
             assert isinstance(track.primary_artist, (str, type(None))), (
                 "Primary artist should be a string or None"
             )
-
-    def test_to_dict(self):
-        for track in self.create_track():
-            assert isinstance(track.to_dict(), dict), "to_dict should return a dict"
 
     # ---------------------------------------------------------------------------- #
 

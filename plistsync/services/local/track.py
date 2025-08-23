@@ -35,6 +35,14 @@ class FileCache:
             self._file_cache[path] = self.get_from_disk(path)
         return self._file_cache[path]
 
+    def __contains__(self, path: Path) -> bool:
+        """Allow 'if path in cache' syntax."""
+        return path in self._file_cache
+
+    def get(self, path: Path, default=None) -> TagDict | None:
+        """Allow 'cache.get(path)' syntax. Returns None or default if not cached."""
+        return self._file_cache.get(path, default)
+
     def refresh_for_collection(self, collection: Collection):
         """Fill the cache with metadata from the collection.
 
@@ -82,6 +90,12 @@ class LocalTrack(Track):
 
     Mostly lazy loaded but allows for caching
     of most metadata.
+
+    Raises
+    ------
+    - FileNotFoundError: If the files are not available on the local filesystem or cache
+        (e.g. using different mount points)
+    - ValueError: If reading file metadata fails.
     """
 
     __cache: FileCache | None = None
@@ -92,15 +106,21 @@ class LocalTrack(Track):
         self.__path = path
         self.__cache = cache
 
-        # Check if the path exists and is allowed by tinytag
-        if not path.exists():
-            raise FileNotFoundError(f"Path {path} does not exist.")
-        if not TinyTag.is_supported(path):
-            raise ValueError(f"File {path} is not supported by tinytag.")
+        if cache is None:
+            # Check if the path exists and is allowed by tinytag
+            if not path.exists():
+                raise FileNotFoundError(f"Path {path} does not exist.")
+            if not TinyTag.is_supported(path):
+                raise ValueError(f"File {path} is not supported by tinytag.")
+                # Maybe we do the Tag readability check elsewhere -> only relevant
+                # when using disk version
+        else:
+            if not path.exists() and path not in cache:
+                raise ValueError(f"Path {path} neither on disk nor in cache.")
 
     @property
     def path(self) -> Path:
-        return self.local_ids.get("file_path", self.__path)
+        return self.__path
 
     @property
     def tags(self) -> TagDict:
@@ -158,15 +178,15 @@ class LocalTrack(Track):
         This is the path to the file.
         """
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
         )
 
     @property
     def info(self) -> TrackInfo:
+        # the tags might or might not come as lists, so we work with lists by default.
         # TODO: add more _generic_ fields here, and map them to our _unified_ fields
         # of TrackInfo.
-
-        # the tags might or might not come as lists, so we work with lists by default.
+        info = TrackInfo()
 
         title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
         if not isinstance(title, list):
@@ -176,24 +196,22 @@ class LocalTrack(Track):
                     f"Multiple titles found for {self.path}: {title}. "
                     + "Using the first one. Tags broken?"
                 )
+        if len(title) > 0:
+            info["title"] = str(title[0])
 
-        artists: str | list[str] = self.tags.get("artist", [])  # type: ignore[assignment]
+        artists: str | list[str] = self.tags.get("artist", None)  # type: ignore[assignment]
         if not isinstance(artists, list):
-            # In theory the type can also by List[float]
-            # but this makes no sense for an artist field
-            # and also it isnt supported by id3 and vorbis tags
             artists = [artists]
+        if len(artists) > 0:
+            info["artists"] = [str(a) for a in artists]
+            # In theory the type we get from tags can also by List[float]
+            # but this makes no sense for an artist or album field
+            # and also it isnt supported by id3 and vorbis tags
 
         albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
         if not isinstance(albums, list):
-            # In theory the type can also by List[float], same as for artists
             albums = [albums]
-
-        info = TrackInfo(
-            artists=[str(a) for a in artists],
-            albums=[str(a) for a in albums],
-        )
-        if len(title) > 0:
-            info["title"] = str(title[0])
+        if len(albums) > 0:
+            info["albums"] = [str(a) for a in albums]
 
         return info
