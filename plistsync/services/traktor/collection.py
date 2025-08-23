@@ -150,6 +150,8 @@ class NMLCollection(Collection, TrackStream, LocalLookup):
 class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML playlist collection.
 
+    Traktor playlists use file paths as the identifiers.
+
     Allows to parse and interact with a Traktor NML file that contains playlists.
     """
 
@@ -281,6 +283,8 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         ATM it skips duplicate
         """
         if isinstance(track, Track):
+            if track.path is None:
+                raise ValueError("Tracks need to have a path to be inserted.")
             track = track.path
 
         # Check if existing track is already in the playlist

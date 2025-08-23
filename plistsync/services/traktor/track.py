@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Self
 from lxml.etree import Element, SubElement
 
 from plistsync.core import GlobalTrackIDs, Track
-from plistsync.core.track import LocalTrackIDs
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -53,49 +53,6 @@ class NMLTrack(Track):
         self.entry = entry
 
     @property
-    def title(self) -> str:
-        return self.entry.get("TITLE", "")
-
-    @property
-    def artists(self) -> list[str]:
-        # Only has one artist
-        artists = self.entry.get("ARTIST", "")
-        return [a for a in re.split(r"[,;]", artists) if a != ""]
-
-    @property
-    def albums(self) -> list[str]:
-        album = self.entry.find(
-            "ALBUM",
-        )
-        if album is None:
-            return []
-
-        title = album.get("TITLE", "")
-        return [title] if title != "" else []
-
-    @property
-    def global_ids(self) -> GlobalTrackIDs:
-        """Sadly no unique identifier in NML files.
-        There exists an audio_id, but no idea how to use it or what it is.
-        """  # noqa: D205
-        return GlobalTrackIDs()
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        return LocalTrackIDs(
-            file_path=self.path.resolve(),
-        )
-
-    def serialize(self) -> dict:
-        return {
-            "entry": self.entry,
-        }
-
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["entry"])
-
-    @property
     def path(self) -> Path:
         loc = self.entry.find("LOCATION")
         if loc is None:
@@ -114,6 +71,52 @@ class NMLTrack(Track):
         dir = dir.replace(":", "/")
 
         return Path(dir) / file
+
+    @property
+    def traktor_id(self) -> str:
+        """Traktor's internal audio ID for the track."""
+        tid = self.entry.get("AUDIO_ID")
+        if tid is None:
+            # this should not happen.
+            raise ValueError("Could not find AUDIO_ID in NML entry.")
+        return tid
+
+    # ------------------------------- Contracts ------------------------------ #
+
+    @property
+    def global_ids(self) -> GlobalTrackIDs:
+        """Sadly no unique identifier in NML files.
+        There exists an audio_id, but no idea how to use it or what it is.
+        """  # noqa: D205
+        return GlobalTrackIDs()
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        return LocalTrackIDs(
+            file_path=self.path,
+        )
+
+    @property
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
+
+        title = self.entry.get("TITLE")
+        if title is not None:
+            info["title"] = title
+
+        # Only has one artist
+        artists = self.entry.get("ARTIST")
+        if artists is not None:
+            # TODO: heuristic, we split at semicolons and commas, should be configurable.
+            info["artists"] = [a for a in re.split(r"[,;]", artists) if a != ""]
+
+        album = self.entry.find("ALBUM")
+        if album is not None:
+            album_title = album.get("TITLE")
+            if album_title is not None:
+                info["albums"] = [album_title]
+
+        return info
 
 
 class NMLPlaylistTrack(Track):
@@ -204,19 +207,10 @@ class NMLPlaylistTrack(Track):
         """The path to the track file on disk."""
         return _traktor_to_path(self.traktor_path)
 
-    # methods we need to implement
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}[{self.path}]"
 
-    @property
-    def title(self) -> str:
-        raise NotImplementedError("NMLPlaylistTrack does not have a title property")
-
-    @property
-    def artists(self) -> list[str]:
-        return []
-
-    @property
-    def albums(self) -> list[str]:
-        return []
+    # ------------------------------- Contracts ------------------------------ #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -227,18 +221,19 @@ class NMLPlaylistTrack(Track):
     def local_ids(self) -> LocalTrackIDs:
         """NMLPlaylistTrack does not have identifiers."""
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
         )
 
-    def serialize(self) -> dict:
-        raise NotImplementedError()
+    @property
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
 
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        raise NotImplementedError()
+        # PS 2025-08-23:
+        # NMLPlaylistTrack does not have metadata, only path.
+        # We _could_ get the data from the main collection, but since conversion
+        # is so easy, I dont think its worth the added complexity.
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}[{self.path}]"
+        return info
 
 
 def _path_to_traktor(path: Path) -> str:

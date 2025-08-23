@@ -146,16 +146,6 @@ class TestMatches:
         matches = Matches(truth=mock_track)
         assert matches.similarity == 0.0
 
-    def test_to_dict(self, mock_matches):
-        """Test to_dict method."""
-        result = mock_matches.to_dict()
-
-        assert isinstance(result, dict)
-        assert "truth" in result
-        assert "found" in result
-        assert "found_similarities" in result
-        assert len(result["found"]) == 2
-
     def test_iteration(self, mock_matches):
         """Test iteration over matches."""
         items = list(mock_matches)

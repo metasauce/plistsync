@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, List, Self
 
-from plistsync.core.track import LocalTrackIDs
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 from plistsync.errors import NotFoundError
 
 from ...core import GlobalTrackIDs, Track
@@ -57,43 +57,22 @@ class BeetsTrack(Track):
 
         return tracks
 
+    # ----------------------------- Info Getters ----------------------------- #
+
     @property
     def path(self) -> Path:
-        return Path(self.row["path"])
-
-    # ---------------------------------------------------------------------------- #
-    #                                 ABC methods                                  #
-    # ---------------------------------------------------------------------------- #
-
-    @property
-    def title(self) -> str:
-        t = self.row.get("title")
-        if t is None:
-            raise NotFoundError("Title not found")
-        return t
-
-    @property
-    def artists(self) -> List[str]:
-        artists = self.row.get("artists", [])
-        if isinstance(artists, str):
-            artists = [artists]
-
-        return [a for a in artists if a is not None and a != ""]
+        return Path(self.row["path"]).resolve()
 
     @property
     def primary_artist(self) -> str | None:
         """Returns the beets artist field.
 
+        In contrast to most other services, beets keeps artists and artist separate.
         Not necessarily the first item in the list of artists!
         """
         return self.row.get("artist", None)
 
-    @property
-    def albums(self) -> List[str]:
-        album = self.row.get("album")
-        if album is not None:
-            return [album]
-        return []
+    # ------------------------------- Contracts ------------------------------ #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -119,18 +98,29 @@ class BeetsTrack(Track):
         This is the path to the file.
         """
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
             beets_id=self.row["id"],
         )
 
-    def serialize(self) -> dict:
-        return {
-            "row": self.row,
-        }
+    @property
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
 
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["row"])
+        title = self.row.get("title")
+        if title is not None:
+            info["title"] = title
+
+        artists = self.row.get("artists")
+        if artists is not None:
+            if isinstance(artists, str):
+                artists = [artists]
+            info["artists"] = artists
+
+        albums = self.row.get("album")
+        if albums is not None:
+            info["albums"] = [albums]
+
+        return info
 
     __slots__ = ("row",)
 
