@@ -52,6 +52,7 @@ class NMLCollection(Collection, TrackStream, LocalLookup):
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
 
+    @property
     def playlists(self) -> Iterable[NMLPlaylistCollection]:
         """Get all playlists in the NML file as NMLPlaylistCollection objects."""
         for node in self._playlist_nodes():

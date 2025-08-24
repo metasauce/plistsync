@@ -163,17 +163,11 @@ def fetch_playlist_items(playlist_id: str | int) -> list[PlexApiTrackResponse]:
     return response["MediaContainer"].get("Metadata", [])
 
 
-def fetch_playlists() -> dict[str, Any]:
-    """Fetch a Plex playlist by its ID.
-
-    Parameters
-    ----------
-    playlist_id : str
-        The ID of the Plex playlist to fetch.
-    """
+def fetch_playlists() -> list[PlexApiPlaylistResponse]:
+    """Fetch all plex playlists."""
 
     response = request(f"/playlists/")
-    return response["MediaContainer"]
+    return response["MediaContainer"]["Metadata"]
 
 
 def fetch_tracks_by_id(
