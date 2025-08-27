@@ -44,9 +44,11 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import (
     Callable,
     Concatenate,
+    Generic,
     Iterable,
     Iterator,
     List,
@@ -193,13 +195,12 @@ class TrackStream(Protocol[T]):
 
 
 class Collection(ABC):
-    """A data structure that holds tracks.
+    """A generic data structure that allows lookup or iteration of tracks.
 
-    Collections can be thought of as libraries, playlists, or databases that contain tracks.
-    They provide methods to access, filter, and iterate over the tracks in a collection.
+    Collections act as flexible track containers, accommodating multiple storage formats and sources,
+    such as online databases or local files, without dictating a specific storage mechanism.
 
-    For this ABC there is no specific requirements in how the tracks are stored, e.g. in a database, in memory, or on disk.
-    The only requirement is that the collection should be iterable and provide a way to find tracks by their identifiers.
+    This abstract base class is designed to support adaptable implementations for accessing and interacting with tracks in diverse ways, see protocols above.
     """
 
     def match(
@@ -334,3 +335,26 @@ class Collection(ABC):
             found=found_tracks,
             found_similarities=similarities,
         )
+
+
+C = TypeVar("C", bound=Collection)
+
+
+class LibraryCollection(Generic[C], Collection, TrackStream[Track], ABC):
+    """Represents a collection of tracks in a library with optional playlist management.
+
+    This class serves as a base for library collections across diverse services.
+    It provides a framework for managing tracks and playlists, allowing each service
+    to implement its specifics.
+    """
+
+    @property
+    @abstractmethod
+    def playlists(self) -> Iterable[C]:
+        """Retrieve playlists associated with this library collection."""
+        ...
+
+    @abstractmethod
+    def get_playlist(self, path: Path | None) -> C | None:
+        """Get a specific playlist by name or identifier."""
+        ...
