@@ -120,6 +120,7 @@ class TrackStream(Protocol[T]):
         func: Callable[Concatenate[T, P], R],
         chunk_size: int = 100,
         max_workers: int = 4,
+        use_info: bool = False,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Iterable[tuple[List[R], List[T]]]:
@@ -181,6 +182,7 @@ class TrackStream(Protocol[T]):
         func: Callable[Concatenate[T, P], R],
         chunk_size: int = 100,
         max_workers: int = 4,
+        use_info: bool = False,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Iterable[tuple[R, T]]:
@@ -189,9 +191,13 @@ class TrackStream(Protocol[T]):
         This is a convenience method that uses `map_threadpool_chunked` to process the entire collection and return a flat list of results.
         """
         for chunk in self.map_threadpool_chunked(
-            func, chunk_size, max_workers, *args, **kwargs
+            func, chunk_size, max_workers, use_info, *args, **kwargs
         ):
             yield from zip(*chunk)
+
+
+def _fuzzy_match_track(a: Track, b: Track) -> Similarity:
+    return fuzzy_match(a.info, b.info)
 
 
 class Collection(ABC):
@@ -248,7 +254,7 @@ class Collection(ABC):
         # 2. Try local ID lookup (exact match with similarity check)
         if has_local_lookup:
             if found_track := self.find_by_local_ids(track.local_ids):  # type: ignore[attr-defined]
-                similarity = fuzzy_match(track.info, found_track.info)
+                similarity = _fuzzy_match_track(track, found_track)
 
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
@@ -271,7 +277,7 @@ class Collection(ABC):
         # 3. Try info-based search (similarity match)
         if has_info_lookup:
             for found_track in self.find_by_info(track.info):  # type: ignore[attr-defined]
-                similarity = fuzzy_match(track.info, found_track.info)
+                similarity = _fuzzy_match_track(track, found_track)
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
                     similarities.append(similarity)
@@ -292,7 +298,7 @@ class Collection(ABC):
             # TODO: we might to skip the fuzzy match for the global
             # id case
             for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
-                fuzzy_match, chunk_size=1000, b=track.info
+                _fuzzy_match_track, chunk_size=1000, b=track
             ):
                 if not has_global_lookup:
                     for key, value in track.global_ids.items():
@@ -340,7 +346,7 @@ class Collection(ABC):
 C = TypeVar("C", bound=Collection)
 
 
-class LibraryCollection(Generic[C], Collection, TrackStream[Track], ABC):
+class LibraryCollection(Generic[C], Collection, ABC):
     """Represents a collection of tracks in a library with optional playlist management.
 
     This class serves as a base for library collections across diverse services.
@@ -355,6 +361,6 @@ class LibraryCollection(Generic[C], Collection, TrackStream[Track], ABC):
         ...
 
     @abstractmethod
-    def get_playlist(self, path: Path | None) -> C | None:
+    def get_playlist(self, name: Path | str) -> C | None:
         """Get a specific playlist by name or identifier."""
         ...

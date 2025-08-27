@@ -8,7 +8,7 @@ from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
 from plistsync.core import Collection, Track
-from plistsync.core.collection import LocalLookup, TrackStream
+from plistsync.core.collection import LibraryCollection, LocalLookup, TrackStream
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
@@ -29,7 +29,7 @@ def xpath_string_escape(input_str: str) -> str:
     return "concat('" + "', \"'\" , '".join(parts) + "', '')"
 
 
-class NMLCollection(Collection, TrackStream, LocalLookup):
+class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
     """A Traktor NML collection.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
@@ -51,36 +51,6 @@ class NMLCollection(Collection, TrackStream, LocalLookup):
 
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
-
-    def playlists(self) -> Iterable[NMLPlaylistCollection]:
-        """Get all playlists in the NML file as NMLPlaylistCollection objects."""
-        for node in self._playlist_nodes():
-            pl = NMLPlaylistCollection(self, node)
-            if pl.name.startswith("_"):
-                continue
-            yield pl
-
-    def playlist(self, playlist: str) -> NMLPlaylistCollection:
-        return NMLPlaylistCollection(self, playlist)
-
-    def _playlist_nodes(self) -> Iterable[_Element]:
-        """Get all playlists in the NML file."""
-        nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
-        return nodes
-
-    def _get_playlist_root_node(self, playlist: str) -> _Element | None:
-        """Get a playlist by name or uuid."""
-
-        node = self.tree.xpath(
-            f".//NODE[@TYPE='PLAYLIST']/*[@UUID={xpath_string_escape(playlist)}]/.."
-        )
-        if len(node) > 0:
-            return node[0]
-
-        node = self.tree.xpath(
-            f".//NODE[@TYPE='PLAYLIST'][@NAME={xpath_string_escape(playlist)}]"
-        )
-        return node[0] if len(node) > 0 else None
 
     def __len__(self) -> int:
         e = self.tree.find("COLLECTION")
@@ -145,6 +115,42 @@ class NMLCollection(Collection, TrackStream, LocalLookup):
         entries = collection.findall("ENTRY")
         for entry in entries:
             yield NMLTrack(entry)
+
+    # --------------------------------- playlists -------------------------------- #
+
+    @property
+    def playlists(self) -> Iterable[NMLPlaylistCollection]:
+        """Get all playlists in the NML file as NMLPlaylistCollection objects."""
+        for node in self._playlist_nodes():
+            pl = NMLPlaylistCollection(self, node)
+            if pl.name.startswith("_"):
+                continue
+            yield pl
+
+    def get_playlist(self, name: Path | str) -> NMLPlaylistCollection | None:
+        try:
+            return NMLPlaylistCollection(self, self._get_playlist_root_node(str(name)))
+        except ValueError:
+            return None
+
+    def _playlist_nodes(self) -> Iterable[_Element]:
+        """Get all playlists in the NML file."""
+        nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
+        return nodes
+
+    def _get_playlist_root_node(self, playlist: str) -> _Element | None:
+        """Get a playlist by name or uuid."""
+
+        node = self.tree.xpath(
+            f".//NODE[@TYPE='PLAYLIST']/*[@UUID={xpath_string_escape(playlist)}]/.."
+        )
+        if len(node) > 0:
+            return node[0]
+
+        node = self.tree.xpath(
+            f".//NODE[@TYPE='PLAYLIST'][@NAME={xpath_string_escape(playlist)}]"
+        )
+        return node[0] if len(node) > 0 else None
 
 
 class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
