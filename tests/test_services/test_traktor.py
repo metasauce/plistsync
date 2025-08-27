@@ -6,6 +6,7 @@ import pytest
 from plistsync.core import Track
 from plistsync.services.local import LocalTrack
 from plistsync.services.traktor import NMLTrack
+from plistsync.services.traktor.track import TraktorPath
 from plistsync.services.traktor.collection import NMLPlaylistCollection
 from plistsync.services.traktor.collection import NMLCollection
 from tests.abc import TrackTestBase
@@ -14,6 +15,52 @@ import lxml.etree as ET
 
 
 import pytest
+
+
+class TestTraktorPath:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            Path(
+                "/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac"
+            ),
+            Path(
+                "///Volumes/Macintosh HD/Music//Drum and Bass/04 Dragger [1028kbps].flac"
+            ),
+        ],
+    )
+    def test_macos_path(self, path):
+        tp = TraktorPath.from_macos_path(path)
+        assert tp.volume == "Macintosh HD"
+        assert tp.directory == "Music/:Drum and Bass"
+        assert tp.file == "04 Dragger [1028kbps].flac"
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac"),
+            Path("C://Music///Drum and Bass/04 Dragger [1028kbps].flac"),
+        ],
+    )
+    def test_windows_path(self, path):
+        tp = TraktorPath.from_windows_path(path)
+        assert tp.volume == "C:"
+        assert tp.directory == "Music/:Drum and Bass"
+        assert tp.file == "04 Dragger [1028kbps].flac"
+
+    def test_to_path(self):
+        tp = TraktorPath.from_macos_path(
+            Path("/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac")
+        )
+        assert tp.to_path() == Path(
+            "/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac"
+        )
+
+    def test_to_path_windows(self):
+        tp = TraktorPath.from_windows_path(
+            Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac")
+        )
+        assert tp.to_path() == Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac")
 
 
 class TestNMLTrack(TrackTestBase):

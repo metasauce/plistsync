@@ -38,12 +38,9 @@ class PlexLibrarySectionCollection(Collection):
 
     section_id: int
 
-    path_rewrite: None | PathRewrite = None
-
     def __init__(
         self,
         section_id: str | int,
-        path_rewrite: None | PathRewrite = None,
     ):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
@@ -53,7 +50,6 @@ class PlexLibrarySectionCollection(Collection):
             The Name or ID of the Plex library section to fetch.
         """
         self.section_id = resolve_section_id(section_id)
-        self.path_rewrite = path_rewrite
 
     def preload(self) -> None:
         """Preload the collection data.

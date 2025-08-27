@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, NamedTuple, Self
 
 from lxml.etree import Element, SubElement
 
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.logger import log
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -53,24 +55,33 @@ class NMLTrack(Track):
         self.entry = entry
 
     @property
+    def traktor_path(self):
+        loc = self.entry.find("LOCATION")
+        if loc is None:
+            raise ValueError("Could not find LOCATION in NML entry")
+
+        vol = loc.get("VOLUME")
+        dir = loc.get("DIR")
+        file = loc.get("FILE")
+
+        return vol, dir, file
+
+    @property
     def path(self) -> Path:
         loc = self.entry.find("LOCATION")
         if loc is None:
             raise ValueError("Could not find LOCATION in NML entry")
 
+        vol = loc.get("VOLUME")
         dir = loc.get("DIR")
         file = loc.get("FILE")
 
         if dir is None or file is None:
             raise ValueError("Could not find DIR or FILE in NML LOCATION entry")
 
-        # Clean up the DIR path (remove trailing colons and slashes)
-        dir = dir.rstrip(":").rstrip("/")
+        dir = _traktor_to_path(dir)
 
-        # Replace colons with slashes to create a valid path
-        dir = dir.replace(":", "/")
-
-        return Path(dir) / file
+        return Path(vol) / Path(dir) / file
 
     @property
     def traktor_id(self) -> str:
@@ -191,8 +202,9 @@ class NMLPlaylistTrack(Track):
     def traktor_path(self) -> str:
         """The path to the track in Traktor format.
 
-        This is the same as the path property, but with the leading slash removed
-        and colons replaced with slashes, to account for Traktor's path format.
+        In NML Playlists, the xml entry has the volume name as part of the path.
+        This is inconsistent with the xml of the tracks location in the main lib,
+        where the volume name is a separate field.
         """
         pkey = self.entry.find("PRIMARYKEY")
         if pkey is None:
@@ -200,7 +212,10 @@ class NMLPlaylistTrack(Track):
         key_value = pkey.get("KEY")
         if key_value is None:
             raise ValueError("Could not find KEY in PRIMARYKEY element")
-        return key_value
+
+        # Remove any chars before and including the first occurrence of '/:'
+        processed_value = re.sub(r"^.*?/:", "", key_value, count=1)
+        return processed_value
 
     @property
     def path(self) -> Path:
@@ -236,6 +251,78 @@ class NMLPlaylistTrack(Track):
         return info
 
 
+class TraktorPath(NamedTuple):
+    volume: str
+    directory: str
+    file: str
+
+    @classmethod
+    def from_macos_path(cls, path: Path) -> TraktorPath:
+        """
+        Create a TraktorPath from a macOS file path.
+
+        The default pattern we expect is `/Volumes/vol_name/dirs/file.ext`.
+        """
+
+        parts = path.parts # do not resolve - results are OS dependent!
+        parts = parts[1:] # remove leading slash
+        if parts[0] == "Users":
+            # for convenience, allow paths without /Volumes prefix and use the root volume
+            # this needs subprocess, cos no native python way. highly discouraged!
+            volume = _find_macos_volume_name()
+            if volume is not None:
+                parts = ("Volumes", volume, *parts)
+                log.warning(
+                    "Had to infer macOS root volume. "
+                    + f" for future calls, please prepend /Volumes/{volume}/"
+                )
+            else:
+                raise ValueError(
+                    "For macOS paths, please use the full path format, including the "
+                    + "volume name. Likely /Volumes/Macintosh HD/dirs/file.ext"
+                )
+
+        if parts[0] != "Volumes" or len(parts) < 3:
+            raise ValueError(f"Invalid path: {path} {parts}")
+
+        volume = parts[1]
+        directory = "/:".join(parts[2:-1])
+        file = parts[-1]
+        return cls(volume=volume, directory=directory, file=file)
+
+    @classmethod
+    def from_windows_path(cls, path: Path) -> TraktorPath:
+        """
+        Create a TraktorPath from a Windows file path.
+
+        The default pattern we expect is `C:/dirs/file.ext`.
+        """
+        parts = path.parts # do not resolve - results are OS dependent!
+        if len(parts) < 3:
+            raise ValueError(f"Invalid path: {path} {parts}")
+
+        volume = parts[0]
+        directory = "/:".join(parts[1:-1])
+        file = parts[-1]
+        return cls(volume=volume, directory=directory, file=file)
+
+    def to_path(self) -> Path:
+        # also needs windows vs macos distinction -.-
+        """Convert the TraktorPath back to a filesystem Path."""
+        parts = [self.volume] + self.directory.split("/:") + [self.file]
+        return Path(*parts)
+
+def _find_macos_volume_name() -> str | None:
+    try:
+        cmd = ["diskutil", "info", "/", ]
+        output = subprocess.check_output(cmd, text=True)
+        for line in output.splitlines():
+            if "Volume Name:" in line:
+                return line.split(":", 1)[1].strip()
+    except Exception as e:
+        return None
+
+
 def _path_to_traktor(path: Path) -> str:
     """Convert a Path to a Traktor path format."""
     return str(path.resolve()).lstrip("/").replace("/", "/:")
@@ -243,7 +330,4 @@ def _path_to_traktor(path: Path) -> str:
 
 def _traktor_to_path(traktor_path: str) -> Path:
     """Convert a Traktor path format to a Path."""
-    p = Path(traktor_path.replace("/:", "/"))
-    if not p.is_absolute():
-        p = Path("/") / p
-    return p.resolve()
+    return Path(traktor_path.replace("/:", "/"))
