@@ -120,7 +120,6 @@ class TrackStream(Protocol[T]):
         func: Callable[Concatenate[T, P], R],
         chunk_size: int = 100,
         max_workers: int = 4,
-        use_info: bool = False,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Iterable[tuple[List[R], List[T]]]:
@@ -182,7 +181,6 @@ class TrackStream(Protocol[T]):
         func: Callable[Concatenate[T, P], R],
         chunk_size: int = 100,
         max_workers: int = 4,
-        use_info: bool = False,
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> Iterable[tuple[R, T]]:
@@ -191,7 +189,7 @@ class TrackStream(Protocol[T]):
         This is a convenience method that uses `map_threadpool_chunked` to process the entire collection and return a flat list of results.
         """
         for chunk in self.map_threadpool_chunked(
-            func, chunk_size, max_workers, use_info, *args, **kwargs
+            func, chunk_size, max_workers, *args, **kwargs
         ):
             yield from zip(*chunk)
 
