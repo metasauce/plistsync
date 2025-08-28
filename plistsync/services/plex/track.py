@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Self
 
 from plistsync.core import GlobalTrackIDs, PathRewrite, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo

@@ -1,10 +1,10 @@
 from pathlib import Path, PurePath
-from typing import Any, Generator, Iterable, Iterator, List
+from typing import Any, Iterable, Iterator, List
 
-from sqlalchemy import ColumnExpressionArgument, Row, String, cast, or_, select
+from sqlalchemy import Row, String, cast, select
 
 from plistsync.core.collection import Collection, GlobalLookup, LocalLookup, TrackStream
-from plistsync.core.track import GlobalTrackIDs, LocalTrackIDs, Track
+from plistsync.core.track import GlobalTrackIDs, LocalTrackIDs
 
 from ...logger import log
 from .database import BeetsDatabase

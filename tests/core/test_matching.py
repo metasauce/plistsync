@@ -1,4 +1,3 @@
-from math import e
 import pytest
 
 from plistsync.core.collection import Matches, TrackInfo

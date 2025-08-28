@@ -4,8 +4,7 @@ import os
 import pathlib
 import re
 import urllib.parse
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Callable, Iterable, TypeVar
+from typing import TypeVar
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):

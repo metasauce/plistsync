@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path, PurePath
-from typing import NotRequired, TypedDict
+from pathlib import PurePath
+from typing import TypedDict
 
 
 class GlobalTrackIDs(TypedDict, total=False):

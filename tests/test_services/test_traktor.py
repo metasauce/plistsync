@@ -1,11 +1,9 @@
-from enum import auto
-import platform
 import sys
 from typing import Generator
 
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import pytest
-from plistsync.core import Collection, Track
+from plistsync.core import Track
 from plistsync.services.local import LocalTrack
 from plistsync.services.traktor import NMLTrack
 from plistsync.services.traktor.track import TraktorPath
@@ -105,10 +103,6 @@ class TestNMLCollection(LibraryCollectionTestBase):
             "Silvester Full Playthrough",  # By name
             "6868ecd66b354d37a33b965dae7a82e7",  # By UUID
         ]
-
-    @property
-    def unknown_playlist_names(self):
-        return ["unknown playlist"]
 
     @property
     def unknown_playlist_names(self):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from itertools import chain
 from pathlib import Path, PurePath
-from typing import List, Self, cast
+from typing import cast
 
 from tinytag import TinyTag
 

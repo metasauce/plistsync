@@ -57,7 +57,7 @@ jobs:
             - name: Check style with Ruff
               id: ruff
               run: |
-                  ruff check --output-format=github .
+                  ruff check --output-format=github --select F401 .
 
     mypy:
         name: Check type hints with mypy

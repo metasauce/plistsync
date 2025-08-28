@@ -1,12 +1,9 @@
-import itertools
 from functools import cached_property
 from pathlib import Path
-from pprint import pprint
 from typing import Any, Generator, Iterator, Sequence
 
-from plistsync.core import Collection, GlobalTrackIDs, PathRewrite, Track
+from plistsync.core import Collection
 from plistsync.core.collection import TrackStream
-from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiTrackResponse,

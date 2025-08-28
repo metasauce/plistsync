@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import re
-import subprocess
-from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
-from typing import TYPE_CHECKING, Literal, NamedTuple, Self
+from pathlib import PurePath, PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING, Literal, Self
 
 from lxml.etree import Element, SubElement
 
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
-from plistsync.logger import log
 
 if TYPE_CHECKING:
     from lxml.etree import _Element

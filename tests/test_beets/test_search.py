@@ -1,5 +1,4 @@
 from pathlib import Path
-import beets
 from beets.library import Library
 
 from plistsync.services.beets import BeetsDatabase, BeetsCollection

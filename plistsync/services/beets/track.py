@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, List, Self
 
 from plistsync.core.track import LocalTrackIDs, TrackInfo
-from plistsync.errors import NotFoundError
 
 from ...core import GlobalTrackIDs, Track
 
