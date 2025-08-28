@@ -70,6 +70,13 @@ class TestNMLTrack(TrackTestBase):
     def create_track(self, *args, **kwargs) -> Generator[Track, None, None]:
         yield self.track
 
+    def test_path(self):
+        """Test the path property of the NMLTrack."""
+        expected_path = PureWindowsPath(
+            "F:/sync/jungle is massive/06 Ready Or Not [1074kbps].flac"
+        )
+        assert self.track.path == expected_path
+
 
 class TestNMLCollection(LibraryCollectionTestBase):
     """Test the NMLCollection class."""
@@ -293,3 +300,11 @@ class TestTraktorPath:
         for track in collection:
             loc = track.entry.find("LOCATION")
             TraktorPath.from_nml_location(loc)
+
+    def test_directory_structure(self):
+        # Test the directory structure of a valid TraktorPath
+        valid_path = TraktorPath("C:/:foo/:bar/:baz/:file.flac")
+        assert valid_path.parts == ["C:", "foo", "bar", "baz", "file.flac"]
+        assert valid_path.volume == "C:"
+        assert valid_path.directories == "/:foo/:bar/:baz/:"
+        assert valid_path.file == "file.flac"

@@ -96,7 +96,6 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         We only support lookup by path here.
         """
         if file_path := local_ids.get("file_path"):
-            # If the file_path is set, we can use it to find the track
             return self.find_by_traktor_path(TraktorPath.from_path(file_path))
         return None
 
