@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import re
 import subprocess
-from pathlib import Path
-from typing import TYPE_CHECKING, NamedTuple, Self
+from pathlib import Path, PurePath, PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING, Literal, NamedTuple, Self
 
 from lxml.etree import Element, SubElement
 
@@ -251,83 +251,93 @@ class NMLPlaylistTrack(Track):
         return info
 
 
-class TraktorPath(NamedTuple):
-    volume: str
-    directory: str
-    file: str
+class TraktorPath:
+    # following the logic in NML **Playlists**: volume/:directory/:file
+    _parts: list[str]
+
+    def __init__(self, path: str):
+        """Construct a TraktorPath from a Traktor-style path string.
+
+        As used by Traktors NML files in the playlist section: volume/:directory/:file
+        """
+        if path.count("/:") < 1:
+            raise ValueError(
+                f"Invalid Traktor path: {path}, follow schema volume/:directory/:file"
+            )
+        self._parts = path.split("/:")
+
+    @property
+    def volume(self) -> str:
+        return self._parts[0]
+
+    @property
+    def directories(self) -> str:
+        if len(self._parts) <= 2:
+            return "/:"
+        return "/:".join(self._parts[1:-1])
+
+    @property
+    def parts(self) -> list[str]:
+        return self._parts
+
+    @property
+    def file(self) -> str:
+        return self._parts[-1]
+
+    @property
+    def os(self) -> Literal["macos", "windows"]:
+        if re.match(r"^[A-Za-z]:$", self.volume):
+            return "windows"
+        return "macos"
 
     @classmethod
-    def from_macos_path(cls, path: Path) -> TraktorPath:
-        """
-        Create a TraktorPath from a macOS file path.
+    def from_path(cls, path: str | Path | PurePosixPath | PureWindowsPath) -> Self:
+        """Create a TraktorPath from a filesystem path.
 
-        The default pattern we expect is `/Volumes/vol_name/dirs/file.ext`.
-        """
+        Provided paths must be absolute and contain the volume name:
 
-        parts = path.parts # do not resolve - results are OS dependent!
-        parts = parts[1:] # remove leading slash
-        if parts[0] == "Users":
-            # for convenience, allow paths without /Volumes prefix and use the root volume
-            # this needs subprocess, cos no native python way. highly discouraged!
-            volume = _find_macos_volume_name()
-            if volume is not None:
-                parts = ("Volumes", volume, *parts)
-                log.warning(
-                    "Had to infer macOS root volume. "
-                    + f" for future calls, please prepend /Volumes/{volume}/"
-                )
-            else:
+        ```
+        # Windows
+        C:/Users/paul/Music/file.flac
+
+        # macOS
+        /Volumes/Macintosh HD/Users/paul/Music/file.flac
+        ```
+        """
+        # Resolve UNC paths ... we might have to revisit this once we get complains
+        # form windows users.
+        path = str(path).replace("\\", "/")
+
+        if not path.startswith("/"):
+            # Windows
+            if not re.match(r"^[A-Za-z]:/", path):
                 raise ValueError(
-                    "For macOS paths, please use the full path format, including the "
-                    + "volume name. Likely /Volumes/Macintosh HD/dirs/file.ext"
+                    f"Path looks like a windows path (does not start with / ) but "
+                    + f"has an unexpected drive letter ({path})"
                 )
+        else:
+            # MacOS
+            if not path.startswith("/Volumes/"):
+                raise ValueError(
+                    f"Path looks like a macOS path (starts with / ) but "
+                    + f"does not start with /Volumes ({path})"
+                )
+            # Remove /Volumes prefix
+            path = path[len("/Volumes/") :]
 
-        if parts[0] != "Volumes" or len(parts) < 3:
-            raise ValueError(f"Invalid path: {path} {parts}")
+        return cls(path.replace("/", "/:"))
 
-        volume = parts[1]
-        directory = "/:".join(parts[2:-1])
-        file = parts[-1]
-        return cls(volume=volume, directory=directory, file=file)
+    @property
+    def pure_path(self) -> PureWindowsPath | PurePosixPath:
+        """Convert the TraktorPath back to a (pure) filesystem Path."""
 
-    @classmethod
-    def from_windows_path(cls, path: Path) -> TraktorPath:
-        """
-        Create a TraktorPath from a Windows file path.
+        if self.os == "macos":
+            return PurePosixPath("/Volumes", *self._parts)
+        else:
+            return PureWindowsPath(*self._parts)
 
-        The default pattern we expect is `C:/dirs/file.ext`.
-        """
-        parts = path.parts # do not resolve - results are OS dependent!
-        if len(parts) < 3:
-            raise ValueError(f"Invalid path: {path} {parts}")
+    def __str__(self) -> str:
+        return "/:".join(self._parts)
 
-        volume = parts[0]
-        directory = "/:".join(parts[1:-1])
-        file = parts[-1]
-        return cls(volume=volume, directory=directory, file=file)
-
-    def to_path(self) -> Path:
-        # also needs windows vs macos distinction -.-
-        """Convert the TraktorPath back to a filesystem Path."""
-        parts = [self.volume] + self.directory.split("/:") + [self.file]
-        return Path(*parts)
-
-def _find_macos_volume_name() -> str | None:
-    try:
-        cmd = ["diskutil", "info", "/", ]
-        output = subprocess.check_output(cmd, text=True)
-        for line in output.splitlines():
-            if "Volume Name:" in line:
-                return line.split(":", 1)[1].strip()
-    except Exception as e:
-        return None
-
-
-def _path_to_traktor(path: Path) -> str:
-    """Convert a Path to a Traktor path format."""
-    return str(path.resolve()).lstrip("/").replace("/", "/:")
-
-
-def _traktor_to_path(traktor_path: str) -> Path:
-    """Convert a Traktor path format to a Path."""
-    return Path(traktor_path.replace("/:", "/"))
+    def __repr__(self) -> str:
+        return f"TraktorPath[{str(self)}, {hash(self)}]"

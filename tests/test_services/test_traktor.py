@@ -1,7 +1,7 @@
 from enum import auto
 from typing import Generator
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import pytest
 from plistsync.core import Track
 from plistsync.services.local import LocalTrack
@@ -19,48 +19,63 @@ import pytest
 
 class TestTraktorPath:
     @pytest.mark.parametrize(
-        "path",
+        "path, parts",
         [
-            Path(
-                "/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac"
+            # MacOS style paths
+            (
+                "/Volumes/Macintosh HD/Music/Drum and Bass/file.flac",
+                ("Macintosh HD", "Music", "Drum and Bass", "file.flac"),
             ),
-            Path(
-                "///Volumes/Macintosh HD/Music//Drum and Bass/04 Dragger [1028kbps].flac"
+            (
+                "/Macintosh HD/Music/file.flac",
+                ("Macintosh HD", "Music", "file.flac"),
+            ),
+            (
+                PurePosixPath("/Volumes/Macintosh HD/Music/file.flac"),
+                ("Macintosh HD", "Music", "file.flac"),
+            ),
+            (
+                Path("/Macintosh HD/Music/file.flac"),
+                ("Macintosh HD", "Music", "file.flac"),
             ),
         ],
     )
-    def test_macos_path(self, path):
-        tp = TraktorPath.from_macos_path(path)
-        assert tp.volume == "Macintosh HD"
-        assert tp.directory == "Music/:Drum and Bass"
-        assert tp.file == "04 Dragger [1028kbps].flac"
+    def test_from_path_mac(self, path, parts):
+        tp = TraktorPath.from_path(path)
+        assert tp.os == "macos"
+        assert tp.volume is not None
+        assert tp.directories is not None
+        assert tp.file is not None
+        assert tp.parts == parts
 
     @pytest.mark.parametrize(
         "path",
         [
             Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac"),
             Path("C://Music///Drum and Bass/04 Dragger [1028kbps].flac"),
+            Path("C:\\Music\\Drum and Bass\\04 Dragger [1028kbps].flac"),
+            PureWindowsPath("C:\\Music\\Drum and Bass\\04 Dragger [1028kbps].flac"),
         ],
     )
-    def test_windows_path(self, path):
-        tp = TraktorPath.from_windows_path(path)
+    def test_from_path_windows(self, path):
+        tp = TraktorPath.from_path(path)
+        assert tp.os == "windows"
         assert tp.volume == "C:"
-        assert tp.directory == "Music/:Drum and Bass"
+        assert tp.directories == "Music/:Drum and Bass"
         assert tp.file == "04 Dragger [1028kbps].flac"
 
-    def test_to_path(self):
-        tp = TraktorPath.from_macos_path(
-            Path("/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac")
-        )
-        assert tp.to_path() == Path(
-            "/Volumes/Macintosh HD/Music/Drum and Bass/04 Dragger [1028kbps].flac"
-        )
-
-    def test_to_path_windows(self):
-        tp = TraktorPath.from_windows_path(
-            Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac")
-        )
-        assert tp.to_path() == Path("C:/Music/Drum and Bass/04 Dragger [1028kbps].flac")
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "foo/bar/file.flac",  # no slash start and no drive
+            "/Macintosh HD/Music/Drum and Bass/file.flac",  # macOS pathn without /Volumes
+            "/Volumes/file.flac",  # macOS no volume ?
+            "/foo/Music/Drum and Bass/file.flac",  # linux style path not supported
+        ],
+    )
+    def test_from_path_invalid(self, path):
+        with pytest.raises(Exception):
+            TraktorPath.from_path(path)
 
 
 class TestNMLTrack(TrackTestBase):

@@ -12,7 +12,7 @@ from plistsync.core.collection import LocalLookup, TrackStream
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
-from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
+from .track import NMLPlaylistTrack, NMLTrack
 
 if TYPE_CHECKING:
     from lxml.etree import _ElementTree
