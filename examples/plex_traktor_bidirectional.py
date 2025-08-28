@@ -43,11 +43,9 @@ def main():
     # Load Plex library and playlist
     plex_library = PlexLibrarySectionCollection(
         plex_section_name,
-        path_rewrite=path_rewrite,
     )
     plex_playlist = PlexPlaylistCollection(
         playlist_name,
-        path_rewrite=path_rewrite,
         library_collection=plex_library,
     )
 
@@ -60,7 +58,10 @@ def main():
     )
 
     # --- Add missing tracks from Plex to Traktor --- #
-    plex_paths = set(track.path for track in plex_playlist)
+    # Rewrite paths from plex to match traktor paths
+    plex_paths = set(
+        path_rewrite.apply(track.path) for track in plex_playlist if track.path
+    )
     traktor_paths = set(track.path for track in traktor_playlist)
 
     missing_in_traktor = plex_paths - traktor_paths

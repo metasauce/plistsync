@@ -1,18 +1,18 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import NamedTuple
 
 
 class PathRewrite(NamedTuple):
-    old: Path
-    new: Path
+    old: PurePath
+    new: PurePath
 
     @classmethod
     def from_str(cls, old: str, new: str) -> PathRewrite:
         return cls(Path(old), Path(new))
 
-    def apply(self, path: Path) -> Path:
+    def apply(self, path: PurePath) -> PurePath:
         """Apply the rewrite rule to a given path."""
 
         if self.old in path.parents:

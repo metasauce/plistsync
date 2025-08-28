@@ -1,11 +1,12 @@
-from enum import auto
+import sys
 from typing import Generator
 
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import pytest
-from plistsync.core import Collection, Track
+from plistsync.core import Track
 from plistsync.services.local import LocalTrack
 from plistsync.services.traktor import NMLTrack
+from plistsync.services.traktor.track import TraktorPath
 from plistsync.services.traktor.collection import NMLPlaylistCollection
 from plistsync.services.traktor.collection import NMLCollection
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase, TrackTestBase
@@ -69,11 +70,19 @@ class TestNMLTrack(TrackTestBase):
     def create_track(self, *args, **kwargs) -> Generator[Track, None, None]:
         yield self.track
 
+    def test_path(self):
+        """Test the path property of the NMLTrack."""
+        expected_path = PureWindowsPath(
+            "F:/sync/jungle is massive/06 Ready Or Not [1074kbps].flac"
+        )
+        assert self.track.path == expected_path
+
 
 class TestNMLCollection(LibraryCollectionTestBase):
     """Test the NMLCollection class."""
 
     collection_class = NMLCollection
+    collection: NMLCollection
 
     length = 265  # Number of tracks in the test NML file
 
@@ -99,26 +108,28 @@ class TestNMLCollection(LibraryCollectionTestBase):
     def unknown_playlist_names(self):
         return ["unknown playlist"]
 
-    def test_len(self, collection):
+    def test_len(self):
         """Test the length of the collection."""
-        assert len(collection) == self.length
+        assert len(self.collection) == self.length
 
-    def test_find_by_path(self, collection):
+    def test_find_by_path(self):
         """Test finding a track by its file path."""
-        # Test with a valid path
-        example_path = "/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
-
-        track = collection.find_by_traktor_path(example_path)
-        assert track is not None
-        assert track.title == "Dragger"
+        # Test with a valid path in collection
+        tp_exists = TraktorPath.from_path(
+            "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
+        )
+        print(str(tp_exists.directories))
+        print(str(tp_exists.file))
+        print(str(tp_exists.volume))
 
         # Try with Volume specified
-        track = collection.find_by_traktor_path("D:" + example_path)
+        track = self.collection.find_by_traktor_path(tp_exists)
         assert track is not None
         assert track.title == "Dragger"
 
         # Test with an invalid path
-        track = collection.find_by_traktor_path("D:/:nonexistent.mp3")
+        tp_nonexistent = TraktorPath.from_path("D:/:nonexistent.mp3")
+        track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
 
@@ -168,22 +179,32 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
     @pytest.mark.parametrize(
         "track",
-        [Path("/foo/bar.mp3"), "file"],
+        [Path("/Volumes/Macintosh HD/foo/bar.mp3")],
     )
-    def test_insert_track(self, track, audio_files):
+    def test_insert_track(self, track):
         """Test adding a track to a playlist."""
         p1 = self.collection.get_playlist(self.name)
         assert p1 is not None
 
         l_before = len(p1)
-        if isinstance(track, Path):
-            p1.insert(track)
-        else:
-            for audio_file in audio_files.iterdir():
-                p1.insert(LocalTrack(audio_file))
-                break
+        p1.insert(track)
+        assert len(p1) == l_before + 1
 
-        # Check if the track was added
+    @pytest.mark.skipif(
+        sys.platform == "linux",
+        reason="""
+        we do path prefix checks, which require a macOS or Windows style
+        absolute path - which is not possible with real files on linux.
+        """,
+    )
+    def test_insert_track_real_file(self, audio_files: Path):
+        p1 = self.collection.get_playlist(self.name)
+        assert p1 is not None
+
+        l_before = len(p1)
+        for audio_file in audio_files.iterdir():
+            p1.insert(LocalTrack(audio_file))
+            break
         assert len(p1) == l_before + 1
 
     def test_find_by_path(self, collection: NMLCollection, audio_files: Path):
@@ -193,12 +214,107 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
         # Test with a valid traktor path
         example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
-        track = p1.find_by_traktor_path(example_path)
+        track = p1.find_by_traktor_path(TraktorPath(example_path))
         assert track is not None
 
         # Test with a valid path
         example_path = Path(
-            "/D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
+            "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
         track = p1.find_by_local_ids({"file_path": example_path})
         assert track is not None
+
+
+class TestTraktorPath:
+    @pytest.mark.parametrize(
+        "path, expected_parts",
+        [
+            (
+                "/Volumes/Macintosh HD/Music/Drum and Bass/file.flac",
+                ("Macintosh HD", "Music", "Drum and Bass", "file.flac"),
+            ),
+            (
+                PurePosixPath("/Volumes/Macintosh HD/Music/file.flac"),
+                ("Macintosh HD", "Music", "file.flac"),
+            ),
+            (
+                Path("/Volumes/Macintosh HD/Music/file.flac"),
+                ("Macintosh HD", "Music", "file.flac"),
+            ),
+        ],
+    )
+    def test_from_path_mac(self, path, expected_parts):
+        tp = TraktorPath.from_path(path)
+        assert tp.os == "macos"
+        assert tp.volume is not None
+        assert tp.directories is not None
+        assert tp.file is not None
+        assert tp.parts == list(expected_parts)
+        assert isinstance(tp.pure_path, PurePosixPath)
+        assert str(tp.pure_path).startswith("/Volumes/")
+
+    @pytest.mark.parametrize(
+        "path, expected_parts",
+        [
+            (
+                "C:/Music/Drum and Bass/file.flac",
+                ("C:", "Music", "Drum and Bass", "file.flac"),
+            ),
+            (
+                "C:\\Music\\Drum and Bass\\file.flac",
+                ("C:", "Music", "Drum and Bass", "file.flac"),
+            ),
+            (
+                "D:/file.flac",
+                ("D:", "file.flac"),
+            ),
+            (
+                PureWindowsPath("E:/Music/Drum and Bass/file.flac"),
+                ("E:", "Music", "Drum and Bass", "file.flac"),
+            ),
+            (
+                Path("F:/Music/Drum and Bass/file.flac"),
+                ("F:", "Music", "Drum and Bass", "file.flac"),
+            ),
+        ],
+    )
+    def test_from_path_windows(self, path, expected_parts):
+        tp = TraktorPath.from_path(path)
+        assert tp.os == "windows"
+        assert tp.volume is not None
+        assert tp.directories is not None
+        assert tp.file is not None
+        assert tp.parts == list(expected_parts)
+        assert isinstance(tp.pure_path, PureWindowsPath)
+
+        assert str(tp.pure_path).startswith(tp.volume)
+        # windows uses backslashes in the pure path representation,
+        # independent of how we created our TraktorPath
+        assert str(tp.pure_path) == "\\".join(tp.parts)
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "foo/bar/file.flac",  # no slash start and no drive
+            "/Macintosh HD/Music/Drum and Bass/file.flac",  # macOS pathn without /Volumes
+            "/Volumes/file.flac",  # macOS no volume ?
+            "/foo/Music/Drum and Bass/file.flac",  # linux style path not supported
+        ],
+    )
+    def test_from_path_invalid(self, path):
+        with pytest.raises(Exception):
+            TraktorPath.from_path(path)
+
+    def test_from_nml_location(self, collection):
+        # Get a track from the collection
+        for track in collection:
+            loc = track.entry.find("LOCATION")
+            TraktorPath.from_nml_location(loc)
+
+    def test_directory_structure(self):
+        # Test the directory structure of a valid TraktorPath
+        valid_path = TraktorPath("C:/:foo/:bar/:baz/:file.flac")
+        assert valid_path.parts == ["C:", "foo", "bar", "baz", "file.flac"]
+        assert valid_path.volume == "C:"
+        assert valid_path.directories == "/:foo/:bar/:baz/:"
+        assert valid_path.file == "file.flac"

@@ -86,3 +86,7 @@ class PlexApiPlaylistResponse(TypedDict, total=False):
     leafCount: int  # 21
     addedAt: int  # 1754943684
     updatedAt: int  # 1755201015
+    # not included in the /playlists/id endpoint, only in /playlists:
+    icon: str  # 'playlist://image.smart'
+    viewCount: int  # 34
+    lastViewedAt: int  # 1748772887

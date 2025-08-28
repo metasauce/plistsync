@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from itertools import chain
-from pathlib import Path
-from typing import List, Self, cast
+from pathlib import Path, PurePath
+from typing import cast
 
 from tinytag import TinyTag
 
 from plistsync.core import Collection, GlobalTrackIDs, Track
 from plistsync.core.collection import TrackStream
-from plistsync.core.track import LocalTrackIDs
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 
 from ...logger import log
 
@@ -34,6 +34,14 @@ class FileCache:
         if not path in self._file_cache:
             self._file_cache[path] = self.get_from_disk(path)
         return self._file_cache[path]
+
+    def __contains__(self, path: Path) -> bool:
+        """Allow 'if path in cache' syntax."""
+        return path in self._file_cache
+
+    def get(self, path: Path, default=None) -> TagDict | None:
+        """Allow 'cache.get(path)' syntax. Returns None or default if not cached."""
+        return self._file_cache.get(path, default)
 
     def refresh_for_collection(self, collection: Collection):
         """Fill the cache with metadata from the collection.
@@ -82,22 +90,33 @@ class LocalTrack(Track):
 
     Mostly lazy loaded but allows for caching
     of most metadata.
+
+    Raises
+    ------
+    - FileNotFoundError: If the files are not available on the local filesystem or cache
+        (e.g. using different mount points)
+    - ValueError: If reading file metadata fails.
     """
 
-    __path: Path
     __cache: FileCache | None = None
+    __path: Path
 
-    def __init__(self, path: Path | str, cache: FileCache | None = None):
-        if isinstance(path, str):
-            path = Path(path)
+    def __init__(self, path: PurePath | Path | str, cache: FileCache | None = None):
+        path = Path(path)
         self.__path = path
         self.__cache = cache
 
-        # Check if the path exists and is allowed by tinytag
-        if not path.exists():
-            raise FileNotFoundError(f"Path {path} does not exist.")
-        if not TinyTag.is_supported(path):
-            raise ValueError(f"File {path} is not supported by tinytag.")
+        if cache is None:
+            # Check if the path exists and is allowed by tinytag
+            if not path.exists():
+                raise FileNotFoundError(f"Path {path} does not exist.")
+            if not TinyTag.is_supported(path):
+                raise ValueError(f"File {path} is not supported by tinytag.")
+                # Maybe we do the Tag readability check elsewhere -> only relevant
+                # when using disk version
+        else:
+            if not path.exists() and path not in cache:
+                raise ValueError(f"Path {path} neither on disk nor in cache.")
 
     @property
     def path(self) -> Path:
@@ -114,38 +133,7 @@ class LocalTrack(Track):
         else:
             return FileCache.get_from_disk(self.path)
 
-    # ---------------------------------------------------------------------------- #
-    #                                 ABC methods                                  #
-    # ---------------------------------------------------------------------------- #
-
-    @property
-    def title(self) -> str:
-        title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
-        if not isinstance(title, list):
-            title = [title]
-        return title[0]
-
-    @property
-    def artists(self) -> List[str]:
-        artists: str | list[str] = self.tags.get("artist", [])  # type: ignore[assignment]
-        if not isinstance(artists, list):
-            artists = [artists]
-
-        # In theory the type can also by List[float]
-        # but this makes no sense for an artist field
-        # and also it isnt supported by id3 and vorbis tags
-        return artists
-
-    @property
-    def albums(self) -> List[str]:
-        albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
-        if not isinstance(albums, list):
-            albums = [albums]
-
-        # In theory the type can also by List[float]
-        # but this makes no sense for an albums field
-        # and also it isnt supported by id3 and vorbis tags
-        return albums
+    # --------------------------------- Contracts -------------------------------- #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -179,6 +167,8 @@ class LocalTrack(Track):
         if isrc is not None:
             res["isrc"] = isrc
 
+        # TODO: recover beets meta data tidal_id, spotify_id, etc.
+
         return res
 
     @property
@@ -188,14 +178,40 @@ class LocalTrack(Track):
         This is the path to the file.
         """
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
         )
 
-    def serialize(self) -> dict:
-        return {
-            "path": str(self.path),
-        }
+    @property
+    def info(self) -> TrackInfo:
+        # the tags might or might not come as lists, so we work with lists by default.
+        # TODO: add more _generic_ fields here, and map them to our _unified_ fields
+        # of TrackInfo.
+        info = TrackInfo()
 
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["path"])
+        title: str | list[str] = self.tags.get("title", self.path.stem)  # type: ignore[assignment]
+        if not isinstance(title, list):
+            title = [title]
+            if len(title) > 1:
+                log.warning(
+                    f"Multiple titles found for {self.path}: {title}. "
+                    + "Using the first one. Tags broken?"
+                )
+        if len(title) > 0:
+            info["title"] = str(title[0])
+
+        artists: str | list[str] = self.tags.get("artist", None)  # type: ignore[assignment]
+        if not isinstance(artists, list):
+            artists = [artists]
+        if len(artists) > 0:
+            info["artists"] = [str(a) for a in artists]
+            # In theory the type we get from tags can also by List[float]
+            # but this makes no sense for an artist or album field
+            # and also it isnt supported by id3 and vorbis tags
+
+        albums: str | list[str] = self.tags.get("album", [])  # type: ignore[assignment]
+        if not isinstance(albums, list):
+            albums = [albums]
+        if len(albums) > 0:
+            info["albums"] = [str(a) for a in albums]
+
+        return info

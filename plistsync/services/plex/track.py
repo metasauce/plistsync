@@ -4,49 +4,31 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List, NamedTuple, Self
 
 from plistsync.core import GlobalTrackIDs, PathRewrite, Track
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 from plistsync.logger import log
 from plistsync.services.plex.api_types import PlexApiTrackResponse
 
 from ..local.track import FileCache, LocalTrack
 
 
-class PlexTrack(LocalTrack, Track):
-    data: PlexApiTrackResponse
-    path_rewrite: None | PathRewrite = None
+class PlexTrack(Track):
+    # TODO: Update plan: remove LocalTrack inheritance, and use
+    # LocalTrack(PathRewrite(my_plex_track.path, ...)) instead.
+    # maybe we have `.get_offline_info(path_rewrite)` property that does this for us.
 
-    def __init__(
-        self,
-        data: PlexApiTrackResponse,
-        cache: FileCache | None = None,
-        path_rewrite: None | PathRewrite = None,
-    ):
+    data: PlexApiTrackResponse
+
+    def __init__(self, data: PlexApiTrackResponse):
         """Initialize a PlexTrack object.
 
         Parameter:
         ----------
         data (Dict): The Metadata field from the Plex API response.
-        cache (FileCache | None): A file cache to use for this track, to avoid rereading id3 info from disk.
         """
 
         self.data = data
-        self.path_rewrite = path_rewrite
-
-        try:
-            path = self.path
-            LocalTrack.__init__(self, path, cache)
-        except (IndexError, TypeError):
-            # Plex used to have tracks without paths because of tidal integration
-            # this is not the case anymore, but we keep this here for backwards compatibility
-            # TypeError occurs when path is None
-            log.debug(f"Could not get path from track: {self.data}")
-            Track.__init__(self)
-        except FileNotFoundError as e:
-            log.debug(f"Could not find file for track: {e}")
-            log.debug("Might be due to inconsistent mount points or permissions.")
-            Track.__init__(self)
 
     @property
     def plex_id(self) -> str:
@@ -58,64 +40,95 @@ class PlexTrack(LocalTrack, Track):
         """
         return self.data["ratingKey"]
 
-    @property
-    def path(self) -> Path:
-        try:
-            p_str = self.data.get("Media", [])[0].get("Part", [])[0].get("file")
-            if p_str is None:
-                raise IndexError("Track has no file path")
-            if self.path_rewrite and p_str.startswith(str(self.path_rewrite.old)):
-                p_str = p_str.replace(
-                    str(self.path_rewrite.old), str(self.path_rewrite.new), 1
-                )
-        except IndexError:
-            log.error(f"Could not get path from track: {self.data}")
-            raise
-        return Path(p_str)
+    def get_info_from_file_metadata(
+        self,
+        path_rewrite: PathRewrite | None = None,
+        file_cache: FileCache | None = None,
+    ) -> TrackInfo:
+        """Get track info from the associated files metadata.
 
-    # ---------------------------------------------------------------------------- #
-    #                                 ABC methods                                  #
-    # ---------------------------------------------------------------------------- #
+        Convenience method, equivalent to sth like
+        `LocalTrack(PathRewrite(my_plex_track.path, ...)).info`.
 
-    @property
-    def title(self) -> str:
-        return self.data["title"]
+        TODO: PS 2025-08-23: not sure if this gives a lot of value - most likely we also
+        want to get global_ids esp isrc, which requires the full LocalTrack object.
 
-    @property
-    def artists(self) -> List[str]:
+        Parameters
+        ----------
+        - path_rewrite (PathRewrite | None): e.g. if you have local copy of the remote files
+        - file_cache (FileCache | None): A file cache to use. See LocalTrack
+
+        Returns
+        -------
+        - TrackInfo: A TrackInfo object with the track information from the file metadata.
+
+        Raises
+        ------
+        - FileNotFoundError: If the files are not available on the local filesystem or cache
+          (e.g. old tidal tracks or using different mount points)
+        - ValueError: If reading file metadata fails.
         """
-        Artist of the track.
 
-        In plex api speak, grandparentTitle seems to correspond to the AlbumArtist,
-        which usuall is the same as the artist.
-        If they differ, the originalTitle field is set, and contains the
-        Track Artist, and grandparentTitle contains the Album Artist.
-        """
-        artist = self.data.get("originalTitle")
-        if artist is None:
-            artist = self.data.get("grandparentTitle")
-        if artist is None:
-            return []
-        return [artist]
+        if self.path is None:
+            raise FileNotFoundError(
+                "This PlexTrack has no path, cannot read metadata from file."
+            )
 
-    @property
-    def albums(self) -> List[str]:
-        album = self.data.get("parentTitle")
-        if album is None:
-            return []
-        return [album]
+        path = self.path
+        if path_rewrite is not None:
+            path = path_rewrite.apply(path)
+
+        local_track = LocalTrack(path, cache=file_cache)
+        return local_track.info
+
+    # --------------------------------- Contracts -------------------------------- #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
-        if isinstance(self, LocalTrack):
-            return super().global_ids
         return GlobalTrackIDs()
 
-    def serialize(self) -> dict:
-        return {
-            "data": self.data,
-        }
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        lids = LocalTrackIDs()
 
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["data"])
+        # file path
+        try:
+            p_str = self.data.get("Media", [])[0].get("Part", [])[0].get("file")
+            if p_str is None:
+                raise IndexError("File attribute is None")
+            lids["file_path"] = Path(p_str)
+        except IndexError:
+            log.debug(
+                # Plex used to support remote tracks from Tidal.
+                f"Could not get path from plex metadata, might be an old tidal track."
+            )
+
+        # plex_id
+        lids["plex_id"] = self.plex_id
+
+        return lids
+
+    @property
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
+
+        title = self.data.get("title")
+        if title is not None:
+            info["title"] = title
+
+        # In plex api speak, grandparentTitle seems to correspond to the AlbumArtist,
+        # which usuall is the same as the artist.
+        # If they differ, the originalTitle field is set, and contains the
+        # Track Artist, and grandparentTitle contains the Album Artist.
+        # TODO: how are multiple artists handled?
+        artist = self.data.get("originalTitle")
+        if artist is None:
+            artist = self.data.get("grandparentTitle")
+        if artist is not None:
+            info["artists"] = [artist]
+
+        album = self.data.get("parentTitle")
+        if album is not None:
+            info["albums"] = [album]
+
+        return info

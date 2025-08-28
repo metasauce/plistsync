@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import TYPE_CHECKING, Self
+from pathlib import PurePath, PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING, Literal, Self
 
 from lxml.etree import Element, SubElement
 
 from plistsync.core import GlobalTrackIDs, Track
-from plistsync.core.track import LocalTrackIDs
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 
 if TYPE_CHECKING:
     from lxml.etree import _Element
@@ -53,25 +53,35 @@ class NMLTrack(Track):
         self.entry = entry
 
     @property
-    def title(self) -> str:
-        return self.entry.get("TITLE", "")
+    def traktor_path(self):
+        loc = self.entry.find("LOCATION")
+        if loc is None:
+            raise ValueError("Could not find LOCATION in NML entry")
+
+        vol = loc.get("VOLUME")
+        dir = loc.get("DIR")
+        file = loc.get("FILE")
+
+        return vol, dir, file
 
     @property
-    def artists(self) -> list[str]:
-        # Only has one artist
-        artists = self.entry.get("ARTIST", "")
-        return [a for a in re.split(r"[,;]", artists) if a != ""]
+    def path(self) -> PurePath:
+        loc = self.entry.find("LOCATION")
+        if loc is None:
+            raise ValueError("Could not find LOCATION in NML entry")
+
+        return TraktorPath.from_nml_location(loc).pure_path
 
     @property
-    def albums(self) -> list[str]:
-        album = self.entry.find(
-            "ALBUM",
-        )
-        if album is None:
-            return []
+    def traktor_id(self) -> str:
+        """Traktor's internal audio ID for the track."""
+        tid = self.entry.get("AUDIO_ID")
+        if tid is None:
+            # this should not happen.
+            raise ValueError("Could not find AUDIO_ID in NML entry.")
+        return tid
 
-        title = album.get("TITLE", "")
-        return [title] if title != "" else []
+    # ------------------------------- Contracts ------------------------------ #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -83,45 +93,38 @@ class NMLTrack(Track):
     @property
     def local_ids(self) -> LocalTrackIDs:
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
         )
 
-    def serialize(self) -> dict:
-        return {
-            "entry": self.entry,
-        }
-
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["entry"])
-
     @property
-    def path(self) -> Path:
-        loc = self.entry.find("LOCATION")
-        if loc is None:
-            raise ValueError("Could not find LOCATION in NML entry")
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
 
-        dir = loc.get("DIR")
-        file = loc.get("FILE")
+        title = self.entry.get("TITLE")
+        if title is not None:
+            info["title"] = title
 
-        if dir is None or file is None:
-            raise ValueError("Could not find DIR or FILE in NML LOCATION entry")
+        # Only has one artist
+        artists = self.entry.get("ARTIST")
+        if artists is not None:
+            # TODO: heuristic, we split at semicolons and commas, should be configurable.
+            info["artists"] = [a for a in re.split(r"[,;]", artists) if a != ""]
 
-        # Clean up the DIR path (remove trailing colons and slashes)
-        dir = dir.rstrip(":").rstrip("/")
+        album = self.entry.find("ALBUM")
+        if album is not None:
+            album_title = album.get("TITLE")
+            if album_title is not None:
+                info["albums"] = [album_title]
 
-        # Replace colons with slashes to create a valid path
-        dir = dir.replace(":", "/")
-
-        return Path(dir) / file
+        return info
 
 
 class NMLPlaylistTrack(Track):
     """A track in an NML playlist.
 
     Tracks in Playlists are stored differently than in the main collection,
-    and they only hold the file path. And do not need to exists in the
-    main collection.
+    and they only hold the file path. And do not need to exist in the
+    main collection. Traktor will add them to the collection when "checking consistency", but it will also remove tracks from a playlist if they are neither found on disk nor in the main collection.
 
     ```
     # macOS
@@ -129,6 +132,7 @@ class NMLPlaylistTrack(Track):
         <PRIMARYKEY TYPE="TRACK"
             KEY="vigsoe/:Users/:paul/:Music/:clean/:Dr. Apollo, Pesa One/:Culito/:01 Culito [950kbps].flac"></PRIMARYKEY>
     </ENTRY>
+
     # Windows
     <ENTRY>
         <PRIMARYKEY TYPE="TRACK"
@@ -145,32 +149,37 @@ class NMLPlaylistTrack(Track):
         Parameters
         ----------
         entry : _Element
-            The XML entry for the track in the playlist, xml should look like this:
-
-
+            The XML entry for the track in the playlist
         """
 
         self.entry = entry
 
     @classmethod
-    def from_traktor_path(cls, traktor_path: str) -> NMLPlaylistTrack:
+    def from_traktor_path(cls, traktor_path: TraktorPath) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack with underlying XML Entry from a Traktor path."""
         entry = Element("ENTRY")
         primary_key = SubElement(entry, "PRIMARYKEY")
         primary_key.set("TYPE", "TRACK")
-        primary_key.set("KEY", traktor_path)
+        primary_key.set("KEY", str(traktor_path))
         return cls(entry)
 
     @classmethod
-    def from_path(cls, path: Path) -> NMLPlaylistTrack:
-        """Create a NMLPlaylistTrack with underlying XML Entry from a path (i.e. to insert into an NML playlist)."""
-        path = path.resolve()
+    def from_path(cls, path: PurePath) -> NMLPlaylistTrack:
+        """Create a NMLPlaylistTrack with underlying XML Entry from a path.
 
-        return cls.from_traktor_path(_path_to_traktor(path))
+        This path must be absolute and contain the volume name see also
+        :py:func:`TraktorPath.from_path`
+        Avoid using path.resolve(), as it might break depending on the OS.
+        """
+        return cls.from_traktor_path(TraktorPath.from_path(path))
 
     @classmethod
     def from_track(cls, track: Track) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack with underlying XML Entry from any track with a path."""
+        if track.path is None:
+            raise ValueError(
+                "Track does not have a path, cannot create NMLPlaylistTrack."
+            )
         return cls.from_path(track.path)
 
     def to_nml_track(self, collection: NMLCollection) -> NMLTrack | None:
@@ -181,11 +190,12 @@ class NMLPlaylistTrack(Track):
         return collection.find_by_traktor_path(self.traktor_path)
 
     @property
-    def traktor_path(self) -> str:
+    def traktor_path(self) -> TraktorPath:
         """The path to the track in Traktor format.
 
-        This is the same as the path property, but with the leading slash removed
-        and colons replaced with slashes, to account for Traktor's path format.
+        In NML Playlists, the xml entry has the volume name as part of the path.
+        This is inconsistent with the xml of the tracks location in the main lib,
+        where the volume name is a separate field.
         """
         pkey = self.entry.find("PRIMARYKEY")
         if pkey is None:
@@ -193,26 +203,18 @@ class NMLPlaylistTrack(Track):
         key_value = pkey.get("KEY")
         if key_value is None:
             raise ValueError("Could not find KEY in PRIMARYKEY element")
-        return key_value
+
+        return TraktorPath(key_value)
 
     @property
-    def path(self) -> Path:
+    def path(self) -> PurePath:
         """The path to the track file on disk."""
-        return _traktor_to_path(self.traktor_path)
+        return self.traktor_path.pure_path
 
-    # methods we need to implement
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}[{self.path}]"
 
-    @property
-    def title(self) -> str:
-        raise NotImplementedError("NMLPlaylistTrack does not have a title property")
-
-    @property
-    def artists(self) -> list[str]:
-        return []
-
-    @property
-    def albums(self) -> list[str]:
-        return []
+    # ------------------------------- Contracts ------------------------------ #
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -223,28 +225,132 @@ class NMLPlaylistTrack(Track):
     def local_ids(self) -> LocalTrackIDs:
         """NMLPlaylistTrack does not have identifiers."""
         return LocalTrackIDs(
-            file_path=self.path.resolve(),
+            file_path=self.path,
         )
 
-    def serialize(self) -> dict:
-        raise NotImplementedError()
+    @property
+    def info(self) -> TrackInfo:
+        info = TrackInfo()
+
+        # PS 2025-08-23:
+        # NMLPlaylistTrack does not have metadata, only path.
+        # We _could_ get the data from the main collection, but since conversion
+        # is so easy, I dont think its worth the added complexity.
+
+        return info
+
+
+class TraktorPath:
+    # following the logic in NML **Playlists**: volume/:directory/:file
+    _parts: list[str]
+
+    def __init__(self, path: str):
+        """Construct a TraktorPath from a Traktor-style path string.
+
+        As used by Traktors NML files in the playlist section: volume/:directory/:file
+        """
+        if path.count("/:") < 1:
+            raise ValueError(
+                f"Invalid Traktor path: {path}, follow schema volume/:directory/:file"
+            )
+        self._parts = path.split("/:")
+
+    @property
+    def volume(self) -> str:
+        return self._parts[0]
+
+    @property
+    def directories(self) -> str:
+        if len(self._parts) <= 2:
+            return "/:"
+        return "/:" + "/:".join(self._parts[1:-1]) + "/:"
+
+    @property
+    def parts(self) -> list[str]:
+        return self._parts
+
+    @property
+    def file(self) -> str:
+        return self._parts[-1]
+
+    @property
+    def os(self) -> Literal["macos", "windows"]:
+        if re.match(r"^[A-Za-z]:$", self.volume):
+            return "windows"
+        return "macos"
 
     @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        raise NotImplementedError()
+    def from_nml_location(cls, loc: _Element) -> Self:
+        """Create a TraktorPath from a NML LOCATION element.
+
+        Example:
+
+        ```xml
+        <LOCATION
+            DIR="/:clean/:3 Doors Down/:3 Doors Down/:"
+            FILE="03 It's Not My Time [278kbps].mp3"
+            VOLUME="Traktor" | VOLUME="C:"
+            VOLUMEID="asdasda123"
+        ></LOCATION>
+        ```
+        """
+        vol = loc.get("VOLUME")
+        dir = loc.get("DIR")
+        file = loc.get("FILE")
+
+        if dir is None or file is None or vol is None:
+            raise ValueError("Could not find DIR, FILE or VOLUME in NML LOCATION entry")
+
+        return cls(f"{vol}{dir}{file}")
+
+    @classmethod
+    def from_path(cls, path: str | PurePath) -> Self:
+        """Create a TraktorPath from a filesystem path.
+
+        Provided paths must be absolute and contain the volume name:
+
+        ```
+        # Windows
+        C:/Users/paul/Music/file.flac
+
+        # macOS
+        /Volumes/Macintosh HD/Users/paul/Music/file.flac
+        ```
+        """
+        # Resolve UNC paths ... we might have to revisit this once we get complains
+        # form windows users.
+        path = str(path).replace("\\", "/")
+
+        if not path.startswith("/"):
+            # Windows
+            if not re.match(r"^[A-Za-z]:/", path):
+                raise ValueError(
+                    f"Path looks like a windows path (does not start with / ) but "
+                    + f"has an unexpected drive letter ({path})"
+                )
+        else:
+            # MacOS
+            if not path.startswith("/Volumes/"):
+                raise ValueError(
+                    f"Path looks like a macOS path (starts with / ) but "
+                    + f"does not start with /Volumes ({path})"
+                )
+            # Remove /Volumes prefix
+            path = path[len("/Volumes/") :]
+
+        return cls(path.replace("/", "/:"))
+
+    @property
+    def pure_path(self) -> PureWindowsPath | PurePosixPath:
+        """Convert the TraktorPath back to a (pure) filesystem Path."""
+
+        if self.os == "macos":
+            return PurePosixPath("/Volumes/" + "/".join(self._parts))
+        else:
+            return PureWindowsPath("/".join(self._parts))
+
+    def __str__(self) -> str:
+        return "/:".join(self._parts)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}[{self.path}]"
-
-
-def _path_to_traktor(path: Path) -> str:
-    """Convert a Path to a Traktor path format."""
-    return str(path.resolve()).lstrip("/").replace("/", "/:")
-
-
-def _traktor_to_path(traktor_path: str) -> Path:
-    """Convert a Traktor path format to a Path."""
-    p = Path(traktor_path.replace("/:", "/"))
-    if not p.is_absolute():
-        p = Path("/") / p
-    return p.resolve()
+        return f"TraktorPath[{str(self)}, {hash(self)}]"

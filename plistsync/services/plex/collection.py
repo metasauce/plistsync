@@ -1,12 +1,11 @@
-import itertools
+from __future__ import annotations
+
 from functools import cached_property
-from pathlib import Path
-from pprint import pprint
+from pathlib import Path, PurePath
 from typing import Any, Generator, Iterator, Sequence
 
-from plistsync.core import Collection, GlobalTrackIDs, PathRewrite, Track
+from plistsync.core import Collection
 from plistsync.core.collection import TrackStream
-from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiTrackResponse,
@@ -15,6 +14,7 @@ from plistsync.services.plex.api_types import (
 from .api import (
     fetch_playlist,
     fetch_playlist_items,
+    fetch_playlists,
     fetch_section_root_path,
     fetch_tracks,
     insert_track_into_playlist_by_id,
@@ -37,12 +37,9 @@ class PlexLibrarySectionCollection(Collection):
 
     section_id: int
 
-    path_rewrite: None | PathRewrite = None
-
     def __init__(
         self,
         section_id: str | int,
-        path_rewrite: None | PathRewrite = None,
     ):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
@@ -52,11 +49,6 @@ class PlexLibrarySectionCollection(Collection):
             The Name or ID of the Plex library section to fetch.
         """
         self.section_id = resolve_section_id(section_id)
-        self.path_rewrite = path_rewrite
-
-    _tracks: Sequence[PlexTrack] | None = None
-    _page_size: int = 5000
-    _fetched: bool = False
 
     def preload(self) -> None:
         """Preload the collection data.
@@ -66,12 +58,31 @@ class PlexLibrarySectionCollection(Collection):
         """
         _ = list(self)
 
+    @property
+    def playlists(self) -> Iterator["PlexPlaylistCollection"]:
+        """Get all playlists in the library as PlexPlaylistCollection objects."""
+
+        all_playlists = fetch_playlists()
+        for pl_data in all_playlists:
+            # we might also want to filter: smart=False
+            if pl_data.get("playlistType") != "audio":
+                continue
+            pl = PlexPlaylistCollection(
+                pl_data,
+                library_collection=self,
+            )
+            yield pl
+
     @cached_property
     def locations(self) -> list[Path]:
         """To locations (on disk) of the section."""
         return fetch_section_root_path(self.section_id)
 
     # ------------------------------- Protocols ------------------------------ #
+
+    _tracks: Sequence[PlexTrack] | None = None
+    _page_size: int = 5000
+    _fetched: bool = False
 
     def __iter__(self) -> Generator[PlexTrack, None, None]:
         """Iterate over the tracks in the collection."""
@@ -108,6 +119,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
     -----
     - Plex Playlist Collections are loaded once during initialization.
     - To refresh the state from the server, you need to recreate the collection instance.
+    - Plex Playlists do not seem to be linked to a particular section_id - they can contain tracks from multiple libraries.
     """
 
     playlist_id: int
@@ -119,12 +131,9 @@ class PlexPlaylistCollection(Collection, TrackStream):
     # parent library for adding tracks
     library_collection: PlexLibrarySectionCollection | None = None
 
-    path_rewrite: None | PathRewrite = None
-
     def __init__(
         self,
-        playlist_name_or_id: str | int,
-        path_rewrite: None | PathRewrite = None,
+        playlist_name_id_or_data: str | int | PlexApiPlaylistResponse,
         library_collection: PlexLibrarySectionCollection | None = None,
     ):
         """Initialize the PlexPlaylistCollection from plex given a playlist id.
@@ -133,15 +142,29 @@ class PlexPlaylistCollection(Collection, TrackStream):
         ----------
         playlist_id : str | int
             The Name or ID of the Plex playlist to fetch.
+        library_collection : PlexLibrarySectionCollection | None
+            The Plex library collection in which the playlist lives.
+            Without a library, no tracks can be added to the playlist.
         """
 
-        self.playlist_id = resolve_playlist_id(playlist_name_or_id)
-        self.path_rewrite = path_rewrite
+        if isinstance(playlist_name_id_or_data, (str, int)):
+            self.playlist_id = resolve_playlist_id(playlist_name_id_or_data)
+            self.plex_playlist_data = fetch_playlist(self.playlist_id)
+        else:
+            self.plex_playlist_data = playlist_name_id_or_data
+            self.playlist_id = int(self.plex_playlist_data["ratingKey"])
 
         # TODO: maybe fetch on access, not init?
-        self.plex_playlist_data = fetch_playlist(self.playlist_id)
         self.plex_items_data = fetch_playlist_items(self.playlist_id)
         self.library_collection = library_collection
+
+    @property
+    def is_smart(self) -> bool:
+        """Check if the playlist is a smart playlist.
+
+        Tracks cannot be added to smart playlists.
+        """
+        return self.plex_playlist_data.get("smart", False)
 
     @property
     def name(self) -> str:
@@ -168,7 +191,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
 
     def insert_by_path(
         self,
-        path: Path | str,
+        path: PurePath | str,
         library_collection: PlexLibrarySectionCollection | None = None,
     ):
         """
@@ -178,6 +201,9 @@ class PlexPlaylistCollection(Collection, TrackStream):
         either already linked to the playlist, or passed as an argument.
 
         """
+        if self.is_smart:
+            raise ValueError("Cannot insert tracks into a smart playlist.")
+
         library_collection = library_collection or self.library_collection
         if library_collection is None:
             raise ValueError("Library collection needs to be set to insert by path.")
@@ -195,9 +221,17 @@ class PlexPlaylistCollection(Collection, TrackStream):
 
     def insert_by_id(self, track_id: str | int):
         """Insert a track into the playlist by its Plex ID."""
+        if self.is_smart:
+            raise ValueError("Cannot insert tracks into a smart playlist.")
 
         return insert_track_into_playlist_by_id(
             track_id=track_id, playlist_id=self.playlist_id
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"PlexPlaylistCollection {self.playlist_id} "
+            + f'["{self.name}", {len(self.plex_items_data)} tracks]'
         )
 
     # --------------------------------- Protocols -------------------------------- #
@@ -210,6 +244,5 @@ class PlexPlaylistCollection(Collection, TrackStream):
         Generator[Track, None, None]
             A generator yielding PlexTrack objects.
         """
-        # log.warning(self.plex_items_data)
         for item in self.plex_items_data:
-            yield PlexTrack(item, path_rewrite=self.path_rewrite)
+            yield PlexTrack(item)

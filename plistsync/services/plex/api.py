@@ -67,12 +67,11 @@ def resolve_playlist_id(playlist_name_or_id: str | int) -> int:
         raise ValueError()
     except ValueError:
         # playlist_id is a name, not a number; look up the ID
-        data = fetch_playlists()
-        for playlist in data.get("Metadata", []):
+        for playlist in fetch_playlists():
             if playlist.get("title") == playlist_name_or_id and (
                 playlist.get("type") == "playlist"
             ):
-                return playlist.get("ratingKey")
+                return int(playlist["ratingKey"])
     raise ValueError(f"Playlist '{playlist_name_or_id}' not found.")
 
 
@@ -163,17 +162,11 @@ def fetch_playlist_items(playlist_id: str | int) -> list[PlexApiTrackResponse]:
     return response["MediaContainer"].get("Metadata", [])
 
 
-def fetch_playlists() -> dict[str, Any]:
-    """Fetch a Plex playlist by its ID.
-
-    Parameters
-    ----------
-    playlist_id : str
-        The ID of the Plex playlist to fetch.
-    """
+def fetch_playlists() -> list[PlexApiPlaylistResponse]:
+    """Fetch all plex playlists."""
 
     response = request(f"/playlists/")
-    return response["MediaContainer"]
+    return response["MediaContainer"]["Metadata"]
 
 
 def fetch_tracks_by_id(

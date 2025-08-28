@@ -1,5 +1,5 @@
 import pytest
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Generator
 from abc import ABC, abstractmethod
 
@@ -54,18 +54,6 @@ class TrackTestBase(ABC):
         for track in self.create_track():
             assert isinstance(track.global_ids, dict), "Identifiers should be a dict"
 
-    def test_serialization(self):
-        for track in self.create_track():
-            # Check if serialization works
-            serialized = track.serialize()
-            assert isinstance(serialized, dict), "Serialized should be a dict"
-
-            # Check if deserialization works
-            deserialized = self.track_class.deserialize(serialized)
-            assert isinstance(deserialized, Track), (
-                "Deserialized should be a Track instance"
-            )
-
     # ---------------------------------------------------------------------------- #
     #                              Test Common methods                             #
     # ---------------------------------------------------------------------------- #
@@ -82,16 +70,12 @@ class TrackTestBase(ABC):
                 "Primary artist should be a string or None"
             )
 
-    def test_to_dict(self):
-        for track in self.create_track():
-            assert isinstance(track.to_dict(), dict), "to_dict should return a dict"
-
     # ---------------------------------------------------------------------------- #
 
     def test_path(self):
         for track in self.create_track():
             if self.test_config["has_path"]:
-                assert isinstance(track.path, Path), "Path should be a Path object"
+                assert isinstance(track.path, PurePath), "Path should be a Path object"
             else:
                 with pytest.raises(NotImplementedError):
                     track.path
@@ -139,7 +123,8 @@ class CollectionTestBase(ABC):
             if isinstance(collection, LocalLookup):
                 found_track = collection.find_by_local_ids(track.local_ids)
                 # assumptions on the track returned by local id lookup
-                assert found_track is None or found_track == track, (
+                # TODO PS@semohr how do we want to decide that "they are equal"?
+                assert found_track is None or found_track.diff(track) == {}, (
                     "Local lookup should return the matching track or None"
                 )
 

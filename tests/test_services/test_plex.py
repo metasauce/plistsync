@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from plistsync.services.local.track import LocalTrack
 from plistsync.services.plex import PlexTrack
 from plistsync.services.plex.api_types import PlexApiTrackResponse
 from tests.abc import TrackTestBase
@@ -96,7 +97,46 @@ class TestPlexTrack(TrackTestBase):
                 )
             )
 
-    def test_plex_identifiers(self):
+    def test_plex_id(self):
         # Test valid plex identifier
         for track in self.create_track():
             assert track.plex_id == "58516", "Plex ID should be correct"
+
+    def test_info(self):
+        # Test valid info
+        for track in self.create_track():
+            info = track.info
+            assert isinstance(info, dict), "Info should be a dict"
+            assert (
+                info.get("title") == "We Are Your Crazy Friends (Baramuda Bootleg Mix)"
+            ), "Title should be correct"
+            assert info.get("artists") == ["Sharam Vs Justice"], (
+                "Artist should be correct"
+            )
+            assert info.get("albums") == ["Tech And Minimal Collection Volume 20"], (
+                "Album should be correct"
+            )
+
+    def test_local_ids(self):
+        # Test valid local_ids
+        for track in self.create_track():
+            lids = track.local_ids
+            assert isinstance(lids, dict), "local_ids should be a dict"
+
+            # we only use local tracks in the test (not the tidal ones)
+            assert "file_path" in lids, "local_ids should contain file_path"
+            assert lids["file_path"] == track.path, "file_path should be correct"
+
+            assert "plex_id" in lids, "local_ids should contain plex_id"
+            assert lids["plex_id"] == track.plex_id, "plex_id should be correct"
+
+    def test_global_ids_via_local_track(self):
+        # plex has very little real metadata in its track-level api respones,
+        # so checking that we can retrieve metadata from the actual file
+        # is important.
+        for track in self.create_track():
+            assert track.path is not None, "Track should have a path"
+            local_track = LocalTrack(track.path)
+            assert local_track.global_ids.get("isrc") == "US-AT1-99-00001", (
+                "ISRC should be correct"
+            )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Generator, Iterable, Iterator
 from uuid import uuid4
 
@@ -12,7 +12,7 @@ from plistsync.core.collection import LibraryCollection, LocalLookup, TrackStrea
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
-from .track import NMLPlaylistTrack, NMLTrack, _path_to_traktor
+from .track import NMLPlaylistTrack, NMLTrack, TraktorPath
 
 if TYPE_CHECKING:
     from lxml.etree import _ElementTree
@@ -65,12 +65,12 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         self.tree.write(self.path, encoding="utf-8", xml_declaration=True)
         log.debug(f"Committed changes to {self.path}")
 
-    def find_by_traktor_path(self, path: str) -> NMLTrack | None:
+    def find_by_traktor_path(self, traktor_path: TraktorPath) -> NMLTrack | None:
         """Find a track by its file path.
 
         Parameter
         ---------
-        path : str
+        traktor_path : TraktorPath
             The file path of the track to find. This should be the full path including the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified, it should will be ignored for the search.
         """
 
@@ -78,17 +78,10 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         if collection is None:
             raise ValueError("Could not find COLLECTION in NML file")
 
-        # Remove volume from path if it exists
-        if not path.startswith("/"):
-            # If the path does not start with a slash, we assume it is a volume
-            # e.g. "C:/:foo/:bar.mp3"
-            path = "/" + path.split("/", 1)[-1]
-
-        # remove ending file.any
-        path, file = path.rsplit("/:", 1)
-
         entry = collection.xpath(
-            f".//ENTRY/LOCATION[@DIR={xpath_string_escape(path + '/:')}][@FILE={xpath_string_escape(file)}]/.."
+            f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
+            + f"[@FILE={xpath_string_escape(traktor_path.file)}]"
+            + f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
         )
         if len(entry) == 0:
             return None
@@ -103,8 +96,7 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         We only support lookup by path here.
         """
         if file_path := local_ids.get("file_path"):
-            # If the file_path is set, we can use it to find the track
-            return self.find_by_traktor_path(_path_to_traktor(file_path))
+            return self.find_by_traktor_path(TraktorPath.from_path(file_path))
         return None
 
     def __iter__(self) -> Iterator[NMLTrack]:
@@ -155,6 +147,8 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
 
 class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
     """A Traktor NML playlist collection.
+
+    Traktor playlists use file paths as the identifiers.
 
     Allows to parse and interact with a Traktor NML file that contains playlists.
     """
@@ -281,20 +275,25 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         entries = self.playlist_node.get("ENTRIES", "0")
         return int(entries) if entries.isdigit() else 0
 
-    def insert(self, track: Path | Track) -> NMLPlaylistTrack:
+    def insert(self, track: PurePath | Track) -> NMLPlaylistTrack:
         """Insert a track into the playlist.
 
         ATM it skips duplicate
         """
+        path: PurePath
         if isinstance(track, Track):
-            track = track.path
+            if track.path is None:
+                raise ValueError("Tracks need to have a path to be inserted.")
+            path = track.path
+        else:
+            path = track
 
         # Check if existing track is already in the playlist
-        if ptrack := self.find_by_traktor_path(_path_to_traktor(track)):
+        if ptrack := self.find_by_traktor_path(TraktorPath.from_path(path)):
             return ptrack
 
         # update playlist entries number
-        ptrack = NMLPlaylistTrack.from_path(track)
+        ptrack = NMLPlaylistTrack.from_path(path)
         self.playlist_node.append(ptrack.entry)
 
         # Update the number of entries in the playlist
@@ -314,7 +313,9 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         """Write the changes back to the NML file."""
         self.library_collection.commit()
 
-    def find_by_traktor_path(self, path: str) -> NMLPlaylistTrack | None:
+    def find_by_traktor_path(
+        self, traktor_path: TraktorPath
+    ) -> NMLPlaylistTrack | None:
         """Find a track by its file path.
 
         Parameter
@@ -324,13 +325,13 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         """
 
         entries = self.playlist_node.xpath(
-            f".//ENTRY/PRIMARYKEY[@TYPE='TRACK'][@KEY={xpath_string_escape(path)}]"
+            f".//ENTRY/PRIMARYKEY[@TYPE='TRACK'][@KEY={xpath_string_escape(str(traktor_path))}]/.."
         )
         if len(entries) == 0:
             return None
         elif len(entries) > 1:
             log.warning(
-                f"Found duplicate entries for path {path} in playlist, using first one."
+                f"Found duplicate entries for path '{traktor_path}' in playlist, using first one."
             )
 
         return NMLPlaylistTrack(entries[0])
@@ -350,7 +351,7 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         """
         if file_path := local_ids.get("file_path"):
             # If the file_path is set, we can use it to find the track
-            return self.find_by_traktor_path(_path_to_traktor(file_path))
+            return self.find_by_traktor_path(TraktorPath.from_path(file_path))
         return None
 
     def __iter__(self) -> Generator[NMLPlaylistTrack, None, None]:
