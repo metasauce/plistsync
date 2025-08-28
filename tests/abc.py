@@ -123,7 +123,8 @@ class CollectionTestBase(ABC):
             if isinstance(collection, LocalLookup):
                 found_track = collection.find_by_local_ids(track.local_ids)
                 # assumptions on the track returned by local id lookup
-                assert found_track is None or found_track == track, (
+                # TODO PS@semohr how do we want to decide that "they are equal"?
+                assert found_track is None or found_track.diff(track) == {}, (
                     "Local lookup should return the matching track or None"
                 )
 

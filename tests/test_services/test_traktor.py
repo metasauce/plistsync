@@ -172,7 +172,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
     @pytest.mark.parametrize(
         "track",
-        [Path("/foo/bar.mp3"), "file"],
+        [Path("/Volumes/Macintosh HD/foo/bar.mp3"), "file"],
     )
     def test_insert_track(self, track, audio_files):
         """Test adding a track to a playlist."""
@@ -197,12 +197,12 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
         # Test with a valid traktor path
         example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
-        track = p1.find_by_traktor_path(TraktorPath.from_path(example_path))
+        track = p1.find_by_traktor_path(TraktorPath(example_path))
         assert track is not None
 
         # Test with a valid path
         example_path = Path(
-            "/D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
+            "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
         track = p1.find_by_local_ids({"file_path": example_path})
         assert track is not None

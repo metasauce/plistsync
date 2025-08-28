@@ -102,7 +102,7 @@ class LocalTrack(Track):
     __path: Path
 
     def __init__(self, path: Path | str, cache: FileCache | None = None):
-        path = Path(path).resolve()
+        path = Path(path)
         self.__path = path
         self.__cache = cache
 

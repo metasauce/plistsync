@@ -156,5 +156,31 @@ class Track(ABC):
 
     # ----------------------------------- Other ---------------------------------- #
 
+    def diff(self, track2: Track) -> dict:
+        """Return a dict of differences between this and another track."""
+        # TODO: still need to think about hashing and how we want to interpret equality.
+        diffs = {}
+        track1 = self
+
+        # Compare info fields
+        for key in set(track1.info.keys()).union(track2.info.keys()):
+            v1, v2 = track1.info.get(key), track2.info.get(key)
+            if v1 != v2:
+                diffs[f"info.{key}"] = (v1, v2)
+
+        # Compare global_ids fields
+        for key in set(track1.global_ids.keys()).union(track2.global_ids.keys()):
+            v1, v2 = track1.global_ids.get(key), track2.global_ids.get(key)
+            if v1 != v2:
+                diffs[f"global_ids.{key}"] = (v1, v2)
+
+        # Compare local_ids fields
+        for key in set(track1.local_ids.keys()).union(track2.local_ids.keys()):
+            v1, v2 = track1.local_ids.get(key), track2.local_ids.get(key)
+            if v1 != v2:
+                diffs[f"local_ids.{key}"] = (v1, v2)
+
+        return diffs
+
     def __repr__(self) -> str:
-        return f"Track[{self.primary_artist} > {self.title}]"
+        return f"Track[{self.primary_artist} > {self.title}, {hash(self)}]"

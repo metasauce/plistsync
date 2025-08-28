@@ -1,3 +1,5 @@
+import platform
+import subprocess
 from typing import Any, List
 import pytest
 import os
@@ -37,6 +39,7 @@ def audio_files(plist_config: tuple[Path, Path]):
     # such that we can transform the files without changing the originals
     source = Path(__file__).parent / "data" / "audio"
     dest = Path(plist_config[1]) / "audio"
+    dest = fix_path_prefix_for_traktor(dest)
     Path(dest).mkdir(exist_ok=True)
 
     shutil.copytree(source, dest, dirs_exist_ok=True)
@@ -53,6 +56,7 @@ def audio_files_nested(plist_config: tuple[Path, Path]):
     # such that we can transform the files without changing the originals
     source = Path(__file__).parent / "data" / "audio"
     dest = Path(plist_config[1]) / "audio"
+    dest = fix_path_prefix_for_traktor(dest)
     Path(dest).mkdir(exist_ok=True)
 
     shutil.copytree(source, dest, dirs_exist_ok=True)
@@ -137,3 +141,41 @@ def set_tags(file_dir: Path | List[Path], tags: dict[str, Any]):
     # Print the tags for debugging
     for file in file_dir:
         audio = File(file, easy=True)
+
+
+def fix_path_prefix_for_traktor(dest: Path):
+    """Make sure this pass is compatible with absolute path required
+    by Traktor, i.e.
+
+    /Volumes/Macintosh HD/... on macOS
+    C: ... on Windows
+
+    ... linux?
+    """
+
+    if platform.system() == "Darwin":
+        volume_name = _find_macos_volume_name()
+        dest = Path(f"/Volumes/{volume_name}") / dest.relative_to(dest.anchor)
+    elif platform.system() == "Windows":
+        # should be just fine
+        dest = Path(dest.drive) / dest.relative_to(dest.anchor)
+    else:
+        # on linux, we might want to do a workaround via symlink
+        # as /Volumes/foo/ ...
+        dest = dest.resolve()
+
+    return dest
+
+
+def _find_macos_volume_name() -> str:
+    cmd = [
+        "diskutil",
+        "info",
+        "/",
+    ]
+    output = subprocess.check_output(cmd, text=True)
+    for line in output.splitlines():
+        if "Volume Name:" in line:
+            return line.split(":", 1)[1].strip()
+
+    return "Macintosh HD"
