@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Generator, Iterable, Iterator, List
 
 from sqlalchemy import ColumnExpressionArgument, Row, String, cast, or_, select
@@ -34,7 +34,7 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
 
         return BeetsTrack.tracks_from_db_rows(rows)
 
-    def get_by_path(self, path: str | Path) -> List[BeetsTrack]:
+    def get_by_path(self, path: str | PurePath) -> List[BeetsTrack]:
         """Get a track by its file path."""
         table = self.db.get_table("items")
 

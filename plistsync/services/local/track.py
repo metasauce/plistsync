@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import chain
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import List, Self, cast
 
 from tinytag import TinyTag
@@ -101,7 +101,7 @@ class LocalTrack(Track):
     __cache: FileCache | None = None
     __path: Path
 
-    def __init__(self, path: Path | str, cache: FileCache | None = None):
+    def __init__(self, path: PurePath | Path | str, cache: FileCache | None = None):
         path = Path(path)
         self.__path = path
         self.__cache = cache

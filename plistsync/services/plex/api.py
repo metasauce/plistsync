@@ -71,7 +71,7 @@ def resolve_playlist_id(playlist_name_or_id: str | int) -> int:
             if playlist.get("title") == playlist_name_or_id and (
                 playlist.get("type") == "playlist"
             ):
-                return int(playlist.get("ratingKey"))
+                return int(playlist["ratingKey"])
     raise ValueError(f"Playlist '{playlist_name_or_id}' not found.")
 
 
