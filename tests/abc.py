@@ -122,8 +122,9 @@ class CollectionTestBase(ABC):
         for collection in self.create_collection():
             if isinstance(collection, LocalLookup):
                 found_track = collection.find_by_local_ids(track.local_ids)
-                # assumptions on the track returned by local id lookup
-                assert found_track is None or found_track == track, (
+                # assume the track is found
+                assert found_track is not None
+                assert found_track.local_ids == track.local_ids, (
                     "Local lookup should return the matching track or None"
                 )
 

@@ -70,6 +70,13 @@ class TestNMLTrack(TrackTestBase):
     def create_track(self, *args, **kwargs) -> Generator[Track, None, None]:
         yield self.track
 
+    def test_path(self):
+        """Test the path property of the NMLTrack."""
+        expected_path = PureWindowsPath(
+            "F:/sync/jungle is massive/06 Ready Or Not [1074kbps].flac"
+        )
+        assert self.track.path == expected_path
+
 
 class TestNMLCollection(LibraryCollectionTestBase):
     """Test the NMLCollection class."""
@@ -196,13 +203,13 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         # Test with a valid traktor path
-        example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
+        example_path = "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         track = p1.find_by_traktor_path(TraktorPath.from_path(example_path))
         assert track is not None
 
         # Test with a valid path
         example_path = Path(
-            "/D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
+            "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
         track = p1.find_by_local_ids({"file_path": example_path})
         assert track is not None
@@ -293,3 +300,11 @@ class TestTraktorPath:
         for track in collection:
             loc = track.entry.find("LOCATION")
             TraktorPath.from_nml_location(loc)
+
+    def test_directory_structure(self):
+        # Test the directory structure of a valid TraktorPath
+        valid_path = TraktorPath("C:/:foo/:bar/:baz/:file.flac")
+        assert valid_path.parts == ["C:", "foo", "bar", "baz", "file.flac"]
+        assert valid_path.volume == "C:"
+        assert valid_path.directories == "/:foo/:bar/:baz/:"
+        assert valid_path.file == "file.flac"
