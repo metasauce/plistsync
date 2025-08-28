@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from functools import cached_property
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Generator, Iterator, Sequence
 
 from plistsync.core import Collection
@@ -189,7 +191,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
 
     def insert_by_path(
         self,
-        path: Path | str,
+        path: PurePath | str,
         library_collection: PlexLibrarySectionCollection | None = None,
     ):
         """

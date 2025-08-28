@@ -275,7 +275,7 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         entries = self.playlist_node.get("ENTRIES", "0")
         return int(entries) if entries.isdigit() else 0
 
-    def insert(self, track: Path | Track) -> NMLPlaylistTrack:
+    def insert(self, track: PurePath | Track) -> NMLPlaylistTrack:
         """Insert a track into the playlist.
 
         ATM it skips duplicate
