@@ -1,5 +1,5 @@
 import pytest
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Generator
 from abc import ABC, abstractmethod
 
@@ -75,7 +75,7 @@ class TrackTestBase(ABC):
     def test_path(self):
         for track in self.create_track():
             if self.test_config["has_path"]:
-                assert isinstance(track.path, Path), "Path should be a Path object"
+                assert isinstance(track.path, PurePath), "Path should be a Path object"
             else:
                 with pytest.raises(NotImplementedError):
                     track.path

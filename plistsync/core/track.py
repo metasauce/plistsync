@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import NotRequired, TypedDict
 
 
@@ -41,11 +41,12 @@ class LocalTrackIDs(TypedDict, total=False):
     Corresponds to collections-protocol `LocalLookup`.
     """
 
-    file_path: Path
-    """Local filesystem path to the track file.
+    file_path: PurePath
+    """Local (pure) filesystem path to the track file.
 
     This is not globally unique because file paths may differ across devices
     or mount points, even if the underlying track is the same.
+    (This is also why we use PurePath, which is OS-agnostic, instead of Path.)
     """
 
     beets_id: int
@@ -114,7 +115,7 @@ class Track(ABC):
         return self.info.get("albums", [])
 
     @property
-    def path(self) -> Path | None:
+    def path(self) -> PurePath | None:
         """The path to the file of the track."""
         return self.local_ids.get("file_path", None)
 
