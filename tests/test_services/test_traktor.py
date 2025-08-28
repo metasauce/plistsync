@@ -108,6 +108,10 @@ class TestNMLCollection(LibraryCollectionTestBase):
     def unknown_playlist_names(self):
         return ["unknown playlist"]
 
+    @property
+    def unknown_playlist_names(self):
+        return ["unknown playlist"]
+
     def test_len(self):
         """Test the length of the collection."""
         assert len(self.collection) == self.length
