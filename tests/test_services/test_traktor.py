@@ -1,4 +1,6 @@
 from enum import auto
+import platform
+import sys
 from typing import Generator
 
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -183,22 +185,32 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
     @pytest.mark.parametrize(
         "track",
-        [Path("/Volumes/Macintosh HD/foo/bar.mp3"), "file"],
+        [Path("/Volumes/Macintosh HD/foo/bar.mp3")],
     )
-    def test_insert_track(self, track, audio_files):
+    def test_insert_track(self, track):
         """Test adding a track to a playlist."""
         p1 = self.collection.get_playlist(self.name)
         assert p1 is not None
 
         l_before = len(p1)
-        if isinstance(track, Path):
-            p1.insert(track)
-        else:
-            for audio_file in audio_files.iterdir():
-                p1.insert(LocalTrack(audio_file))
-                break
+        p1.insert(track)
+        assert len(p1) == l_before + 1
 
-        # Check if the track was added
+    @pytest.mark.skipif(
+        sys.platform == "linux",
+        reason="""
+        we do path prefix checks, which require a macOS or Windows style
+        absolute path - which is not possible with real files on linux.
+        """,
+    )
+    def test_insert_track_real_file(self, audio_files: Path):
+        p1 = self.collection.get_playlist(self.name)
+        assert p1 is not None
+
+        l_before = len(p1)
+        for audio_file in audio_files.iterdir():
+            p1.insert(LocalTrack(audio_file))
+            break
         assert len(p1) == l_before + 1
 
     def test_find_by_path(self, collection: NMLCollection, audio_files: Path):
