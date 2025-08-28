@@ -44,9 +44,11 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import (
     Callable,
     Concatenate,
+    Generic,
     Iterable,
     Iterator,
     List,
@@ -192,14 +194,17 @@ class TrackStream(Protocol[T]):
             yield from zip(*chunk)
 
 
+def _fuzzy_match_track(a: Track, b: Track) -> Similarity:
+    return fuzzy_match(a.info, b.info)
+
+
 class Collection(ABC):
-    """A data structure that holds tracks.
+    """A generic data structure that allows lookup or iteration of tracks.
 
-    Collections can be thought of as libraries, playlists, or databases that contain tracks.
-    They provide methods to access, filter, and iterate over the tracks in a collection.
+    Collections act as flexible track containers, accommodating multiple storage formats and sources,
+    such as online databases or local files, without dictating a specific storage mechanism.
 
-    For this ABC there is no specific requirements in how the tracks are stored, e.g. in a database, in memory, or on disk.
-    The only requirement is that the collection should be iterable and provide a way to find tracks by their identifiers.
+    This abstract base class is designed to support adaptable implementations for accessing and interacting with tracks in diverse ways, see protocols above.
     """
 
     def match(
@@ -247,7 +252,7 @@ class Collection(ABC):
         # 2. Try local ID lookup (exact match with similarity check)
         if has_local_lookup:
             if found_track := self.find_by_local_ids(track.local_ids):  # type: ignore[attr-defined]
-                similarity = fuzzy_match(track.info, found_track.info)
+                similarity = _fuzzy_match_track(track, found_track)
 
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
@@ -270,7 +275,7 @@ class Collection(ABC):
         # 3. Try info-based search (similarity match)
         if has_info_lookup:
             for found_track in self.find_by_info(track.info):  # type: ignore[attr-defined]
-                similarity = fuzzy_match(track.info, found_track.info)
+                similarity = _fuzzy_match_track(track, found_track)
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
                     similarities.append(similarity)
@@ -291,7 +296,7 @@ class Collection(ABC):
             # TODO: we might to skip the fuzzy match for the global
             # id case
             for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
-                fuzzy_match, chunk_size=1000, b=track.info
+                _fuzzy_match_track, chunk_size=1000, b=track
             ):
                 if not has_global_lookup:
                     for key, value in track.global_ids.items():
@@ -334,3 +339,26 @@ class Collection(ABC):
             found=found_tracks,
             found_similarities=similarities,
         )
+
+
+C = TypeVar("C", bound=Collection)
+
+
+class LibraryCollection(Generic[C], Collection, ABC):
+    """Represents a collection of tracks in a library with optional playlist management.
+
+    This class serves as a base for library collections across diverse services.
+    It provides a framework for managing tracks and playlists, allowing each service
+    to implement its specifics.
+    """
+
+    @property
+    @abstractmethod
+    def playlists(self) -> Iterable[C]:
+        """Retrieve playlists associated with this library collection."""
+        ...
+
+    @abstractmethod
+    def get_playlist(self, name: Path | str) -> C | None:
+        """Get a specific playlist by name or identifier."""
+        ...
