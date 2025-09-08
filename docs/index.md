@@ -46,12 +46,14 @@ details/matching.md
 :caption: 🛠️ Services
 
 services/tidal.md
+services/spotify.md
 ```
 
 ```{toctree}
 :hidden:
 :caption: 📖 Reference
 
+changelog.md
 contribution.md
 api/index.md
 ```

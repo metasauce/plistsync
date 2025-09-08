@@ -15,9 +15,8 @@ import typer
 
 from plistsync.config import Config
 from plistsync.logger import log
-from plistsync.utils import build_url
-
-from .token import TidalBearerToken
+from plistsync.utils import build_url, safe_webbrowser_open
+from plistsync.utils.bearer_token import BearerToken
 
 tidal_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Tidal.", add_completion=False
@@ -41,7 +40,7 @@ def auth(
     This will open a browser window to log in to Tidal and obtain an access token.
     """
     tidal_config = Config().tidal
-    code_verifier, code_challenge = _generate_pkce_codes()
+    code_verifier, code_challenge = generate_pkce_codes()
     state = secrets.token_urlsafe(8)
 
     url = build_url(
@@ -62,9 +61,7 @@ def auth(
     log.debug(f"Redirecting to Tidal login: {url}")
     # Try to open the URL in the default browser
     try:
-        import webbrowser
-
-        webbrowser.open(url)
+        safe_webbrowser_open(url)
     except Exception:
         typer.echo(
             "Failed to open the url in the default browser automatically. Please open the URL manually."
@@ -91,14 +88,18 @@ def auth(
     response.raise_for_status()
     token_data = response.json()
 
-    # Create TidalBearerToken instance and save it
-    token = TidalBearerToken.from_dict(token_data)
+    # Create BearerToken instance and save it
+    token = BearerToken.from_dict(token_data)
     f_path = Config.get_dir() / "tidal_token.json"
     token.save(f_path)
     typer.echo(f"Authentication successful! Tidal token saved to {f_path}.")
 
 
-def _generate_pkce_codes():
+def generate_pkce_codes():
+    """Generate PKCE code verifier and code challenge.
+
+    Used for OAuth2 authentication with PKCE (S256).
+    """
     code_verifier = secrets.token_urlsafe(32)
     code_challenge = (
         base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
