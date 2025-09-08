@@ -196,10 +196,6 @@ async def handle_rate_limit(headers: CaseInsensitiveDict):
 
     remaining = int(headers.get("Retry-After", 0))
 
-    log.warning(
-        f"Rate limit exceeded. Retry-After: {remaining} seconds. Headers: {headers}"
-    )
-
     if remaining > 0:
         log.info(f"Tidal rate limit exceeded: Waiting {remaining} seconds")
         await asyncio.sleep(remaining)

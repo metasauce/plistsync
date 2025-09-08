@@ -27,7 +27,7 @@ Go to your `Dashboard` and create a new application. You will need to provide a 
 :::{admonition} Port Configuration 
 :class: tip
 
-If the default port `5001` is already in use, you can change it in the configuration file.
+If the default port `5001` is already in use, and you do not want to use the `no-server` option, you can specify a different port by changing the `redirect_port` in your `config.yaml` file under the `tidal` section. Make sure to also update the redirect URI in your Tidal application settings to match the new port.
 :::
 
 
