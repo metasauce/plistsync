@@ -1,6 +1,8 @@
-"""Translator functions.
+"""Track matching algorithms.
 
-Not really an abstract base class, but placed it here for now.
+This module provides various algorithms and utilities for matching music tracks
+based on their metadata. It includes functions for fuzzy matching, calculating
+similarity scores, and handling different types of metadata such as strings and lists.
 """
 
 from __future__ import annotations
@@ -22,6 +24,8 @@ Similarity = float
 
 @dataclass
 class Matches:
+    """Represents the result of a track matching operation."""
+
     truth: Track
     found: Sequence[Track] = field(default_factory=list)
     found_similarities: list[Similarity] = field(default_factory=list)

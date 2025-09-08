@@ -21,6 +21,16 @@ This documentation is very much a work in progress. If you have any questions or
 :end-before: <!-- end features -->
 ```
 
+## Installation
+
+```{include} ./getting-started.md
+:start-after: <!-- start installation -->
+:end-before: <!-- end installation -->
+```
+
+If this is your first time using `plistsync`, we recommend reading the [getting started guide](getting-started.md) to familiarize yourself with the core concepts and functionalities of the library.
+
+
 
 ```{toctree}
 :hidden:
@@ -31,17 +41,17 @@ details/matching.md
 ```
 
 ```{toctree}
+:maxdepth: 1
 :hidden:
 :caption: 🛠️ Services
 
 services/tidal.md
 ```
 
-
 ```{toctree}
 :hidden:
 :caption: 📖 Reference
 
+contribution.md
 api/index.md
-
 ```

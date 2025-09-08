@@ -6,6 +6,10 @@
 {{ obj.id }}
 {{ "=" * obj.id|length }}
 
+.. currentmodule:: {{ obj.obj["full_name"] }}
+
+
+
 {% if obj.docstring %}
 .. autoapi-nested-parse::
 
@@ -78,18 +82,7 @@ Overview
 {% for obj_item in this_page_children %}
 {{ obj_item.render()|indent(0) }}
 {% endfor %}
-{% else %}
-.. py:module:: {{ obj.name }}
 
-    {% if obj.docstring %}
-   .. autoapi-nested-parse::
-
-      {{ obj.docstring|indent(6) }}
-
-    {% endif %}
-    {% for obj_item in visible_children %}
-   {{ obj_item.render()|indent(3) }}
-    {% endfor %}
 
 {% endif %}
 

@@ -3,7 +3,7 @@
    :description: Developer guide for track matching operations - single-track search and full-collection comparison.
 ```
 
-# Matching Usage Guide
+# Matching Tracks
 
 This guide covers the **user-facing API** for matching tracks using the `plistsync` library. It focuses on how to use the matching functions for two core tasks:
 

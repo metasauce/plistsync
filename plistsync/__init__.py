@@ -1,3 +1,5 @@
+"""Toolbox for transferring, converting and matching music collections."""
+
 from . import config, core, logger, services
 
 __all__ = [

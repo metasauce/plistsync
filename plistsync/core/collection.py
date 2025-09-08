@@ -9,6 +9,7 @@ Key Design Principles:
 ----------------------
 1. Capability-based Design:
    Collections declare what operations they support by implementing specific protocols:
+
    - **GlobalLookup**: Enables exact matching via globally unique identifiers.
    - **LocalLookup**: Supports context-specific identifier matching.
    - **InfoLookup**: Facilitates metadata-based similarity searches.
@@ -19,18 +20,18 @@ Key Design Principles:
    strategies, all while maintaining backward compatibility with basic iteration.
 
 3. Runtime Flexibility:
-   The `@runtime_checkable` decorator allows collections to be verified at runtime,
+   The ``@runtime_checkable`` decorator allows collections to be verified at runtime,
    while static type checkers can verify protocol compliance during development.
 
-The main `Collection` abstract base class (ABC) demonstrates the integration of these
-protocols into a comprehensive track matching strategy via the `match` method.
-Developers are encouraged to extend the `Collection` class to create new collection types
+The main :py:class:`Collection` abstract base class (ABC) demonstrates the integration of these
+protocols into a comprehensive track matching strategy via the ``match`` method.
+Developers are encouraged to extend the :py:class:`Collection` class to create new collection types
 with different internal storage strategies (e.g., in-memory, databases).
 
 Usage Example:
 --------------
 Create a custom collection by implementing the desired protocols and extend the
-`Collection` ABC, ensuring that the `match` method efficiently leverages
+:py:class:`Collection` ABC, ensuring that the ``match`` method efficiently leverages
 all relevant capabilities offered by the collection.
 
 .. code-block:: python
@@ -216,11 +217,13 @@ class Collection(ABC):
         """Return potential matches for the given track based on different lookup strategies.
 
         The method checks for matches in this order:
+
         1. Global IDs (exact match, returns immediately if found)
         2. Local IDs (exact match with similarity check)
         3. Track info (similarity-based search)
         4. Fallback to iterating through all tracks if needed.
            This still uses the three methods above, but is way less efficient.
+
 
         Parameters
         ----------

@@ -2,13 +2,20 @@
     <h1 align="center">plistsync</h1>
 </p>
 
-<!-- start intro -->
+
 
 <p align="center">
-    <em><b>Toolbox for transferring, converting and matching music collections</b></em>
+    <em><b>
+<!-- start intro -->
+Toolbox for transferring, converting and matching music collections
+<!-- end intro -->
+    </b></em>
 </p>
 
-<!-- end intro -->
+
+<p align="center">
+    <img src="./docs/_static/icon_ven.png" alt="plistsync logo" width="200" align="center">
+</p>
 
 ## Features
 
