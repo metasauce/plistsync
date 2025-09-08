@@ -151,13 +151,3 @@ class TidalTrack(Track):
             idents["tidal_id"] = tidal_id
 
         return idents
-
-    def serialize(self) -> dict:
-        return {
-            "data": self.data,
-            "included": self.included,
-        }
-
-    @classmethod
-    def deserialize(cls, data: dict) -> Self:
-        return cls(data["data"], data["included"])

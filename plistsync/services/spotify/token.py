@@ -4,6 +4,7 @@ from typing import Any, Callable
 import requests
 
 from plistsync.config import Config
+from plistsync.logger import log
 from plistsync.utils.bearer_token import (
     BearerToken,
     InvalidToken,
@@ -27,6 +28,7 @@ def refresh_spotify_token(token: BearerToken) -> None:
     InvalidToken
         If the token is not found or invalid.
     """
+    log.debug("Spotify token expired, refreshing...")
     spotify_config = Config().spotify
 
     request_url = "https://accounts.spotify.com/api/token"

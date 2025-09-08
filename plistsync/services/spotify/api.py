@@ -2,6 +2,7 @@ import asyncio
 
 import requests
 from requests.structures import CaseInsensitiveDict
+from requests_oauth2client import ExpiredAccessToken
 
 from plistsync.logger import log
 from plistsync.services.tidal.token import BearerToken
@@ -183,8 +184,12 @@ async def __spotify_get_req(
     path = path.replace(SPOTIFY_BASE_URL, "")
 
     # Perform the GET request
-    res = requests.get(SPOTIFY_BASE_URL + path, auth=token, **kwargs)
-    log.info(f"GET {SPOTIFY_BASE_URL + path} {res.status_code}")
+    try:
+        res = requests.get(SPOTIFY_BASE_URL + path, auth=token, **kwargs)
+        log.debug(f"GET {SPOTIFY_BASE_URL + path} {res.status_code}")
+    except ExpiredAccessToken:
+        refresh_spotify_token(token)
+        return await __spotify_get_req(path, token, **kwargs)
 
     # Handle rate limiting
     if res.status_code == 429:
@@ -193,7 +198,6 @@ async def __spotify_get_req(
 
     # Handle token expiration
     if res.status_code == 401:
-        log.info("Spotify token expired, refreshing...")
         refresh_spotify_token(token)
         return await __spotify_get_req(path, token, **kwargs)
 

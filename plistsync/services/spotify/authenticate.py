@@ -3,7 +3,6 @@
 This is used to obtain the initial authentication token for Spotify.
 """
 
-import asyncio
 import secrets
 from urllib.parse import parse_qs, urlparse
 

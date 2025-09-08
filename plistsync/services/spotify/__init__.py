@@ -1,3 +1,3 @@
-from .collection import SpotifyLibraryCollection
+from .collection import SpotifyLibraryCollection, SpotifyPlaylistCollection
 
-__all__ = ["SpotifyLibraryCollection"]
+__all__ = ["SpotifyLibraryCollection", "SpotifyPlaylistCollection"]

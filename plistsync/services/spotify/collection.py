@@ -1,9 +1,12 @@
-from typing import Iterable
+from __future__ import annotations
+
+from typing import Iterable, Self
 
 from plistsync.core import GlobalTrackIDs
-from plistsync.core.collection import GlobalLookup, LibraryCollection
+from plistsync.core.collection import Collection, GlobalLookup, LibraryCollection
 
-from .track import SpotifyTrack
+from .api import get_playlist
+from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 
 class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
@@ -17,15 +20,42 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         raise NotImplementedError("SpotifyLibraryCollection is not implemented yet")
 
     @property
-    def playlists(self) -> Iterable["SpotifyPlaylistCollection"]:
+    def playlists(self) -> Iterable[SpotifyPlaylistCollection]:
         raise NotImplementedError("SpotifyLibraryCollection is not implemented yet")
 
 
-class SpotifyPlaylistCollection(LibraryCollection):
+class SpotifyPlaylistCollection(Collection):
     """A collection representing a spotify playlist."""
 
-    def add(self, track: SpotifyTrack) -> None:
-        raise NotImplementedError("SpotifyPlaylistCollection is not implemented yet")
+    tracks: list[SpotifyPlaylistTrack] = []
 
-    def remove(self, track: SpotifyTrack) -> None:
-        raise NotImplementedError("SpotifyPlaylistCollection is not implemented yet")
+    def __init__(self, data: dict):
+        """Initialize a SpotifyPlaylistCollection from the given data.
+
+        Expected data comes from the spotify API, e.g. from
+        `GET /playlists/{playlist_id}`.
+        """
+        items = data.get("tracks", {}).get("items", [])
+        self.tracks = [SpotifyPlaylistTrack(item) for item in items]
+
+    @classmethod
+    async def from_id(cls, playlist_id: str) -> Self:
+        """Create a SpotifyPlaylistCollection from a spotify playlist ID.
+
+        Parameters
+        ----------
+        playlist_id : str
+            The spotify playlist ID.
+
+        Returns
+        -------
+        SpotifyPlaylistCollection
+            The created SpotifyPlaylistCollection.
+
+        Raises
+        ------
+        ValueError
+            If the playlist ID is invalid or not found.
+        """
+        data = await get_playlist(playlist_id)
+        return cls(data)
