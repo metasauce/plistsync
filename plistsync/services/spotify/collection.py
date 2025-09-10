@@ -100,7 +100,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         Prioritizes spotify_id, but also supports lookup by isrc if available.
         Performs batch lookup for all tracks with spotify_id if possible.
         """
-        found_tracks: Mapping[int, SpotifyTrack] = {}
+        found_tracks: dict[int, SpotifyTrack] = {}
 
         # Get all with spotify id for batch lookup
         idxes = []
