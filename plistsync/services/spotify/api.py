@@ -137,6 +137,56 @@ async def search_tracks(query: str, max: int = 100) -> list[dict]:
     return tracks[:max]
 
 
+from tqdm.asyncio import tqdm
+
+
+async def get_user_playlists_simplified() -> list[dict]:
+    """Get the current user's playlists.
+
+        This returns a simplified version of the playlists, without resolving all tracks.
+
+    Returns
+    -------
+    list[dict]
+        A list of playlist data from the Spotify API.
+    """
+    next_page = "/me/playlists?limit=50"
+    simplified_playlists: list[dict] = []
+    while next_page:
+        json_res = await spotify_get_req(next_page)
+        simplified_playlists.extend(json_res.get("items", []))
+        next_page = json_res.get("next", None)
+    return simplified_playlists
+
+
+async def get_user_playlists_full() -> list[dict]:
+    """Get the current user's playlists.
+
+    Returns
+    -------
+    list[dict]
+        A list of playlist data from the Spotify API.
+    """
+    simplified_playlists: list[dict] = []
+
+    with tqdm(
+        desc="Fetching user playlists", unit=" playlist", dynamic_ncols=True
+    ) as pbar:
+        simplified_playlists = await get_user_playlists_simplified()
+        pbar.total = len(simplified_playlists)
+
+        # Now resolve each playlist's details
+        playlists_details = []
+        for plist in simplified_playlists:
+            playlist_data = await get_playlist(plist["id"])
+            playlists_details.append(playlist_data)
+            pbar.update(1)
+
+        pbar.total = pbar.n
+
+    return playlists_details
+
+
 # ---------------------------------------------------------------------------- #
 #                               REQUEST handling                               #
 # ---------------------------------------------------------------------------- #
@@ -178,10 +228,10 @@ async def __spotify_get_req(
     path: str, token: BearerToken, **kwargs
 ) -> requests.Response:
     # Ensure the path starts with a '/'
+    path = path.replace(SPOTIFY_BASE_URL, "")
+
     if not path.startswith("/"):
         path = "/" + path
-
-    path = path.replace(SPOTIFY_BASE_URL, "")
 
     # Perform the GET request
     try:
