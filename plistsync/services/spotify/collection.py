@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from typing import Iterable, Iterator, Mapping, Self
+from typing import Iterable, Iterator, Self
 
 import nest_asyncio
 
