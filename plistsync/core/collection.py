@@ -75,6 +75,18 @@ class GlobalLookup(Protocol):
         """Find a single track by its global identifiers."""
         ...
 
+    def find_many_by_global_ids(
+        self, global_ids_list: list[GlobalTrackIDs]
+    ) -> Iterable[Track | None]:
+        """Find multiple tracks by their global identifiers.
+
+        Default implementation iterates over the provided list and calls
+        `find_by_global_ids` for each entry. Collections can override this
+        method to provide a more efficient batch lookup if supported.
+        """
+        for global_ids in global_ids_list:
+            yield self.find_by_global_ids(global_ids)
+
 
 @runtime_checkable
 class LocalLookup(Protocol):

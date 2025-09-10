@@ -62,7 +62,7 @@ async def get_tracks(
 
 async def get_track_by_isrc(
     isrc: str,
-) -> dict | None:
+) -> dict:
     """Get a single track by its ISRC code.
 
     Parameters
@@ -78,7 +78,7 @@ async def get_track_by_isrc(
     json_res = await spotify_get_req(f"/search?type=track&q=isrc:{isrc}&limit=1")
     tracks = json_res.get("tracks", {}).get("items", [])
     if len(tracks) == 0:
-        return None
+        raise ValueError(f"No track found with ISRC {isrc}")
     return tracks[0]
 
 
