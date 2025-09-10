@@ -75,7 +75,7 @@ async def get_track_by_isrc(
     dict | None
         The track data from the Spotify API, or None if not found.
     """
-    json_res = await spotify_get_req(f"/search?type=track&q=isrc:{isrc}&limit=1")
+    json_res = await spotify_get_req(f"/search?q=isrc%3A{isrc}&type=track")
     tracks = json_res.get("tracks", {}).get("items", [])
     if len(tracks) == 0:
         raise ValueError(f"No track found with ISRC {isrc}")
