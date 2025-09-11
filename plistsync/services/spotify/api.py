@@ -187,6 +187,205 @@ async def get_user_playlists_full() -> list[dict]:
     return playlists_details
 
 
+async def reorder_playlist_tracks(
+    playlist_id: str,
+    range_start: int,
+    range_length: int,
+    insert_before: int,
+    snapshot_id: str | None = None,
+) -> None:
+    """Either reorder items in a playlist.
+
+    Parameters
+    ----------
+    playlist_id : str
+        The Spotify ID of the playlist.
+    snapshot_id : str
+        The snapshot ID of the playlist.
+    range_start : int
+        The position of the first item to be reordered.
+    range_length : int
+        The number of items to be reordered.
+    insert_before : int
+        The position where the items should be inserted.
+
+    Returns
+    -------
+    str
+        The new snapshot ID of the playlist after reordering.
+    """
+    data: dict = {
+        "range_start": range_start,
+        "range_length": range_length,
+        "insert_before": insert_before,
+    }
+
+    if snapshot_id is not None:
+        data["snapshot_id"] = snapshot_id
+
+    data = await spotify_get_req(
+        f"/playlists/{playlist_id}/tracks",
+        method="PUT",
+        json=data,
+    )
+    return data["snapshot_id"]
+
+
+async def replace_playlist_tracks(
+    playlist_id: str,
+    track_uris: list[str],
+) -> str:
+    """Replace *all* tracks in a playlist.
+
+    Parameters
+    ----------
+    playlist_id : str
+        The Spotify ID of the playlist.
+    track_uris : list[str]
+        A list of Spotify track URIs to set as the new tracks of the playlist.
+
+    Returns
+    -------
+    str
+        The new snapshot ID of the playlist after replacing tracks.
+    """
+    data = {"uris": track_uris}
+    data = await spotify_get_req(
+        f"/playlists/{playlist_id}/tracks",
+        method="PUT",
+        json=data,
+    )
+    return data["snapshot_id"]
+
+
+async def add_playlist_tracks(
+    playlist_id: str,
+    track_uris: list[str],
+    position: int | None = None,
+) -> str:
+    """Add tracks to a playlist.
+
+    Parameters
+    ----------
+    playlist_id : str
+        The Spotify ID of the playlist.
+    track_uris : list[str]
+        A list of Spotify track URIs to add to the playlist.
+    position : int | None, optional
+        The position to insert the tracks at, by default None (append to end).
+
+    Returns
+    -------
+    str
+        The new snapshot ID of the playlist after adding tracks.
+    """
+    if len(track_uris) == 0:
+        raise ValueError("No track URIs provided to add to playlist")
+
+    data = {}
+    for uris in chunk_list(track_uris, 100):
+        body: dict[str, list[str] | int] = {"uris": uris}
+        if position is not None:
+            body["position"] = position
+
+        data = await spotify_get_req(
+            f"/playlists/{playlist_id}/tracks",
+            method="POST",
+            json=body,
+        )
+        position = (position or 0) + len(uris) if position is not None else None
+
+    return data["snapshot_id"]
+
+
+async def remove_playlist_tracks(
+    playlist_id: str,
+    track_uris: list[str],
+    snapshot_id: str | None = None,
+) -> str:
+    """Remove tracks from a playlist.
+
+    Parameters
+    ----------
+    playlist_id : str
+        The Spotify ID of the playlist.
+    track_uris : list[str]
+        A list of Spotify track URIs to remove from the playlist.
+    snapshot_id : str | None, optional
+        The snapshot ID of the playlist, by default None.
+
+    Returns
+    -------
+    str
+        The new snapshot ID of the playlist after removing tracks.
+    """
+    if len(track_uris) == 0:
+        raise ValueError("No track URIs provided to remove from playlist")
+
+    data = {}
+    for uris in chunk_list(track_uris, 100):
+        body: dict[str, list[dict[str, str]] | str] = {
+            "tracks": [{"uri": uri} for uri in uris]
+        }
+        if snapshot_id is not None:
+            body["snapshot_id"] = snapshot_id
+
+        data = await spotify_get_req(
+            f"/playlists/{playlist_id}/tracks",
+            method="DELETE",
+            json=body,
+        )
+        snapshot_id = data["snapshot_id"]
+
+    return data["snapshot_id"]
+
+
+async def create_playlist(
+    name: str,
+    description: str = "",
+    public: bool = False,
+    collaborative: bool = False,
+    user_id: str | None = None,
+) -> dict:
+    """Create a new playlist for the current user.
+
+    Parameters
+    ----------
+    name : str
+        The name of the playlist.
+    description : str, optional
+        The description of the playlist, by default "".
+    public : bool, optional
+        Whether the playlist is public, by default False.
+    collaborative : bool, optional
+        Whether the playlist is collaborative, by default False.
+    user_id : str | None, optional
+        The Spotify user ID to create the playlist for. If None, uses the current user.
+
+    Returns
+    -------
+    dict
+        The created playlist data from the Spotify API.
+    """
+    if user_id is None:
+        user_data = await spotify_get_req("/me")
+        user_id = user_data["id"]
+
+    body = {
+        "name": name,
+        "description": description,
+        "public": public,
+        "collaborative": collaborative,
+    }
+
+    playlist = await spotify_get_req(
+        f"/users/{user_id}/playlists",
+        method="POST",
+        json=body,
+    )
+    return playlist
+
+
 # ---------------------------------------------------------------------------- #
 #                               REQUEST handling                               #
 # ---------------------------------------------------------------------------- #
