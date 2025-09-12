@@ -35,6 +35,7 @@ class TidalConfig(OptionalService):
     client_id: str
     redirect_port: int
     client_secret: Optional[str] = None
+    country_code: Optional[str] = "DE"
 
 
 @dataclass

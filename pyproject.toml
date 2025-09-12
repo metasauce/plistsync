@@ -46,6 +46,10 @@ docs = [
     "myst-parser>=4.0.0",
     "myst-nb>=1.1.2",
 ]
+jupyter = [
+    "ipykernel",
+    "ipywidgets",
+]
 all = ["plistsync[dev,test,typed,docs]"]
 
 

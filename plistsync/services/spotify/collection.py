@@ -86,7 +86,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
         if isrc := global_ids.get("isrc"):
             try:
-                return SpotifyTrack(asyncio.run(get_track_by_isrc(isrc)))
+                return SpotifyTrack(data=asyncio.run(get_track_by_isrc(isrc)))
             except Exception as e:
                 log.debug(f"Could not find track by ISRC {isrc}: {e}")
 

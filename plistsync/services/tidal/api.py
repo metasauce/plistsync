@@ -5,7 +5,11 @@ from typing import AsyncGenerator, List
 
 import requests
 from requests.structures import CaseInsensitiveDict
+from requests_oauth2client import ExpiredAccessToken
+from tqdm.asyncio import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
+from plistsync.config.yaml import Config
 from plistsync.utils import chunk_list
 from plistsync.utils.bearer_token import (
     BearerToken,
@@ -15,69 +19,116 @@ from ...logger import log
 from .token import refresh_tidal_token, requires_tidal_token
 from .track import TidalTrack
 
-
 # ---------------------------------------------------------------------------- #
 #             High level functions to interact with the Tidal API.             #
 # ---------------------------------------------------------------------------- #
-async def get_playlist_data(
-    playlist_id: str,
-):
-    """Pagination is kina weird for the playlists api.
 
-    In theory we can get a playlist including all items (tracks, artists, albums) with the include
-    parameter in one request. This returns an 20 items pagination, which is fine but
-    there is no way to get the next page at the moment... See https://github.com/orgs/tidal-music/discussions/119
 
-    For now I opted to get the playlist attributes first and than resolve the items manually. This requires
-    us to do a 2x the requests but we can get all items. Might be faster in the future __shrug__.
+async def get_user_playlists_relationships(user_id: str | None = None) -> List[dict]:
+    """Get all playlists of the current user.
+
+    Each item only contains the id and type of the playlist.
+
+    .. code-block:: json
+
+        [
+            {
+                "id": "34872366-1131-43d8-b261-6e9c9cc9386e",
+                "type": "playlists",
+                "meta": {
+                    "addedAt": "2024-07-31T16:36:28.532Z"
+                }
+            },
+            ...
+        ]
+
+    BROKEN
     """
 
-    # Get attributes
-    json_res = await tidal_get_req(f"/playlists/{playlist_id}")
+    playlists: list[dict] = []
 
-    data = json_res.get("data", {})
-
-    # Resolve relationship items
-    relationship_items = []
+    # We get the ids first and than fetch the full data for each playlist
+    # Not sure if we need an iter here
+    # You need like 200 playlists to hit the pagination limit I guess
     async for json_res in iter_tidal_get_req(
-        f"/playlists/{playlist_id}/relationships/items"
+        f"/userCollections/{user_id}/relationships/playlists"
     ):
-        # Add items to relationships
-        relationship_items.extend(json_res.get("data", []))
+        playlists.extend(json_res.get("data", []))
 
-    # Get tracks
-    tracks = await get_tracks(
-        [item["id"] for item in relationship_items if item["type"] == "tracks"]
+    return playlists
+
+
+async def get_playlist(playlist_id: str) -> dict:
+    """Get the full playlist data of a playlist by its id.
+
+    BROKEN
+    """
+
+    data, include = await tidal_get_req_paged(
+        f"/playlists/{playlist_id}", params={"include": "items"}
     )
 
-    return data, tracks
+    return playlist_data
 
 
-async def get_tracks(track_ids: List[str]):
-    tracks: list[TidalTrack] = []
+async def get_user_playlists(
+    user_id: str | None = None, resolve_items: bool = True
+) -> list[dict]:
+    """Get the full playlist data of all playlists of the current user.
 
-    # Chunk the track ids into 20 ids per request
-    # is required by the tidal api!
-    for chunk in chunk_list(track_ids, 20):
-        params = {
-            "filter[id]": ",".join(chunk),
-            "include": "albums,artists",
-            "countryCode": "DE",
-        }
-        json_res = await tidal_get_req("/tracks", params=params)
+    If user_id is None, the current user's playlists are fetched. Use resolve_items to
+    fetch the items of each playlist as well. Depending on the number of
+    playlist resolving the items can take quite some time.
 
-        tracks.extend(
-            TidalTrack.from_tracks_response(
-                json_res.get("data", []), json_res.get("included", [])
-            )
-        )
+    Parameters
+    ----------
+    user_id : str | None, optional
+        The user id of the user to fetch the playlists for. If None, the current user's
+        playlists are fetched, by default None.
+    resolve_items : bool, optional
+        Whether to resolve the items of each playlist as well, by default True.
 
-    if len(tracks) != len(track_ids):
+    Returns
+    -------
+    list[dict]
+        A list of playlist data dicts.
+    """
+
+    if not user_id:
+        user_data = await tidal_get_req("/users/me")
+        user_id = user_data["data"]["id"]
+
+    data, playlists = await tidal_get_req_paged(
+        f"/userCollections/{user_id}/relationships/playlists",
+        params={"include": "playlists"},
+    )
+
+    if len(data) != len(playlists):
         log.warning(
-            f"Expected {len(track_ids)} tracks but received {len(tracks)} tracks. We saw that this sometimes happens if you country code is not set correctly. Please check the countryCode parameter in the request!"
+            f"Expected {len(data)} included playlists but received {
+                len(playlists)
+            } playlists. Strange stuff!"
         )
 
-    return tracks
+    if resolve_items:
+        with logging_redirect_tqdm():
+            for pl in tqdm(playlists, desc="Getting playlist items", unit="playlist"):
+                items: list[dict] = []
+                items_data, items = await tidal_get_req_paged(
+                    pl["relationships"]["items"]["links"]["self"],
+                    params={"include": "items"},
+                )
+
+                if len(items_data) != len(items):
+                    log.warning(
+                        f"Missing '{len(items_data) - len(items)}' items in playlist '{pl['id']}'"
+                    )
+
+                pl["items"] = items
+
+    # Included data is returned in same order (no sorting necessary)
+    # Also doesnt matter for this function
+    return playlists
 
 
 # ---------------------------------------------------------------------------- #
@@ -89,52 +140,40 @@ TIDAL_BASE_URL = "https://openapi.tidal.com/v2"
 
 
 @requires_tidal_token
-async def iter_tidal_get_req(
-    path: str, token: BearerToken, **kwargs
-) -> AsyncGenerator[dict, None]:
+async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
     """
-    Perform a GET request to the Tidal API. This can be used for any paginated request.
+    Perform a GET request to the Tidal API.
 
-    This automatically resolve pagination in the root level of the response as a generator.
     This function handles rate limiting by waiting if the rate limit is exceeded.
 
     Parameters
     ----------
     path : str
-        The API endpoint path. If it does not start with '/', it will be prefixed with '/'
+        The API endpoint path. If it does not start with '/', it will be prefixed with '/'.
     token : BearerToken
         The authentication token to use for the request.
     **kwargs : dict
         Additional keyword arguments to pass to the `requests.get` method.
 
-    Yields
-    ------
-    dict: The response from the Tidal API as a dictionary.
 
-    Usage
-    -----
-    ```python
-    async for json_res in iter_tidal_get_req("/playlists/me", token):
-        print(json_res)
-    ```
+    Returns
+    -------
+    dict
+        The JSON response from the API.
     """
 
-    while path:
-        res = await __tidal_get_req(path, token, **kwargs)
-
-        json_res = res.json()
-        yield json_res
-        # Get next page (if available)
-        path = res.json().get("links", {}).get("next")
-    return
+    res = await __tidal_get_req(path, token, **kwargs)
+    return res.json()
 
 
 @requires_tidal_token
-async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
+async def tidal_get_req_paged(
+    path: str, token: BearerToken, **kwargs
+) -> tuple[list[dict], list[dict]]:
     """
     Perform a GET request to the Tidal API.
 
-    This will NOT resolve pagination in the root level of the response.
+    This will resolve pagination in the root level of the response.
     This function handles rate limiting by waiting if the rate limit is exceeded.
 
     Parameters
@@ -148,18 +187,27 @@ async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
 
     Returns
     -------
-    dict: The response from the Tidal API as a dictionary.
+    tuple[list[dict], list[dict]]
+        A tuple containing two lists:
+        - The first list contains the 'data' items from the response.
+        - The second list contains the 'included' items from the response.
     """
-    res = await __tidal_get_req(path, token, **kwargs)
-    res_json = res.json()
 
-    # Warning if next in links
-    if res_json.get("links", {}).get("next"):
-        log.warning(
-            "Next page available in response. Consider using iter_tidal_get_req for pagination!"
-        )
+    data: list[dict] = []
+    included: list[dict] = []
 
-    return res_json
+    next_: str | None = path
+    while next_:
+        res = await __tidal_get_req(next_, token, **kwargs)
+
+        res_json = res.json()
+        data.extend(res_json.get("data", []))
+        included.extend(res_json.get("included", []))
+
+        # Get next page (if available)
+        next_ = res.json().get("links", {}).get("next")
+
+    return data, included
 
 
 async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.Response:
@@ -168,8 +216,12 @@ async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.R
         path = "/" + path
 
     # Perform the GET request
-    res = requests.get(TIDAL_BASE_URL + path, auth=token, **kwargs)
-    log.info(f"GET {TIDAL_BASE_URL + path} {res.status_code}")
+    try:
+        res = requests.get(TIDAL_BASE_URL + path, auth=token, **kwargs)
+        log.debug(f"GET {TIDAL_BASE_URL + path} {res.status_code}")
+    except ExpiredAccessToken:
+        refresh_tidal_token(token)
+        return await __tidal_get_req(path, token, **kwargs)
 
     # Handle rate limiting
     if res.status_code == 429:

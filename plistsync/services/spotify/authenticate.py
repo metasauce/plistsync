@@ -41,6 +41,12 @@ def auth(
         "-ns",
         help="Do not run a server. You will need to manually paste the URL.",
     ),
+    force_paste: bool = typer.Option(
+        False,
+        "--force-paste",
+        "-fp",
+        help="Force to paste the URL even if a server can be started.",
+    ),
 ):
     """Use your Spotify account to authenticate with the Spotify API.
 
@@ -65,13 +71,15 @@ def auth(
     )
 
     log.debug(f"Redirecting to Spotify login: {url}")
+    typer.echo("Paste the URL if your browser does not open automatically.")
+    typer.echo(url)
+
     try:
         safe_webbrowser_open(url)
     except Exception:
         typer.echo(
             "Failed to open the url in the default browser automatically. Please open the URL manually."
         )
-        typer.echo(url)
 
     # Start a local server to handle the redirect
     if no_server:

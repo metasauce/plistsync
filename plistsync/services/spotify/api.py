@@ -3,6 +3,7 @@ import asyncio
 import requests
 from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import ExpiredAccessToken
+from tqdm.asyncio import tqdm
 
 from plistsync.logger import log
 from plistsync.services.tidal.token import BearerToken
@@ -135,9 +136,6 @@ async def search_tracks(query: str, max: int = 100) -> list[dict]:
         tracks.extend(json_res.get("tracks", {}).get("items", []))
         next_page = json_res.get("tracks", {}).get("next", None)
     return tracks[:max]
-
-
-from tqdm.asyncio import tqdm
 
 
 async def get_user_playlists_simplified() -> list[dict]:
@@ -342,7 +340,7 @@ async def remove_playlist_tracks(
 
 async def create_playlist(
     name: str,
-    description: str = "",
+    description: str,
     public: bool = False,
     collaborative: bool = False,
     user_id: str | None = None,
