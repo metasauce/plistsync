@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Generator, List, Self
 
 from plistsync.core import GlobalTrackIDs, Track
+from plistsync.core.track import LocalTrackIDs, TrackInfo
 
 from ...errors import NotFoundError
 from ...logger import log
@@ -118,27 +119,24 @@ class TidalTrack(Track):
     # ---------------------------------------------------------------------------- #
 
     @property
-    def title(self) -> str:
-        t = self.data.get("attributes", {}).get("title")
-        if t is None:
-            raise NotFoundError("Title not found")
-        return t
+    def info(self) -> TrackInfo:
+        return TrackInfo(
+            title=self.data.get("attributes", {}).get("title"),
+            artists=[
+                str(a.get("attributes", {}).get("name"))
+                for a in self._raw_artists
+                if a.get("attributes", {}).get("name") is not None
+            ],
+            albums=[
+                str(a.get("attributes", {}).get("title"))
+                for a in self._raw_albums
+                if a.get("attributes", {}).get("title") is not None
+            ],
+        )
 
     @property
-    def artists(self) -> List[str]:
-        return [
-            str(a.get("attributes", {}).get("name"))
-            for a in self._raw_artists
-            if a.get("attributes", {}).get("name") is not None
-        ]
-
-    @property
-    def albums(self) -> List[str]:
-        return [
-            str(a.get("attributes", {}).get("title"))
-            for a in self._raw_albums
-            if a.get("attributes", {}).get("title") is not None
-        ]
+    def local_ids(self) -> LocalTrackIDs:
+        return LocalTrackIDs()
 
     @property
     def global_ids(self) -> GlobalTrackIDs:
@@ -151,3 +149,26 @@ class TidalTrack(Track):
             idents["tidal_id"] = tidal_id
 
         return idents
+
+
+class TidalPlaylistTrack(TidalTrack):
+    """A track in a Tidal playlist.
+
+    Represents a Tidal track object as returned by the Tidal API
+    when fetching playlist items.
+    """
+
+    added_at: str | None
+    """The date and time the track was added to the playlist."""
+
+    def __init__(self, data: dict, included: list[dict]):
+        """Initialize a TidalPlaylistTrack with the given data.
+
+        Expected data comes from the Tidal API, e.g. from
+        playlist items endpoint.
+        """
+        self.added_at = data.get("added_at", None)
+
+        # The actual track data is usually under "track" key in playlist items
+        track_data = data.get("track", data)
+        super().__init__(track_data, included)

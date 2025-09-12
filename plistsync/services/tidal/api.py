@@ -61,14 +61,40 @@ async def get_user_playlists_relationships(user_id: str | None = None) -> List[d
 async def get_playlist(playlist_id: str) -> dict:
     """Get the full playlist data of a playlist by its id.
 
-    BROKEN
+    Parameters
+    ----------
+    playlist_id : str | None, optional
+        The id of the playlist to fetch.
     """
 
-    data, include = await tidal_get_req_paged(
-        f"/playlists/{playlist_id}", params={"include": "items"}
+    playlists, items = await tidal_get_req_paged(
+        f"/playlists", params={"include": "items", "filter[id]": [playlist_id]}
     )
 
-    return playlist_data
+    pl = playlists[0]
+    items_data = pl.get("relationships", {}).get("items", {}).get("data", [])
+
+    ids_in_items = [item.get("id") for item in items]
+    missing_items = [
+        item for item in items_data if item.get("id") not in ids_in_items
+    ]
+    pl["missing_items"] = missing_items
+
+    if len(missing_items) > 0:
+        pl_name = pl.get("attributes", {}).get("name", " ")
+        log.warning(
+            f"Missing {len(missing_items)} items in playlist {pl_name} '{pl['id']}'"
+        )
+
+    # merge meta fields from playlist into items, so we have the addedAt
+    meta_in_idata = {item["id"]: item.get("meta", {}) for item in items_data}
+    for item in items:
+        if item["id"] in meta_in_idata:
+            item["meta"] = meta_in_idata[item["id"]]
+
+    pl["items"] = items
+
+    return pl
 
 
 async def get_user_playlists(
@@ -119,11 +145,24 @@ async def get_user_playlists(
                     params={"include": "items"},
                 )
 
-                if len(items_data) != len(items):
+
+                ids_in_items = [item.get("id") for item in items]
+                missing_items = [
+                    item for item in items_data if item.get("id") not in ids_in_items
+                ]
+                pl["missing_items"] = missing_items
+
+                if len(missing_items) > 0:
+                    pl_name = pl.get("attributes", {}).get("name", " ")
                     log.warning(
-                        f"Missing '{len(items_data) - len(items)}' items in playlist '{pl['id']}'"
+                        f"Missing {len(missing_items)} items in playlist {pl_name} '{pl['id']}'"
                     )
 
+                # merge meta fields from playlist into items, so we have the addedAt
+                meta_in_idata = {item["id"]: item.get("meta", {}) for item in items_data}
+                for item in items:
+                    if item["id"] in meta_in_idata:
+                        item["meta"] = meta_in_idata[item["id"]]
                 pl["items"] = items
 
     # Included data is returned in same order (no sorting necessary)
