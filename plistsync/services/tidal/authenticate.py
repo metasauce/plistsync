@@ -22,8 +22,14 @@ tidal_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Tidal.", add_completion=False
 )
 
-
-SCOPES = "playlists.read"
+SCOPES = " ".join(
+    [
+        "playlists.read",
+        "search.read",
+        "collection.read",
+        "collection.write",
+    ]
+)
 
 
 @tidal_cli.command()

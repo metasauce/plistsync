@@ -31,11 +31,12 @@ class BearerToken:
     @classmethod
     def from_dict(cls, token_dict: Dict[str, Any]) -> Self:
         """Create a BearerToken instance from a dictionary."""
-        expires_at = token_dict.pop("expires_at")
-        # Conver to datetime if it's a string
-        if isinstance(expires_at, str):
-            expires_at = datetime.fromisoformat(expires_at)
-        token_dict["expires_at"] = expires_at
+        if "expires_at" in token_dict:
+            expires_at = token_dict.pop("expires_at")
+            # Convert to datetime if it's a string
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            token_dict["expires_at"] = expires_at
         return cls(BearerTokenOauth2Client(**token_dict))
 
     @classmethod
