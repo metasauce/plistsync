@@ -25,6 +25,7 @@ tidal_cli = typer.Typer(
 SCOPES = " ".join(
     [
         "playlists.read",
+        "playlists.write",
         "search.read",
         "collection.read",
         "collection.write",

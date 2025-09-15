@@ -17,6 +17,8 @@ from plistsync.logger import log
 
 from .api import (
     LookupDict,
+    add_tracks_to_playlist,
+    create_playlist,
     get_playlist,
     get_tracks,
     get_tracks_by_isrc,
@@ -65,6 +67,24 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
             log.debug(f"Could not fetch playlist {name}: {e}")
             return None
 
+    def has_playlist(self, name: str) -> bool:
+        """Check if a playlist with the given name exists in the user's library."""
+        for pl, _ in asyncio.run(get_user_playlists(include_items=False)):
+            if pl["attributes"]["name"] == name:
+                return True
+        return False
+
+    def create_playlist(
+        self, name: str, description: str = ""
+    ) -> TidalPlaylistCollection:
+        """Create a new playlist in the user's library."""
+        try:
+            data, included = asyncio.run(create_playlist(name, description=description))
+            return TidalPlaylistCollection(data, included)
+        except Exception as e:
+            log.debug(f"Could not create playlist {name}: {e}")
+            raise
+
     def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> TidalTrack | None:
         """Find a track by its global IDs.
 
@@ -73,13 +93,14 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
         return list(self.find_many_by_global_ids([global_ids]))[0]
 
     def find_many_by_global_ids(
-        self, global_ids_list: list[GlobalTrackIDs]
+        self, global_ids_list: Iterable[GlobalTrackIDs]
     ) -> Iterable[TidalTrack | None]:
         """Find many tracks by their global IDs.
 
         Prioritizes isrc lookups over spotify_id lookups.
         """
         found_tracks: dict[int, tuple[dict, LookupDict]] = {}
+        global_ids_list = list(global_ids_list)
 
         # Get all ids/isrcs for batch lookup
         idxes: list[int] = []
@@ -158,6 +179,39 @@ class TidalPlaylistCollection(Collection, TrackStream):
         """The description of the playlist, if available."""
         return self.data["attributes"].get("description")
 
+    def add_tracks(self, tracks: Iterable[TidalTrack]) -> None:
+        """Add tracks to the playlist.
+
+        Note: This does not update the local playlist object. You need to fetch
+        the playlist again to see the changes.
+
+        Parameters
+        ----------
+        tracks : Iterable[TidalTrack]
+            The tracks to add to the playlist.
+        """
+        track_ids = [
+            str(t.global_ids["tidal_id"]) for t in tracks if "tidal_id" in t.global_ids
+        ]
+        if not track_ids:
+            log.warning("No valid Tidal IDs found for tracks to add to playlist.")
+            return
+
+        try:
+            asyncio.run(add_tracks_to_playlist(self.id, track_ids=track_ids))
+            log.info(f"Added {len(track_ids)} tracks to playlist '{self.name}'")
+        except Exception as e:
+            log.debug(f"Could not add tracks to playlist {self.name}: {e}")
+            raise
+        finally:
+            # Update the local data
+            try:
+                self.data, self.data_lookup = asyncio.run(get_playlist(self.id))
+            except Exception as e:
+                log.debug(
+                    f"Could not refresh playlist data after adding tracks to {self.name}: {e}"
+                )
+
     @classmethod
     async def from_id(cls, playlist_id: str) -> Self:
         """Create a TidalPlaylistCollection from a tidal playlist ID.
@@ -235,3 +289,7 @@ class TidalPlaylistCollection(Collection, TrackStream):
                 log.debug(
                     f"Track with id '{item['id']}' not found in cached tracks of playlist '{self.name}'"
                 )
+
+    def __len__(self) -> int:
+        """Return the number of tracks in the playlist."""
+        return len(self._items_raw)

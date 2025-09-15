@@ -237,6 +237,99 @@ async def get_user_playlists(
     return list(zip(pl_data, pl_lookup))
 
 
+@requires_tidal_token
+async def create_playlist(
+    name: str, token: BearerToken, description: str = ""
+) -> tuple[dict, LookupDict]:
+    """Create a new playlist in the current user's library.
+
+    Parameters
+    ----------
+    name : str
+        The name of the playlist to create.
+    description : str, optional
+        The description of the playlist, by default "".
+
+    Returns
+    -------
+    dict
+        The created playlist data.
+    """
+
+    country_code = Config().tidal.country_code
+
+    # Perform the GET request
+    res = await __tidal_req(
+        method="POST",
+        path="/playlists",
+        token=token,
+        json={
+            "data": {
+                "attributes": {
+                    "name": name,
+                    "description": description,
+                },
+                "type": "playlists",
+            }
+        },
+        params={"countryCode": country_code},
+    )
+    dat = res.json()
+    return dat["data"], include_to_lookup_list(dat.get("included", []))
+
+
+@requires_tidal_token
+async def add_tracks_to_playlist(
+    playlist_id: str,
+    track_ids: list[str],
+    token: BearerToken,
+    position_before: str | None = None,
+) -> None:
+    """Add tracks to a playlist.
+
+    Parameters
+    ----------
+    playlist_id : str
+        The id of the playlist to add tracks to.
+    track_ids : list[str]
+        A list of track ids to add to the playlist.
+    position_before : str | None, optional
+        The id of the track to insert the new tracks before. If None, the tracks are added
+        to the end of the playlist, by default None.
+
+    Returns
+    -------
+    None
+    """
+
+    country_code = Config().tidal.country_code
+
+    if not track_ids:
+        return
+
+    for chunk in chunk_list(track_ids, MAX_FILTER_SIZE):
+        body: dict = {
+            "data": [
+                {
+                    "id": track_id,
+                    "type": "tracks",
+                }
+                for track_id in chunk
+            ]
+        }
+        if position_before:
+            body["positionBefore"] = position_before
+
+        # Does not return anything useful
+        await __tidal_req(
+            method="POST",
+            path=f"/playlists/{playlist_id}/relationships/items",
+            token=token,
+            json=body,
+            params={"countryCode": country_code},
+        )
+
+
 # ---------------------------------------------------------------------------- #
 #                               REQUEST handling                               #
 # ---------------------------------------------------------------------------- #
@@ -268,7 +361,7 @@ async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
         The JSON response from the API.
     """
 
-    res = await __tidal_get_req(path, token, **kwargs)
+    res = await __tidal_req("GET", path, token, **kwargs)
     return res.json()
 
 
@@ -305,7 +398,9 @@ async def tidal_get_req_paged(
     links = {"next": path}
 
     while links.get("next"):
-        res = await __tidal_get_req(links["next"], token, params=params, **kwargs)
+        res = await __tidal_req(
+            method="GET", path=links["next"], token=token, params=params, **kwargs
+        )
         res_json = res.json()
         data.extend(res_json.get("data", []))
         included.update(include_to_lookup_list(res_json.get("included", [])))
@@ -363,29 +458,31 @@ async def tidal_get_req_paged(
     return data, included, links
 
 
-async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.Response:
+async def __tidal_req(
+    method: str, path: str, token: BearerToken, **kwargs
+) -> requests.Response:
     # Ensure the path starts with a '/'
     if not path.startswith("/"):
         path = "/" + path
 
     # Perform the GET request
     try:
-        res = requests.get(TIDAL_BASE_URL + path, auth=token, **kwargs)
-        log.debug(f"GET {TIDAL_BASE_URL + path} {res.status_code}")
+        res = requests.request(method, TIDAL_BASE_URL + path, auth=token, **kwargs)
+        log.debug(f"{method} {TIDAL_BASE_URL + path} {res.status_code}")
     except ExpiredAccessToken:
         refresh_tidal_token(token)
-        return await __tidal_get_req(path, token, **kwargs)
+        return await __tidal_req(method, path, token, **kwargs)
 
     # Handle rate limiting
     if res.status_code == 429:
         await handle_rate_limit(res.headers)
-        return await __tidal_get_req(path, token, **kwargs)
+        return await __tidal_req(method, path, token, **kwargs)
 
     # Handle token expiration
     if res.status_code == 401:
         log.info("Tidal token expired, refreshing...")
         refresh_tidal_token(token)
-        return await __tidal_get_req(path, token, **kwargs)
+        return await __tidal_req(method, path, token, **kwargs)
 
     # Handle other errors
     if not res.ok:

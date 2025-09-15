@@ -29,6 +29,10 @@ class TidalTrack(Track):
         self.data_lookup = data_lookup or {}
 
     @property
+    def id(self) -> str:
+        return self.data["id"]
+
+    @property
     def name(self) -> str | None:
         return self.data.get("attributes", {}).get("title")
 
