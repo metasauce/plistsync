@@ -135,6 +135,9 @@ def requires_bearer_token(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if "token" in kwargs:
+                return await func(*args, **kwargs)
+
             token = await get_bearer_token(config_key)
             # Pass the token as a keyword argument
             return await func(*args, token=token, **kwargs)

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncGenerator, List
 
 import requests
 from requests.structures import CaseInsensitiveDict
@@ -17,48 +16,138 @@ from plistsync.utils.bearer_token import (
 
 from ...logger import log
 from .token import refresh_tidal_token, requires_tidal_token
-from .track import TidalTrack
+
+LookupDict = dict[tuple[str, str], dict]
+
 
 # ---------------------------------------------------------------------------- #
 #             High level functions to interact with the Tidal API.             #
 # ---------------------------------------------------------------------------- #
+MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
 
 
-async def get_user_playlists_relationships(user_id: str | None = None) -> List[dict]:
-    """Get all playlists of the current user.
+async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
+    """Fetch multiple tracks by their tidal ids or isrcs.
 
-    Each item only contains the id and type of the playlist.
+    filter[id] and filter[isrc] are mutually exclusive. The api will not return
+    an error tho...
 
-    .. code-block:: json
+    Parameters
+    ----------
+    params : dict
+        The parameters to pass to the tidal API. Should contain either
+        "filter[id]" or "filter[isrc]" with a list of ids or is
+        respectively.
 
-        [
-            {
-                "id": "34872366-1131-43d8-b261-6e9c9cc9386e",
-                "type": "playlists",
-                "meta": {
-                    "addedAt": "2024-07-31T16:36:28.532Z"
-                }
-            },
-            ...
-        ]
+    """
+    country_code = Config().tidal.country_code
 
-    BROKEN
+    data, included, _ = await tidal_get_req_paged(
+        f"/tracks",
+        params={
+            **params,
+            "include": ["albums", "artists"],
+            "countryCode": country_code,
+        },
+    )
+    return data, included
+
+
+async def get_tracks(tidal_ids: list[str]) -> list[tuple[dict, LookupDict]]:
+    """Fetch multiple tracks by their tidal ids.
+
+    Parameters
+    ----------
+    tidal_ids : list[str]
+        A list of tidal track ids to fetch.
+
+    Returns
+    -------
+    list[dict]
+        A list of track data dicts. Order is not guaranteed to be the same as the input
+        list.
     """
 
-    playlists: list[dict] = []
+    tracks: list[dict] = []
+    included: LookupDict = {}
+    if not tidal_ids:
+        return []
 
-    # We get the ids first and than fetch the full data for each playlist
-    # Not sure if we need an iter here
-    # You need like 200 playlists to hit the pagination limit I guess
-    async for json_res in iter_tidal_get_req(
-        f"/userCollections/{user_id}/relationships/playlists"
-    ):
-        playlists.extend(json_res.get("data", []))
+    for chunk in chunk_list(tidal_ids, MAX_FILTER_SIZE):
+        params = {"filter[id]": chunk}
+        chunk_tracks, chunk_included = await _get_tracks(params)
+        tracks.extend(chunk_tracks)
+        included.update(chunk_included)
 
-    return playlists
+    if len(tracks) != len(tidal_ids):
+        log.debug(
+            f"Expected {len(tidal_ids)} tracks but received {len(tracks)} tracks as result from tidal batch lookup."
+        )
+
+    included_by_track: list[LookupDict] = []
+    for track in tracks:
+        track_lookup = {("tracks", track["id"]): track}
+        for type, rel in track.get("relationships", {}).items():
+            for item in rel.get("data", []):
+                if lookup_data := included.get((type, item["id"])):
+                    track_lookup[(type, item["id"])] = lookup_data
+                else:
+                    log.debug(
+                        f"Related item of type '{type}' with id '{item['id']}' not found in included data of tracks batch lookup."
+                    )
+        included_by_track.append(track_lookup)
+
+    return list(zip(tracks, included_by_track))
 
 
-async def get_playlist(playlist_id: str) -> dict:
+async def get_tracks_by_isrc(isrcs: list[str]) -> list[tuple[dict, LookupDict]]:
+    """Fetch multiple tracks by their isrcs.
+
+    Parameters
+    ----------
+    isrcs : list[str]
+        A list of isrcs to fetch.
+
+    Returns
+    -------
+    list[dict]
+        A list of track data dicts. Order is not guaranteed to be the same as the input
+        list.
+    """
+
+    tracks: list[dict] = []
+    included: LookupDict = {}
+    if not isrcs:
+        return []
+
+    for chunk in chunk_list(isrcs, MAX_FILTER_SIZE):
+        params = {"filter[isrc]": chunk}
+        chunk_tracks, chunk_included = await _get_tracks(params)
+        tracks.extend(chunk_tracks)
+        included.update(chunk_included)
+
+    if len(tracks) != len(isrcs):
+        log.debug(
+            f"Expected {len(isrcs)} tracks but received {len(tracks)} tracks as result from tidal batch lookup."
+        )
+
+    included_by_track: list[LookupDict] = []
+    for track in tracks:
+        track_lookup = {("tracks", track["id"]): track}
+        for type, rel in track.get("relationships", {}).items():
+            for item in rel.get("data", []):
+                if lookup_data := included.get((type, item["id"])):
+                    track_lookup[(type, item["id"])] = lookup_data
+                else:
+                    log.debug(
+                        f"Related item of type '{type}' with id '{item['id']}' not found in included data of tracks batch lookup."
+                    )
+        included_by_track.append(track_lookup)
+
+    return list(zip(tracks, included_by_track))
+
+
+async def get_playlist(playlist_id: str) -> tuple[dict, LookupDict]:
     """Get the full playlist data of a playlist by its id.
 
     Parameters
@@ -67,42 +156,27 @@ async def get_playlist(playlist_id: str) -> dict:
         The id of the playlist to fetch.
     """
 
-    playlists, items = await tidal_get_req_paged(
-        f"/playlists", params={"include": "items", "filter[id]": [playlist_id]}
+    playlists, included, _ = await tidal_get_req_paged(
+        f"/playlists",
+        params={
+            "filter[id]": [playlist_id],
+            # Tracks need albums and artists to be useful
+            "include": ["items", "items.albums", "items.artists"],
+        },
     )
+    if len(playlists) != 1:
+        raise ValueError(f"Playlist with id {playlist_id} not found")
 
-    pl = playlists[0]
-    items_data = pl.get("relationships", {}).get("items", {}).get("data", [])
-
-    ids_in_items = [item.get("id") for item in items]
-    missing_items = [
-        item for item in items_data if item.get("id") not in ids_in_items
-    ]
-    pl["missing_items"] = missing_items
-
-    if len(missing_items) > 0:
-        pl_name = pl.get("attributes", {}).get("name", " ")
-        log.warning(
-            f"Missing {len(missing_items)} items in playlist {pl_name} '{pl['id']}'"
-        )
-
-    # merge meta fields from playlist into items, so we have the addedAt
-    meta_in_idata = {item["id"]: item.get("meta", {}) for item in items_data}
-    for item in items:
-        if item["id"] in meta_in_idata:
-            item["meta"] = meta_in_idata[item["id"]]
-
-    pl["items"] = items
-
-    return pl
+    return playlists[0], included
 
 
 async def get_user_playlists(
-    user_id: str | None = None, resolve_items: bool = True
-) -> list[dict]:
+    user_id: str | None = None,
+    include_items: bool = True,
+) -> list[tuple[dict, LookupDict]]:
     """Get the full playlist data of all playlists of the current user.
 
-    If user_id is None, the current user's playlists are fetched. Use resolve_items to
+    If user_id is None, the current user's playlists are fetched. Use include_items to
     fetch the items of each playlist as well. Depending on the number of
     playlist resolving the items can take quite some time.
 
@@ -111,63 +185,56 @@ async def get_user_playlists(
     user_id : str | None, optional
         The user id of the user to fetch the playlists for. If None, the current user's
         playlists are fetched, by default None.
-    resolve_items : bool, optional
-        Whether to resolve the items of each playlist as well, by default True.
+    include_items : bool, optional
+        Whether to include the items of each playlist as well, by default True.
 
     Returns
     -------
-    list[dict]
-        A list of playlist data dicts.
+    tuple[list[dict], list[LookupDict]]
+        A tuple containing:
+        - A list of playlist data dicts.
+        - A list of lookup dicts of included items for each playlist, keyed by (type, id).
+
     """
 
     if not user_id:
         user_data = await tidal_get_req("/users/me")
         user_id = user_data["data"]["id"]
 
-    data, playlists = await tidal_get_req_paged(
+    _, playlists, _ = await tidal_get_req_paged(
         f"/userCollections/{user_id}/relationships/playlists",
-        params={"include": "playlists"},
+        params={"include": ["playlists"]},
     )
 
-    if len(data) != len(playlists):
+    # Include only supports one layer, so we need to fetch the items of each playlist
+    # separately if we want them. This can take quite some time depending on the number
+    # of playlists.
+    if not include_items:
+        return list((pl, {}) for pl in playlists.values())
+
+    pl_data = []
+    pl_lookup = []
+    with logging_redirect_tqdm():
+        for i, pl in enumerate(
+            tqdm(
+                playlists.values(),
+                desc="Fetching playlist items",
+                unit="playlists",
+                leave=False,
+            )
+        ):
+            dat, inc = await get_playlist(pl["id"])
+            pl_data.append(dat)
+            pl_lookup.append(inc)
+
+    if len(pl_data) != len(playlists):
         log.warning(
-            f"Expected {len(data)} included playlists but received {
+            f"Expected {len(pl_data)} included playlists but received {
                 len(playlists)
             } playlists. Strange stuff!"
         )
 
-    if resolve_items:
-        with logging_redirect_tqdm():
-            for pl in tqdm(playlists, desc="Getting playlist items", unit="playlist"):
-                items: list[dict] = []
-                items_data, items = await tidal_get_req_paged(
-                    pl["relationships"]["items"]["links"]["self"],
-                    params={"include": "items"},
-                )
-
-
-                ids_in_items = [item.get("id") for item in items]
-                missing_items = [
-                    item for item in items_data if item.get("id") not in ids_in_items
-                ]
-                pl["missing_items"] = missing_items
-
-                if len(missing_items) > 0:
-                    pl_name = pl.get("attributes", {}).get("name", " ")
-                    log.warning(
-                        f"Missing {len(missing_items)} items in playlist {pl_name} '{pl['id']}'"
-                    )
-
-                # merge meta fields from playlist into items, so we have the addedAt
-                meta_in_idata = {item["id"]: item.get("meta", {}) for item in items_data}
-                for item in items:
-                    if item["id"] in meta_in_idata:
-                        item["meta"] = meta_in_idata[item["id"]]
-                pl["items"] = items
-
-    # Included data is returned in same order (no sorting necessary)
-    # Also doesnt matter for this function
-    return playlists
+    return list(zip(pl_data, pl_lookup))
 
 
 # ---------------------------------------------------------------------------- #
@@ -207,8 +274,8 @@ async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
 
 @requires_tidal_token
 async def tidal_get_req_paged(
-    path: str, token: BearerToken, **kwargs
-) -> tuple[list[dict], list[dict]]:
+    path: str, token: BearerToken, params: dict = {}, **kwargs
+) -> tuple[list[dict], LookupDict, dict]:
     """
     Perform a GET request to the Tidal API.
 
@@ -226,27 +293,74 @@ async def tidal_get_req_paged(
 
     Returns
     -------
-    tuple[list[dict], list[dict]]
-        A tuple containing two lists:
-        - The first list contains the 'data' items from the response.
-        - The second list contains the 'included' items from the response.
+    tuple[list[dict], dict, dict]
+        A tuple containing:
+        - A list of data items from the paged response.
+        - A lookup dictionary of included items, keyed by (type, id).
+        - The last links object from the paged response.
     """
 
     data: list[dict] = []
-    included: list[dict] = []
+    included: LookupDict = {}
+    links = {"next": path}
 
-    next_: str | None = path
-    while next_:
-        res = await __tidal_get_req(next_, token, **kwargs)
-
+    while links.get("next"):
+        res = await __tidal_get_req(links["next"], token, params=params, **kwargs)
         res_json = res.json()
         data.extend(res_json.get("data", []))
-        included.extend(res_json.get("included", []))
+        included.update(include_to_lookup_list(res_json.get("included", [])))
+        links = res_json.get("links", {})
 
-        # Get next page (if available)
-        next_ = res.json().get("links", {}).get("next")
+    # If params are included we also want to resolve their pagination
+    # normally they are single words "albums" but can also be nested "items.albums"
+    # ["data"][int]["relationships"][<word>]["links"]["next"]
+    # Tidal does only every return two layers of includes...
+    layer_1_keys = set()
+    layer_2_keys = set()
+    for p in params.get("include", []):
+        split = p.split(".")
+        layer_1_keys.add(split[0])
+        if len(split) > 1:
+            layer_2_keys.add(split[1])
+        if len(split) > 2:
+            log.warning(
+                f"Include parameter '{p}' has more than two layers, which is not supported by tidal API."
+            )
 
-    return data, included
+    for key in layer_1_keys:
+        for item in data:
+            item_links = item.get("relationships", {}).get(key, {}).get("links", {})
+            if item_links.get("next"):
+                item_data, item_included, item_link = await tidal_get_req_paged(
+                    item_links.get("next"),
+                    token=token,
+                    params={"include": params.get("include", [])},
+                )
+
+                if item_data:
+                    item["relationships"][key]["data"].extend(item_data)
+
+                item["relationships"][key]["links"] = item_link
+                included.update(item_included)
+
+    for key in layer_2_keys:
+        # We only resolve layer 2 if data is included and has next
+        for inc in included.values():
+            rel = inc.get("relationships", {}).get(key, {})
+            next_url = rel.get("links", {}).get("next")
+            if next_url and rel.get("data") is not None:
+                inc_data, inc_included, inc_link = await tidal_get_req_paged(
+                    next_url,
+                    token=token,
+                    params={"include": params.get("include", [])},
+                )
+
+                if inc_data:
+                    inc["relationships"][key]["data"].extend(inc_data)
+                inc["relationships"][key]["links"] = inc_link
+                included.update(inc_included)
+
+    return data, included, links
 
 
 async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.Response:
@@ -274,6 +388,9 @@ async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.R
         return await __tidal_get_req(path, token, **kwargs)
 
     # Handle other errors
+    if not res.ok:
+        log.error(f"Tidal API request failed: {res.status_code} {res.text}")
+
     res.raise_for_status()
 
     return res
@@ -296,3 +413,11 @@ async def handle_rate_limit(headers: CaseInsensitiveDict):
         )
 
     return
+
+
+def include_to_lookup_list(included: list[dict]) -> LookupDict:
+    """Convert a list of included items to a lookup dict.
+
+    The key is a tuple of (type, id) and the value is the item dict.
+    """
+    return {(item["type"], item["id"]): item for item in included}

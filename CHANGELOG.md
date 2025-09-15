@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added changelog reminder as github action.
 * Spotify service integration
 
+### Changed
+
+* Enabled ruff in ipynb files.
+
+
 ## [0.1.0] - 2025-09-08
 
 ### Added

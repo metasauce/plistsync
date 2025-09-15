@@ -65,8 +65,8 @@ packages = ["plistsync", "plistsync_server"]
 allow-direct-references = true
 
 [tool.ruff]
-include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py"]
-
+include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py", "docs/**/*.ipynb"]
+extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = [

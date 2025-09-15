@@ -1,5 +1,5 @@
 import os
-from typing import Any, Callable
+from typing import Callable, TypeVar
 
 import requests
 
@@ -10,8 +10,10 @@ from plistsync.utils.bearer_token import (
     requires_bearer_token,
 )
 
+R = TypeVar("R")
 
-def requires_tidal_token(func: Callable[..., Any]) -> Callable[..., Any]:
+
+def requires_tidal_token(func: Callable[..., R]) -> Callable[..., R]:
     """Require Tidal token."""
     return requires_bearer_token("tidal")(func)
 
