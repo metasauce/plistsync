@@ -52,6 +52,11 @@ class SpotifyTrack(Track):
         """The name of the track."""
         return self.data["name"]
 
+    @property
+    def id(self) -> str:
+        """The Spotify ID of the track."""
+        return self.data["id"]
+
 
 class SpotifyPlaylistTrack(SpotifyTrack):
     """A track in a Spotify playlist.

@@ -23,9 +23,12 @@ from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Callable, Generic, Hashable, Literal, Protocol, Sequence, TypedDict
-
-from typing_extensions import runtime_checkable
+from typing import (
+    Callable,
+    Generic,
+    Literal,
+    TypedDict,
+)
 
 from .collection import Collection, TrackStream, TypeVar
 from .track import Track
@@ -89,24 +92,14 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str: ...
-
-    @name.setter
-    @abstractmethod
-    def name(self, value: str) -> None: ...
+    def name(self) -> str:
+        """The name of the playlist."""
+        ...
 
     @property
     def description(self) -> str | None:
         """The description of the playlist, if available."""
         return None
-
-    def get_snapshot(self) -> Snapshot[T]:
-        """Get a snapshot of the current state of the playlist."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "tracks": deepcopy(self._tracks),
-        }
 
     @contextmanager
     def edit(self):
@@ -117,6 +110,14 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         changes = PlaylistChanges(snapshot_before, snapshot_after)
         self.apply_changes(changes)
 
+    def get_snapshot(self) -> Snapshot[T]:
+        """Get a snapshot of the current state of the playlist."""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "tracks": deepcopy(self._tracks),
+        }
+
     @abstractmethod
     def apply_changes(self, playlist_changes: PlaylistChanges[T]) -> None:
         """Apply the given changes to the playlist.
@@ -126,11 +127,8 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         """
         ...
 
-    def __len__(self) -> int:
-        return len(self._tracks)
+    @abstractmethod
+    def __len__(self) -> int: ...
 
-    def __getitem__(self, index: int) -> T:
-        return self._tracks[index]
-
-    def __iter__(self):
-        return iter(self._tracks)
+    @abstractmethod
+    def __getitem__(self, index: int) -> T: ...
