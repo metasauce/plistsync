@@ -359,7 +359,7 @@ C = TypeVar("C", bound=Collection)
 
 
 class LibraryCollection(Generic[C], Collection, ABC):
-    """Represents a collection of tracks in a library with optional playlist management.
+    """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
     It provides a framework for managing tracks and playlists, allowing each service
