@@ -5,17 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Upcoming
+
+## [0.2.0] - 2025-10-30
 
 ### Added
 
-* Added changelog reminder as github action.
-* Spotify service integration
+* Added changelog reminder as GitHub Action.
+* Playlist abstraction layer for easier cross-service syncing.
+* Spotify service integration.
+* Tidal service integration.
+* Example notebooks for Spotify and Tidal usage.
+
 
 ### Changed
 
-* Enabled ruff in ipynb files.
+* Enabled Ruff in `.ipynb` files.
+* Updated `eyeconf` dependency to 0.3.0.
+* Updated Spotify and Tidal API implementations for better reliability.
+* Updated `eyeconf` dependency.
+* Improved test coverage for core modules.
 
+
+### Other
+
+* Enhanced test coverage for core modules.
+* Fixed multiple issues with the documentation build process.
+
+### Fixed
+
+* Documentation build issues.
+* ISRC lookup and API scope handling bugs.
+
+---
 
 ## [0.1.0] - 2025-09-08
 
