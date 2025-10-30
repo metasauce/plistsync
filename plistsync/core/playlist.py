@@ -45,6 +45,14 @@ class Snapshot(Generic[T]):
     description: str | None
     tracks: list[T]
 
+    def copy(self) -> Snapshot[T]:
+        """Create a deep copy of the snapshot."""
+        return Snapshot(
+            name=self.name,
+            description=self.description,
+            tracks=deepcopy(self.tracks),
+        )
+
 
 OPCODE = tuple[Literal["replace", "delete", "insert", "equal"], int, int, int, int]
 
@@ -79,9 +87,6 @@ class PlaylistChanges(Generic[T]):
             b=list(map(eq_function, self.snapshot_after.tracks)),
         )
         return sm.get_opcodes()
-
-
-T = TypeVar("T", bound=Track)
 
 
 class PlaylistCollection(Collection, TrackStream[T], ABC):

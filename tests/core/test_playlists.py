@@ -36,11 +36,11 @@ class TestPlaylistChanges:
     @pytest.fixture
     def sample_snapshot(self, sample_tracks: list[MockTrack]) -> Snapshot:
         """Return a sample snapshot for testing."""
-        return {
-            "name": "Test Playlist",
-            "description": "Original description",
-            "tracks": sample_tracks,
-        }
+        return Snapshot(
+            name="Test Playlist",
+            description="Original description",
+            tracks=sample_tracks,
+        )
 
     def test_no_change(self, sample_snapshot: Snapshot):
         changes = PlaylistChanges(sample_snapshot, sample_snapshot)
@@ -49,8 +49,8 @@ class TestPlaylistChanges:
 
     def test_name_description_change(self, sample_snapshot: Snapshot):
         modified_snapshot = sample_snapshot.copy()
-        modified_snapshot["name"] = "New Playlist Name"
-        modified_snapshot["description"] = "New description"
+        modified_snapshot.name = "New Playlist Name"
+        modified_snapshot.description = "New description"
 
         changes = PlaylistChanges(sample_snapshot, modified_snapshot)
         assert changes.new_name() == "New Playlist Name"
@@ -166,8 +166,8 @@ class TestPlaylistChanges:
     def test_track_operations(self, tracks_before, tracks_after, expected_ops):
         """Test track_operations() reflects changes in track lists."""
         changes = PlaylistChanges(
-            {"tracks": tracks_before, "name": "A", "description": None},
-            {"tracks": tracks_after, "name": "A", "description": None},
+            Snapshot(tracks=tracks_before, name="A", description=None),
+            Snapshot(tracks=tracks_after, name="A", description=None),
         )
         assert (
             changes.track_operations(lambda track: track.global_ids["isrc"])

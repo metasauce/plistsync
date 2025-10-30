@@ -77,7 +77,7 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
     for _, value, other_value in yield_matched_keys(a, b):
         # We calculate the distance between the two values
         # None values are undefined and are not considered
-        d = distance(value, other_value)
+        d = distance(value, other_value)  # type: ignore[arg-type]
         if d is not None:
             distances.append(d)
 
