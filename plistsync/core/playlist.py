@@ -1,7 +1,8 @@
 """Playlist collections.
 
-This module defines the `PlaylistCollection` class, which represents a collection of tracks in a playlist. To support playlist management on different platforms, we define a number of protocols which each service-specific implementation may implement.
-
+This module defines the `PlaylistCollection` class, which represents a collection of tracks
+as a playlist. To support playlist management on different platforms, we define a number of
+protocols which each service-specific implementation may adhere to.
 
 The main idea here is to have an abstraction to allow updates/edit playlist in a generic way.
 
@@ -11,7 +12,7 @@ Create a custom playlist collection by subclassing `PlaylistCollection` and impl
 
 .. code-block:: python
 
-    class MyPlaylistCollection(PlaylistCollection, ):
+    class MyPlaylistCollection(PlaylistCollection):
 
 
 """
@@ -26,6 +27,7 @@ from difflib import SequenceMatcher
 from typing import (
     Callable,
     Generic,
+    Iterator,
     Literal,
     TypedDict,
 )
@@ -127,8 +129,11 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         """
         ...
 
-    @abstractmethod
-    def __len__(self) -> int: ...
+    def __len__(self) -> int:
+        return len(self._tracks)
 
-    @abstractmethod
-    def __getitem__(self, index: int) -> T: ...
+    def __getitem__(self, index: int) -> T:
+        return self._tracks[index]
+
+    def __iter__(self) -> Iterator[T]:
+        return iter(self._tracks)

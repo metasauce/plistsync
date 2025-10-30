@@ -2,6 +2,7 @@ import pytest
 
 from plistsync.core.playlist import PlaylistChanges, Snapshot
 from .mock_track import MockTrack
+from .mock_playlist import MockPlaylist
 
 
 def eq_isrc(track: MockTrack) -> str:
@@ -172,3 +173,20 @@ class TestPlaylistChanges:
             changes.track_operations(lambda track: track.global_ids["isrc"])
             == expected_ops
         )
+
+
+class TestPlaylistCollection:
+    def test_mock_playlist_collection_basic_functionality(self):
+        """Test basic functionality of MockPlaylistCollection."""
+        tracks = [MockTrack("1"), MockTrack("2")]
+        playlist = MockPlaylist("Test Playlist", tracks)
+
+        assert playlist.name == "Test Playlist"
+        assert len(playlist) == 2
+        assert list(playlist) == tracks
+        assert playlist.description is None
+
+        # Test context manager
+        with playlist.edit() as pl:
+            assert list(playlist) == tracks
+        assert playlist[0] == tracks[0]

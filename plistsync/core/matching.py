@@ -47,6 +47,14 @@ class Matches:
         # TODO: sort by similarity, best matches first
         return iter(zip(self.found, self.found_similarities))
 
+    @property
+    def best_match(self) -> Track | None:
+        """Get the best matching track, or None if no matches found."""
+        if len(self.found) == 0:
+            return None
+        max_index = self.found_similarities.index(max(self.found_similarities))
+        return self.found[max_index]
+
 
 def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
     """Calculate the similarity between two track infos.
@@ -152,6 +160,5 @@ def yield_matched_keys(
     for key in a:
         value_a: V = a[key]
         value_b: V | None = b.get(key, None)
-        if value_b is None:
-            continue
-        yield key, value_a, value_b
+        if value_b is not None:
+            yield key, value_a, value_b
