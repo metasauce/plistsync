@@ -8,7 +8,7 @@ from requests_oauth2client import ExpiredAccessToken
 from tqdm.asyncio import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-from plistsync.config.yaml import Config
+from plistsync.config import Config
 from plistsync.utils import chunk_list
 from plistsync.utils.bearer_token import (
     BearerToken,

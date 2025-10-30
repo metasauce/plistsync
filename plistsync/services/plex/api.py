@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import requests
 
-from plistsync.config.yaml import Config, PlexConfig
+from plistsync.config import Config, PlexConfig
 from plistsync.logger import log
 
 from .api_types import PlexApiPlaylistResponse, PlexApiTrackResponse

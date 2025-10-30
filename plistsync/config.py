@@ -1,7 +1,13 @@
+"""Plistsync configuration management using YAML files.
+
+We use the `eyconf` library to handle configuration loading and validation.
+For more information see `EYConf <https://github.com/semohr/eyconf>`_.
+"""
+
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -47,15 +53,16 @@ class SpotifyConfig(OptionalService):
 
 @dataclass
 class LoggingConfig:
-    level: str
+    level: str = field(default="INFO")
 
 
 @dataclass
 class ConfigSchema:
+    logging: Optional[LoggingConfig] = field(default_factory=LoggingConfig)
+
     beets: Optional[BeetsConfig] = None
     plex: Optional[PlexConfig] = None
     tidal: Optional[TidalConfig] = None
-    logging: Optional[LoggingConfig] = None
     spotify: Optional[SpotifyConfig] = None
 
 
@@ -111,10 +118,6 @@ class Config(EYConf[ConfigSchema]):
     def __init__(self):
         super().__init__(ConfigSchema)
 
-    def default_yaml(self) -> str:
-        # Overwrite the default_yaml method to return the custom default config
-        return default
-
     @property
     def logging_level(self) -> str:
         return getattr(self._data.logging, "level", "INFO")
@@ -125,6 +128,10 @@ class Config(EYConf[ConfigSchema]):
         c_dir = Path(os.getenv("PSYNC_CONFIG_DIR", "./config"))
         os.makedirs(c_dir, exist_ok=True)
         return c_dir.resolve()
+
+    def default_yaml(self) -> str:
+        """Get the default YAML configuration."""
+        return default
 
     @staticmethod
     def get_file() -> Path:
@@ -142,32 +149,37 @@ class Config(EYConf[ConfigSchema]):
     # ---------------------------------------------------------------------------- #
     @property
     def plex(self) -> PlexConfig:
-        if not self._data.plex or not self._data.plex.enabled:
+        if not self.data.plex or not self.data.plex.enabled:
             raise ConfigurationError(
                 "'plex' is not enabled or missing in the configuration."
             )
-        return self._data.plex
+        return self.data.plex
 
     @property
     def beets(self) -> BeetsConfig:
-        if not self._data.beets or not self._data.beets.enabled:
+        if not self.data.beets or not self.data.beets.enabled:
             raise ConfigurationError(
                 "'beets' is not enabled or missing in the configuration."
             )
-        return self._data.beets
+        return self.data.beets
 
     @property
     def tidal(self) -> TidalConfig:
-        if not self._data.tidal or not self._data.tidal.enabled:
+        if not self.data.tidal or not self.data.tidal.enabled:
             raise ConfigurationError(
                 "'tidal' is not enabled or missing in the configuration."
             )
-        return self._data.tidal
+        return self.data.tidal
 
     @property
     def spotify(self) -> SpotifyConfig:
-        if not self._data.spotify or not self._data.spotify.enabled:
+        if not self.data.spotify or not self.data.spotify.enabled:
             raise ConfigurationError(
                 "'spotify' is not enabled or missing in the configuration."
             )
-        return self._data.spotify
+        return self.data.spotify
+
+
+__all__ = [
+    "Config",
+]
