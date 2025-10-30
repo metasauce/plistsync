@@ -41,6 +41,7 @@ def refresh_spotify_token(token: BearerToken) -> None:
     try:
         res.raise_for_status()
     except requests.HTTPError as e:
+        log.error(res.text, stack_info=False)
         raise InvalidToken(token) from e
 
     token_data = res.json()

@@ -366,7 +366,6 @@ async def remove_playlist_tracks(
     )
 
     # Group consecutive reinserts
-    # TODO: maybe this should be moved into the add function?
     reinserts_grouped: list[tuple[int, list[str]]] = []
     prev_pos = None
     for pos, uri in reinserts:
@@ -505,7 +504,6 @@ async def update_playlist_details(
         body["description"] = description
 
     if len(body) == 0:
-        log.info("No changes to update for playlist details.")
         return
 
     await __spotify_req(

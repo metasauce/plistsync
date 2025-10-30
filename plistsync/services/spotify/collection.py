@@ -13,15 +13,19 @@ from plistsync.core.collection import (
     LibraryCollection,
     TrackStream,
 )
+from plistsync.core.playlist import PlaylistCollection
 from plistsync.logger import log
 
 from .api import (
+    create_playlist,
     get_playlist,
     get_track,
     get_track_by_isrc,
     get_tracks,
     get_user_playlists_full,
     get_user_playlists_simplified,
+    remove_playlist_tracks,
+    update_playlist_details,
 )
 from .track import SpotifyPlaylistTrack, SpotifyTrack
 
@@ -129,7 +133,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
                 yield self.find_by_global_ids(gids)
 
 
-class SpotifyPlaylistCollection(Collection, TrackStream):
+class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
     data: dict
@@ -147,6 +151,34 @@ class SpotifyPlaylistCollection(Collection, TrackStream):
             )
 
         self.data = data
+
+    @classmethod
+    async def create_new(cls, name: str, description: str | None = None) -> Self:
+        """Create a new empty Spotify playlist with the given name and description.
+
+        Parameters
+        ----------
+        name : str
+            The name of the new playlist.
+        description : str | None
+            The description of the new playlist.
+
+        Returns
+        -------
+        SpotifyPlaylistCollection
+            The created SpotifyPlaylistCollection.
+
+        Raises
+        ------
+        ValueError
+            If the playlist could not be created.
+        """
+
+        data = await create_playlist(
+            name,
+            description or "Created by 'plistsync'",
+        )
+        return cls(data)
 
     @classmethod
     async def from_id(cls, playlist_id: str) -> Self:
@@ -180,6 +212,48 @@ class SpotifyPlaylistCollection(Collection, TrackStream):
         """The spotify ID of the playlist."""
         return self.data["id"]
 
+    def apply_changes(self, playlist_changes) -> None:
+        """Apply the given changes to the playlist.
+
+        This method should handle updating the playlist's metadata and tracks
+        according to the provided `PlaylistChanges` object.
+
+        Note: This is not implemented yet.
+        """
+        # If name or description changed, update them
+        asyncio.run(
+            update_playlist_details(
+                self.id,
+                name=playlist_changes.new_name(),
+                description=playlist_changes.new_description(),
+            )
+        )
+
+        # Apply track changes
+        ops = playlist_changes.track_operations(lambda t: t.id)
+
+        for tag, i1, i2, j1, j2 in ops:
+            if tag == "delete":
+                asyncio.run(
+                    remove_playlist_tracks(
+                        self.id,
+                        [
+                            t.id
+                            for t in playlist_changes.snapshot_before["tracks"][i1:i2]
+                        ],
+                        list(range(i1, i2)),
+                        self.data.get("snapshot_id"),
+                    )
+                )
+            elif tag == "insert":
+                log.warning(
+                    "Inserting tracks into spotify playlists is not implemented yet."
+                )
+            elif tag == "replace":
+                log.warning(
+                    "Replacing tracks in spotify playlists is not implemented yet."
+                )
+
     def __iter__(self) -> Iterator[SpotifyPlaylistTrack]:
         """Iterate over all tracks in the playlist.
 
@@ -195,3 +269,16 @@ class SpotifyPlaylistCollection(Collection, TrackStream):
                 log.debug(
                     f"Skipping non-track item in playlist '{self.name}': {item['track']['type']}"
                 )
+
+    def __len__(self) -> int:
+        return len(self.data.get("tracks", {}).get("items", []))
+
+    def __getitem__(self, index: int) -> SpotifyPlaylistTrack:
+        items = self.data.get("tracks", {}).get("items", [])
+        item = items[index]
+        if item["track"]["type"] == "track":
+            return SpotifyPlaylistTrack(item)
+        else:
+            raise ValueError(
+                f"Item at index {index} is not a track, but {item['track']['type']}"
+            )

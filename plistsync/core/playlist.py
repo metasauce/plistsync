@@ -38,8 +38,11 @@ from .track import Track
 T = TypeVar("T", bound=Track)
 
 
-class Snapshot(Generic[T], TypedDict):
-    name: str
+@dataclass
+class Snapshot(Generic[T]):
+    """Represents a snapshot of a playlist's state."""
+
+    name: str | None
     description: str | None
     tracks: list[T]
 
@@ -56,14 +59,14 @@ class PlaylistChanges(Generic[T]):
 
     def new_name(self) -> str | None:
         """Get the new name if it has changed, otherwise None."""
-        if self.snapshot_before["name"] != self.snapshot_after["name"]:
-            return self.snapshot_after["name"]
+        if self.snapshot_before.name != self.snapshot_after.name:
+            return self.snapshot_after.name
         return None
 
     def new_description(self) -> str | None:
         """Get the new description if it has changed, otherwise None."""
-        if self.snapshot_before["description"] != self.snapshot_after["description"]:
-            return self.snapshot_after["description"]
+        if self.snapshot_before.description != self.snapshot_after.description:
+            return self.snapshot_after.description
         return None
 
     def track_operations(self, eq_function: Callable[[T], str]) -> list[OPCODE]:
@@ -73,8 +76,8 @@ class PlaylistChanges(Generic[T]):
         index shifting issues.
         """
         sm = SequenceMatcher(
-            a=list(map(eq_function, self.snapshot_before["tracks"])),
-            b=list(map(eq_function, self.snapshot_after["tracks"])),
+            a=list(map(eq_function, self.snapshot_before.tracks)),
+            b=list(map(eq_function, self.snapshot_after.tracks)),
         )
         return sm.get_opcodes()
 
@@ -114,11 +117,11 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
 
     def get_snapshot(self) -> Snapshot[T]:
         """Get a snapshot of the current state of the playlist."""
-        return {
-            "name": self.name,
-            "description": self.description,
-            "tracks": deepcopy(self._tracks),
-        }
+        return Snapshot(
+            name=self.name,
+            description=self.description,
+            tracks=deepcopy(self._tracks),
+        )
 
     @abstractmethod
     def apply_changes(self, playlist_changes: PlaylistChanges[T]) -> None:
