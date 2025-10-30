@@ -2,7 +2,7 @@
     <h1 align="center">plistsync</h1>
 </p>
 
-
+[![Python checks](https://github.com/metasauce/plistsync/actions/workflows/python.yml/badge.svg?branch=main)](https://github.com/metasauce/plistsync/actions/workflows/python.yml)
 
 <p align="center">
     <em><b>
@@ -21,17 +21,18 @@ Toolbox for transferring, converting and matching music collections
 
 <!-- start features -->
 
--   todo
+-   Transfer playlists and collections between different music services:
+    -   Spotify
+    -   Tidal
+    -   Plex
+    -   Traktor
 
 <!-- end features -->
 
 ## What works
 
--   cli command to export plex playlist as m3u:
+- One one playlist transfer from spotify to tidal [notebook](notebook/top100dnb.ipynb)
 
-```bash
-plistsync -v plex playlist-as-m3u 108310 -o ./foo.m3u -rw /media/music/clean:/Volumes/music/clean
-```
 
 ## Next steps:
 
@@ -43,13 +44,6 @@ plistsync -v plex playlist-as-m3u 108310 -o ./foo.m3u -rw /media/music/clean:/Vo
         -   find track id that matches our file (via file path)
         -   insert track into traktor playlist
 -   manually sync (overwrite) playlist from traktor to plex
-
--   cleanup:
-
-    -   remove all flask routes as we are focusing on the package/cli functionality
-    -   remove all unused code
-    -   remove old tests
-
 -   tests:
     -   create abc collection test to use with all services, migrate test_collections
 
