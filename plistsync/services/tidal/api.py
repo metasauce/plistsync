@@ -6,13 +6,13 @@ from typing import AsyncGenerator, List
 import requests
 from requests.structures import CaseInsensitiveDict
 
-from ...logger import log
-from ...utils import chunk_list
-from .token import (
-    TidalBearerToken,
-    requires_tidal_token,
-    requires_tidal_token_generator,
+from plistsync.utils import chunk_list
+from plistsync.utils.bearer_token import (
+    BearerToken,
 )
+
+from ...logger import log
+from .token import refresh_tidal_token, requires_tidal_token
 from .track import TidalTrack
 
 
@@ -88,9 +88,9 @@ async def get_tracks(track_ids: List[str]):
 TIDAL_BASE_URL = "https://openapi.tidal.com/v2"
 
 
-@requires_tidal_token_generator
+@requires_tidal_token
 async def iter_tidal_get_req(
-    path: str, token: TidalBearerToken, **kwargs
+    path: str, token: BearerToken, **kwargs
 ) -> AsyncGenerator[dict, None]:
     """
     Perform a GET request to the Tidal API. This can be used for any paginated request.
@@ -130,7 +130,7 @@ async def iter_tidal_get_req(
 
 
 @requires_tidal_token
-async def tidal_get_req(path: str, token: TidalBearerToken, **kwargs) -> dict:
+async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
     """
     Perform a GET request to the Tidal API.
 
@@ -162,9 +162,7 @@ async def tidal_get_req(path: str, token: TidalBearerToken, **kwargs) -> dict:
     return res_json
 
 
-async def __tidal_get_req(
-    path: str, token: TidalBearerToken, **kwargs
-) -> requests.Response:
+async def __tidal_get_req(path: str, token: BearerToken, **kwargs) -> requests.Response:
     # Ensure the path starts with a '/'
     if not path.startswith("/"):
         path = "/" + path
@@ -176,6 +174,12 @@ async def __tidal_get_req(
     # Handle rate limiting
     if res.status_code == 429:
         await handle_rate_limit(res.headers)
+        return await __tidal_get_req(path, token, **kwargs)
+
+    # Handle token expiration
+    if res.status_code == 401:
+        log.info("Tidal token expired, refreshing...")
+        refresh_tidal_token(token)
         return await __tidal_get_req(path, token, **kwargs)
 
     # Handle other errors
@@ -190,25 +194,14 @@ async def handle_rate_limit(headers: CaseInsensitiveDict):
     Extract rate limit headers and await the time until the rate limit is reset.
     """
 
-    remaining = int(headers.get("X-RateLimit-Remaining", 0))
-    burst_capacity = int(headers.get("X-RateLimit-Burst-Capacity", 0))
-    replenish_rate = int(headers.get("X-RateLimit-Replenish-Rate", 0))
-    requested_tokens = int(headers.get("X-RateLimit-Requested-Tokens", 1))
+    remaining = int(headers.get("Retry-After", 0))
 
-    log.warning(
-        f"Rate limit exceeded: {remaining=}, {burst_capacity=}, {replenish_rate=}, {requested_tokens=}"
-    )
-
-    if replenish_rate > 0:
-        # Calculate time to wait
-        tokens_needed = requested_tokens - remaining
-        time_to_wait = (
-            tokens_needed / replenish_rate
-        ) + 0.5  # Add 0.5 seconds to be sure
-
-        log.info(f"Tidal rate limit exceeded: Waiting {time_to_wait} seconds")
-        await asyncio.sleep(time_to_wait)
+    if remaining > 0:
+        log.info(f"Tidal rate limit exceeded: Waiting {remaining} seconds")
+        await asyncio.sleep(remaining)
     else:
-        raise Exception("Rate limit handling failed: Replicish rate is 0")
+        raise Exception(
+            "Rate limit handling failed: Retry-After header is missing or invalid"
+        )
 
     return

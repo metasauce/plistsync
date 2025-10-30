@@ -76,3 +76,31 @@ def chunk_list(lst: list[A], chunk_size: int):
 
     """
     return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
+
+
+def safe_webbrowser_open(url: str) -> bool:
+    """Open URL in the default browser, silencing browser stderr/stdout."""
+    import subprocess
+    import webbrowser
+
+    controller = webbrowser.get()  # default browser controller
+
+    # If it's a BackgroundBrowser, override Popen behavior
+    if isinstance(controller, webbrowser.BackgroundBrowser):
+
+        def quiet_open(url, new=0, autoraise=True):
+            try:
+                subprocess.Popen(
+                    [controller.name, url],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    close_fds=True,
+                )
+                return True
+            except Exception:
+                return False
+
+        return quiet_open(url)
+
+    # Fallback: just use normal open()
+    return controller.open(url)

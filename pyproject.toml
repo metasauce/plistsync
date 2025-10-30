@@ -3,9 +3,6 @@ name = "plistsync"
 version = "0.0.1"
 requires-python = ">=3.11"
 dependencies = [
-    "quart",
-    "uvicorn[standard]",
-    "rq",
     "requests",
     "requests_oauth2client",
     "sqlalchemy",
@@ -20,6 +17,8 @@ dependencies = [
     "typer",
     "eyconf[cli]>=0.1.0",
     "lxml",
+    "tqdm",
+    "nest_asyncio",
 ]
 
 [project.scripts]
@@ -30,7 +29,13 @@ plistsync = "plistsync.__main__:cli"
 test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-benchmark"]
 dev = ["ruff", "pre-commit"]
 bench = ["tinytag", "mutagen", "pytaglib", "music-tag", "eyeD3"]
-typed = ["mypy", "types-lxml", "types-cachetools", "types-requests"]
+typed = [
+    "mypy",
+    "types-lxml",
+    "types-cachetools",
+    "types-requests",
+    "types-tqdm",
+]
 docs = [
     "sphinx>=8.0.2",
     "furo>=2024.8.6",
@@ -100,5 +105,5 @@ disallow_untyped_decorators = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-module = ["eyconf.*", "beets.*", "taglib.*", "music_tag.*"]
+module = ["eyconf.*", "beets.*", "taglib.*", "music_tag.*", "nest_asyncio.*"]
 ignore_missing_imports = true

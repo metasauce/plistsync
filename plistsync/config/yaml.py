@@ -33,8 +33,15 @@ class PlexConfig(OptionalService):
 @dataclass
 class TidalConfig(OptionalService):
     client_id: str
-    client_secret: str
     redirect_port: int
+    client_secret: Optional[str] = None
+
+
+@dataclass
+class SpotifyConfig(OptionalService):
+    client_id: str
+    redirect_port: int
+    client_secret: Optional[str] = None
 
 
 @dataclass
@@ -48,6 +55,7 @@ class ConfigSchema:
     plex: Optional[PlexConfig] = None
     tidal: Optional[TidalConfig] = None
     logging: Optional[LoggingConfig] = None
+    spotify: Optional[SpotifyConfig] = None
 
 
 # ---------------------------------------------------------------------------- #
@@ -78,7 +86,10 @@ plex:
 tidal:
     enabled: false
     client_id: XhEgdcjkjfqTqw1y
-    client_secret: gqRrRCYaxcCxZJmPswXM7NMUjH1DFNIS2O6DRFe5ZF8=
+    redirect_port: 5001
+spotify:
+    enabled: false
+    client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
     redirect_port: 5001
 """
 
@@ -151,3 +162,11 @@ class Config(EYConf[ConfigSchema]):
                 "'tidal' is not enabled or missing in the configuration."
             )
         return self._data.tidal
+
+    @property
+    def spotify(self) -> SpotifyConfig:
+        if not self._data.spotify or not self._data.spotify.enabled:
+            raise ConfigurationError(
+                "'spotify' is not enabled or missing in the configuration."
+            )
+        return self._data.spotify

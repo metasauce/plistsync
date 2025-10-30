@@ -32,6 +32,12 @@ class GlobalTrackIDs(TypedDict, total=False):
     so this field may need to support multiple values in the future.
     """
 
+    spotify_id: str
+    """Spotify ID of the track.
+
+    Globally unique within the Spotify service.
+    """
+
 
 class LocalTrackIDs(TypedDict, total=False):
     """Locally scoped identifiers for a track.
