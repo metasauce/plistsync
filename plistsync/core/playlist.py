@@ -29,7 +29,6 @@ from typing import (
     Generic,
     Iterator,
     Literal,
-    TypedDict,
 )
 
 from .collection import Collection, TrackStream, TypeVar

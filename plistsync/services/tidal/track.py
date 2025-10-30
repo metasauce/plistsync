@@ -6,8 +6,6 @@ from typing import Iterable
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
 
-from ...errors import NotFoundError
-from ...logger import log
 from .api import LookupDict
 
 

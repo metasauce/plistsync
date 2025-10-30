@@ -1,6 +1,6 @@
 import asyncio
 from collections import Counter
-from typing import Any, Sequence
+from typing import Any
 
 import requests
 from requests.structures import CaseInsensitiveDict

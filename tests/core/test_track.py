@@ -1,8 +1,7 @@
 import pytest
 from pathlib import PurePath
-from typing import Any
 
-from plistsync.core.track import Track, TrackInfo, GlobalTrackIDs, LocalTrackIDs
+from plistsync.core.track import Track, GlobalTrackIDs, LocalTrackIDs
 from tests.core.mock_track import MockTrack
 
 

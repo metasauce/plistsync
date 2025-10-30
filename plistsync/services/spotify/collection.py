@@ -8,10 +8,8 @@ import nest_asyncio
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
-    Collection,
     GlobalLookup,
     LibraryCollection,
-    TrackStream,
 )
 from plistsync.core.playlist import PlaylistCollection
 from plistsync.logger import log
