@@ -229,9 +229,8 @@ async def get_user_playlists(
 
     if len(pl_data) != len(playlists):
         log.warning(
-            f"Expected {len(pl_data)} included playlists but received {
-                len(playlists)
-            } playlists. Strange stuff!"
+            f"Expected {len(pl_data)} included playlists but received"
+            f" {len(playlists)} playlists. Strange stuff!"
         )
 
     return list(zip(pl_data, pl_lookup))
