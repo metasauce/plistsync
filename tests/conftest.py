@@ -1,3 +1,4 @@
+import json
 import platform
 import subprocess
 from typing import Any, List
@@ -20,10 +21,27 @@ def plist_config(tmpdir_factory):
             enabled: true
             server_url: http://localhost:32400
             auth_token: {os.environ.get("PLEX_AUTH_TOKEN", None)}
+            machine_id: {os.environ.get("PLEX_MACHINE_ID", None)}
+        spotify:
+            enabled: true
+            client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
+            redirect_port: 5001
         """,
         encoding="utf-8",
     )
     os.environ["PSYNC_CONFIG_DIR"] = config_file.dirname
+
+    # Also write spotify token
+    spotify_token_file = tmp_dir / "spotify_token.json"
+    spotify_token = {
+        "access_token": "BQDeDfFpiUzzmwVoXH8c7UurBfUPagZwb0GXu1HPHCVbOQRQtmaUUTW3_4JCIKYv-NNaRjG7zbjH1D4ahqWhtwgfZo2-1-7e2Yw0JfYoioRFBDBmyhFI-S_ibB1WlfNOpX7c0lAe8wUWqcVpcu2lHki3_9CbY6OBfujNizPXgMIklhLjSsfhTVXDqqslC1cGbgHQpVRRIk0Z0RKPCHLBu7fvcJ6CGfTaySinkkZyP0QbF10HaSdYSVkSRPk0k4HGqTGpeJNJaI0l_rWXgjBM9XLDURZwMSyK",
+        "scope": "playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public",
+        "refresh_token": "AQBpaDBrDZc0K0fOcqv7A3Y5S5DrIabG6F5UYgeHBIDmGOLxWybRCNaE2lS3P76zlWVgZzrmpEbuZtSSQDjGV5GZOAI90GvLSgWZ9ram92lMRUyJXR9HI2XyQjOkUIsexLPxHA",
+        "token_type": "Bearer",
+        "expires_at": "2025-09-18T20:40:06+00:00",
+    }
+    spotify_token_file.write_text(json.dumps(spotify_token, indent=4), encoding="utf-8")
+
     return config_file, tmp_dir
 
 

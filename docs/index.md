@@ -45,8 +45,8 @@ details/matching.md
 :hidden:
 :caption: 🛠️ Services
 
-services/tidal.md
-services/spotify.md
+services/tidal
+services/spotify
 ```
 
 ```{toctree}

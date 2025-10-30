@@ -222,8 +222,8 @@ class Collection(ABC):
     def match(
         self,
         track: Track,
-        skip_after_local_match: bool = False,
-        skip_after_perfect_fuzzy_match: bool = False,
+        skip_after_local_match: bool = True,
+        skip_after_perfect_fuzzy_match: bool = True,
         cutoff=0.6,
     ) -> Matches:
         """Return potential matches for the given track based on different lookup strategies.
@@ -243,6 +243,8 @@ class Collection(ABC):
             The track to match against this collection
         skip_after_local_match
             If True, return after first successful match when searching local IDs
+        skip_after_perfect_fuzzy_match
+            If True, return after finding a perfect fuzzy match (similarity == 1.0)
         cutoff
             Minimum similarity score (0-1) for a match to be considered
         """
@@ -359,7 +361,7 @@ C = TypeVar("C", bound=Collection)
 
 
 class LibraryCollection(Generic[C], Collection, ABC):
-    """Represents a collection of tracks in a library with optional playlist management.
+    """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
     It provides a framework for managing tracks and playlists, allowing each service

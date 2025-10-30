@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable, Iterator, Sequence
+from typing import TYPE_CHECKING, Iterable, Iterator, Mapping, Sequence, TypeVar
 
 from Levenshtein import ratio as levenshtein_ratio
 
@@ -47,6 +47,14 @@ class Matches:
         # TODO: sort by similarity, best matches first
         return iter(zip(self.found, self.found_similarities))
 
+    @property
+    def best_match(self) -> Track | None:
+        """Get the best matching track, or None if no matches found."""
+        if len(self.found) == 0:
+            return None
+        max_index = self.found_similarities.index(max(self.found_similarities))
+        return self.found[max_index]
+
 
 def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
     """Calculate the similarity between two track infos.
@@ -66,10 +74,10 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
     if len(a) > len(b):
         a, b = b, a
 
-    for _, value, other_value in _matched_iter_items(a, b):
+    for _, value, other_value in yield_matched_keys(a, b):
         # We calculate the distance between the two values
         # None values are undefined and are not considered
-        d = distance(value, other_value)
+        d = distance(value, other_value)  # type: ignore[arg-type]
         if d is not None:
             distances.append(d)
 
@@ -138,17 +146,19 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
     return None
 
 
-def _matched_iter_items(
-    a: TrackInfo, b: TrackInfo
-) -> Iterable[tuple[str, str | list[str], str | list[str]]]:
-    """Iterate over the keys of two TrackInfo objects.
+V = TypeVar("V")
 
-    Iterate over the keys of two TrackInfo objects and yield
+
+def yield_matched_keys(
+    a: Mapping[str, V], b: Mapping[str, V]
+) -> Iterable[tuple[str, V, V]]:
+    """Iterate over the keys of two dict objects.
+
+    Iterate over the keys of two dict objects and yield
     the key and the values of both objects if they are present in both.
     """
     for key in a:
-        value_a: str | list[str] = a[key]  # type: ignore
-        value_b: str | list[str] | None = b.get(key, None)  # type: ignore
-        if value_b is None:
-            continue
-        yield key, value_a, value_b
+        value_a: V = a[key]
+        value_b: V | None = b.get(key, None)
+        if value_b is not None:
+            yield key, value_a, value_b

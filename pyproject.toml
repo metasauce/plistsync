@@ -1,6 +1,6 @@
 [project]
 name = "plistsync"
-version = "0.0.1"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
     "requests",
@@ -15,7 +15,7 @@ dependencies = [
     "tinytag",
     "levenshtein",
     "typer",
-    "eyconf[cli]>=0.1.0",
+    "eyconf[cli]>=0.3.0",
     "lxml",
     "tqdm",
     "nest_asyncio",
@@ -46,6 +46,10 @@ docs = [
     "myst-parser>=4.0.0",
     "myst-nb>=1.1.2",
 ]
+jupyter = [
+    "ipykernel",
+    "ipywidgets",
+]
 all = ["plistsync[dev,test,typed,docs]"]
 
 
@@ -61,8 +65,8 @@ packages = ["plistsync", "plistsync_server"]
 allow-direct-references = true
 
 [tool.ruff]
-include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py"]
-
+include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py", "docs/**/*.ipynb"]
+extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = [

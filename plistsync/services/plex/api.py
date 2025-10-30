@@ -6,7 +6,7 @@ from urllib.parse import quote
 
 import requests
 
-from plistsync.config.yaml import Config, PlexConfig
+from plistsync.config import Config, PlexConfig
 from plistsync.logger import log
 
 from .api_types import PlexApiPlaylistResponse, PlexApiTrackResponse
@@ -236,9 +236,13 @@ def fetch_tracks_by_path(
     # search cache instead
     found_tracks = []
     for track in cache:
-        found_path = track.get("Media", [{}])[0].get("Part", [{}])[0].get("file")
-        if found_path is not None and str(file_path) == str(Path(found_path).resolve()):
-            found_tracks.append(track)
+        if media_list := track.get("Media", []):
+            if parts := media_list[0].get("Part", []):
+                found_path = parts[0].get("file")
+                if found_path is not None and str(file_path) == str(
+                    Path(found_path).resolve()
+                ):
+                    found_tracks.append(track)
 
     return found_tracks
 

@@ -14,8 +14,8 @@ class MockTrack(Track):
         local_ids: LocalTrackIDs | None = None,
     ):
         self._title = title
-        self._artists = artists or ["Test Artist"]
-        self._albums = albums or ["Test Album"]
+        self._artists = artists or []
+        self._albums = albums or []
         self._global_ids = global_ids or {}
         self._local_ids = local_ids or {}
         self._info = TrackInfo(
@@ -25,18 +25,6 @@ class MockTrack(Track):
                 "albums": self._albums,
             }
         )
-
-    @property
-    def title(self) -> str:
-        return self._title
-
-    @property
-    def artists(self) -> list[str]:
-        return self._artists
-
-    @property
-    def albums(self) -> list[str]:
-        return ["Test Album"]
 
     @property
     def global_ids(self) -> GlobalTrackIDs:

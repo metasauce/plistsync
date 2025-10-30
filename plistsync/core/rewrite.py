@@ -36,6 +36,8 @@ class PathRewrite(NamedTuple):
         path : PurePath
             The path to be rewritten.
         """
+        if path == self.old:
+            return self.new
 
         if self.old in path.parents:
             return self.new / path.relative_to(self.old)
