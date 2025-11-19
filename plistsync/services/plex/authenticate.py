@@ -34,8 +34,8 @@ def auth(
         "paste the redirected URL after logging in. This should be used if you are running the CLI "
         "on a remote server without browser access.",
     ),
-    port: int = typer.Option(
-        11311,
+    port: int | None = typer.Option(
+        None,
         "--port",
         "-p",
         help="Port for the local server (if 'forward' mode is used).",
@@ -51,7 +51,8 @@ def auth(
 
     This will open a browser window to log in to Plex and obtain an access token.
     """
-    plex_config = Config().plex
+    config = Config()
+    redirect_port = port if port is not None else config.redirect_port
 
     # Check if token exists and is valid
     token_path = Config.get_dir() / "plex_token.json"
@@ -93,7 +94,7 @@ def auth(
         "context[device][product]": APP_NAME,
     }
     if mode == "forward":
-        params["forwardUrl"] = f"http://localhost:{port}/"
+        params["forwardUrl"] = f"http://localhost:{redirect_port}/"
     auth_url = f"https://app.plex.tv/auth#?" + urlencode(params)
 
     # Try to open the URL in the default browser
@@ -107,7 +108,7 @@ def auth(
 
     if mode == "forward":
         # Start a local server to handle the redirect
-        get_auth_code_server(port)
+        get_auth_code_server(redirect_port)
         # Verify the pin
         success, pin_data = verify_pin(pin["id"])
     else:
