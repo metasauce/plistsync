@@ -8,6 +8,7 @@ import hashlib
 import http.server
 import secrets
 import socketserver
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -35,11 +36,11 @@ SCOPES = " ".join(
 
 @tidal_cli.command()
 def auth(
-    no_server: bool = typer.Option(
-        False,
-        "--no-server",
-        "-ns",
-        help="Do not run a server. You will need to manually paste the URL.",
+    mode: Literal["forward", "manual"] = typer.Option(
+        "forward",
+        "--mode",
+        "-m",
+        help="If set to 'manual', the CLI will not start a local server and instead ask you to paste the redirected URL after logging in. This should be used if you are running the CLI on a remote server without browser access.",
     ),
 ):
     """Use your Tidal account to authenticate with the Tidal API.
@@ -76,7 +77,7 @@ def auth(
         typer.echo(url)
 
     # Start a local server to handle the redirect
-    if no_server:
+    if mode == "manual":
         pasted_url = typer.prompt("Paste the redirected URL after logging into Tidal")
         results = handle_pasted_url(pasted_url)
     else:

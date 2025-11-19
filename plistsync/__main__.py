@@ -7,6 +7,7 @@ from .config import Config
 from .logger import log, overwrite_log_level
 from .services.spotify.authenticate import spotify_cli
 from .services.tidal.authenticate import tidal_cli
+from .services.plex.authenticate import plex_cli
 
 cli = typer.Typer(
     rich_markup_mode="rich",
@@ -16,6 +17,7 @@ cli = typer.Typer(
 
 cli.add_typer(tidal_cli, name="tidal")
 cli.add_typer(spotify_cli, name="spotify")
+cli.add_typer(plex_cli, name="plex")
 cli.add_typer(create_config_cli(Config), name="config")
 
 
