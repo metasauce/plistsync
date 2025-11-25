@@ -17,13 +17,6 @@ plex_cli = typer.Typer(
 )
 
 
-APP_NAME = "plistsync-local"
-# Random generated UUID, we could generate this for each
-# user but it is not strictly necessary and one global
-# id might allow us profiling across installs in the future.
-CLIENT_IDENTIFIER = "510457cfb15e4bf48d34563d0e4f1de1"
-
-
 @plex_cli.command()
 def auth(
     mode: Literal["forward", "polling"] = typer.Option(
@@ -52,6 +45,7 @@ def auth(
     This will open a browser window to log in to Plex and obtain an access token.
     """
     config = Config()
+    plex_config = config.plex
     redirect_port = port if port is not None else config.redirect_port
 
     # Check if token exists and is valid
@@ -63,8 +57,8 @@ def auth(
         response = requests.get(
             "https://plex.tv/api/v2/user",
             headers={
-                "X-Plex-Product": APP_NAME,
-                "X-Plex-Client-Identifier": CLIENT_IDENTIFIER,
+                "X-Plex-Product": plex_config.app_name,
+                "X-Plex-Client-Identifier": plex_config.client_identifier,
                 "X-Plex-Token": token["X-Plex-Token"],
             },
         )
@@ -79,8 +73,8 @@ def auth(
         "https://plex.tv/api/v2/pins?strong=true",
         headers={
             "accept": "application/json",
-            "X-Plex-Product": APP_NAME,
-            "X-Plex-Client-Identifier": CLIENT_IDENTIFIER,
+            "X-Plex-Product": config.plex.app_name,
+            "X-Plex-Client-Identifier": config.plex.client_identifier,
         },
         json={"strong": True},
     )
@@ -89,9 +83,9 @@ def auth(
 
     # Create an url for the user to authenticate
     params = {
-        "clientID": CLIENT_IDENTIFIER,
+        "clientID": config.plex.client_identifier,
         "code": pin["code"],
-        "context[device][product]": APP_NAME,
+        "context[device][product]": config.plex.app_name,
     }
     if mode == "forward":
         params["forwardUrl"] = f"http://localhost:{redirect_port}/"
@@ -204,8 +198,8 @@ def verify_pin(pin_id: int) -> tuple[bool, Any]:
         f"https://plex.tv/api/v2/pins/{pin_id}",
         headers={
             "accept": "application/json",
-            "X-Plex-Client-Identifier": CLIENT_IDENTIFIER,
-            "X-Plex-Product": APP_NAME,
+            "X-Plex-Client-Identifier": Config().plex.client_identifier,
+            "X-Plex-Product": Config().plex.app_name,
         },
     )
     if response.status_code != 200:

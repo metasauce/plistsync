@@ -5,9 +5,9 @@ from eyconf.cli import create_config_cli
 
 from .config import Config
 from .logger import log, overwrite_log_level
+from .services.plex.authenticate import plex_cli
 from .services.spotify.authenticate import spotify_cli
 from .services.tidal.authenticate import tidal_cli
-from .services.plex.authenticate import plex_cli
 
 cli = typer.Typer(
     rich_markup_mode="rich",

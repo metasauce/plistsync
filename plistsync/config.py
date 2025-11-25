@@ -6,6 +6,7 @@ For more information see `EYConf <https://github.com/semohr/eyconf>`_.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,7 +33,22 @@ class BeetsConfig(OptionalService):
 
 @dataclass
 class PlexConfig(OptionalService):
-    server_url: str = field(default="http://localhost:32400")
+    default_server_url: str = field(default="https://plex.tv")
+
+    @property
+    def app_name(self) -> str:
+        return "plistsync-local"
+
+    @property
+    def client_identifier(self) -> str:
+        # Random generated UUID, we could generate this for each
+        # user but it is not strictly necessary and one global
+        # id might allow us profiling across installs in the future.
+        return "510457cfb15e4bf48d34563d0e4f1de1"
+
+    @property
+    def token_path(self) -> Path:
+        return Config.get_dir() / "plex_token.json"
 
 
 @dataclass
