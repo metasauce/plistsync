@@ -11,16 +11,7 @@ from plistsync.services.plex.api_types import (
     PlexApiTrackResponse,
 )
 
-from .api import (
-    fetch_playlist,
-    fetch_playlist_items,
-    fetch_playlists,
-    fetch_section_root_path,
-    fetch_tracks,
-    insert_track_into_playlist_by_id,
-    resolve_playlist_id,
-    resolve_section_id,
-)
+from .api import PlexApi
 from .track import PlexTrack
 
 
@@ -36,6 +27,7 @@ class PlexLibrarySectionCollection(Collection):
     """
 
     section_id: int
+    api: PlexApi
 
     def __init__(
         self,
@@ -48,7 +40,10 @@ class PlexLibrarySectionCollection(Collection):
         section_id : str | int
             The Name or ID of the Plex library section to fetch.
         """
-        self.section_id = resolve_section_id(section_id)
+        self.api = PlexApi()
+        self.section_id = self.api.converts.section_name_to_id(
+            section_id,
+        )
 
     def preload(self) -> None:
         """Preload the collection data.
@@ -62,8 +57,7 @@ class PlexLibrarySectionCollection(Collection):
     def playlists(self) -> Iterator["PlexPlaylistCollection"]:
         """Get all playlists in the library as PlexPlaylistCollection objects."""
 
-        all_playlists = fetch_playlists()
-        for pl_data in all_playlists:
+        for pl_data in self.api.playlist.fetch_playlists():
             # we might also want to filter: smart=False
             if pl_data.get("playlistType") != "audio":
                 continue
@@ -76,7 +70,16 @@ class PlexLibrarySectionCollection(Collection):
     @cached_property
     def locations(self) -> list[Path]:
         """To locations (on disk) of the section."""
-        return fetch_section_root_path(self.section_id)
+        sections = self.api.sections()
+        paths: list[Path] = []
+        for section in sections["MediaContainer"].get("Directory", []):
+            if int(section.get("key")) == int(self.section_id):
+                locations = section.get("Location", [{}])
+                for l in locations:
+                    if "path" in l:
+                        paths.append(Path(l.get("path")))
+
+        return paths
 
     # ------------------------------- Protocols ------------------------------ #
 
@@ -91,7 +94,7 @@ class PlexLibrarySectionCollection(Collection):
             self._tracks = []
             tracks_iter = map(
                 lambda item: PlexTrack(item),
-                fetch_tracks(
+                self.api.track.fetch_tracks(
                     section_id=self.section_id,
                     page_size=self._page_size,
                 ),

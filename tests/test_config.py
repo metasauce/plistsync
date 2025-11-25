@@ -33,43 +33,46 @@ class TestServiceConfig:
         [
             (
                 "beets",
-                """
-                beets:
-                    enabled: true
-                    database: ./test.db
-                """,
+                (
+                    "services:\n"
+                    "    beets:\n"
+                    "        enabled: true\n"
+                    "        database: ./test.db"
+                ),
             ),
             (
                 "plex",
-                """
-                plex:
-                    enabled: true
-                    server_url: http://localhost:32400
-                    auth_token: testtoken
-                    machine_id: testmachineid
-                """,
+                (
+                    "services:\n"
+                    "    plex:\n"
+                    "        enabled: true\n"
+                    "        default_server_url: http://localhost:32400"
+                ),
             ),
             (
                 "tidal",
-                """
-                tidal:
-                    enabled: true
-                    client_id: testclientid
-                    redirect_port: 5001
-                """,
+                (
+                    "services:\n"
+                    "    tidal:\n"
+                    "        enabled: true\n"
+                    "        client_id: testuser\n"
+                ),
             ),
             (
                 "spotify",
-                """
-                spotify:
-                    enabled: true
-                    client_id: testclientid
-                    redirect_port: 5001
-                """,
+                (
+                    "services:\n"
+                    "    spotify:\n"
+                    "        enabled: true\n"
+                    "        client_id: testclientid\n"
+                    "        redirect_port: 5001"
+                ),
             ),
         ],
     )
     def test_enable_service_in_config(self, temp_config_file, service, config_data):
+        config_data = "logging:\n    level: DEBUG\nredirect_port: 5000\n" + config_data
+        print(config_data)
         temp_config_file[0].write_text(
             config_data,
             encoding="utf-8",

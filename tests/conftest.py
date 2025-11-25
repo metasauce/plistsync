@@ -14,18 +14,20 @@ def plist_config(tmpdir_factory):
     config_file = tmp_dir / "config.yml"
     config_file.write_text(
         f"""
-        beets:
-            enabled: true
-            database: {tmp_dir}/beets.db
-        plex:
-            enabled: true
-            server_url: http://localhost:32400
-            auth_token: {os.environ.get("PLEX_AUTH_TOKEN", None)}
-            machine_id: {os.environ.get("PLEX_MACHINE_ID", None)}
-        spotify:
-            enabled: true
-            client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
-            redirect_port: 5001
+        logging:
+            level: DEBUG
+
+        services:
+            beets:
+                enabled: true
+                database: {tmp_dir}/beets.db
+            plex:
+                enabled: true
+                default_server_url: http://localhost:32400
+            spotify:
+                enabled: true
+                client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
+                redirect_port: 5001
         """,
         encoding="utf-8",
     )
@@ -41,6 +43,13 @@ def plist_config(tmpdir_factory):
         "expires_at": "2025-09-18T20:40:06+00:00",
     }
     spotify_token_file.write_text(json.dumps(spotify_token, indent=4), encoding="utf-8")
+
+    # Also write plex token
+    plex_token_file = tmp_dir / "plex_token.json"
+    plex_token = {
+        "X-Plex-Token": os.environ.get("PLEX_AUTH_TOKEN", "FAKE_TOKEN_FOR_TESTS_ONLY"),
+    }
+    plex_token_file.write_text(json.dumps(plex_token, indent=4), encoding="utf-8")
 
     return config_file, tmp_dir
 

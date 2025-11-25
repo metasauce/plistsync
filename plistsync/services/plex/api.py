@@ -91,6 +91,7 @@ class PlexApi:
 
     playlist: PlaylistApi
     track: TrackApi
+    converts: ConvertsApi
 
     def __init__(
         self,
@@ -105,6 +106,7 @@ class PlexApi:
         )
         self.playlist = PlaylistApi(self.session)
         self.track = TrackApi(self.session)
+        self.converts = ConvertsApi(self.session, self)
 
     def resources(self) -> Any:
         """Get Plex resources.
@@ -333,7 +335,7 @@ class TrackApi:
         return track_data[0]
 
 
-class Converts:
+class ConvertsApi:
     """Utility functions to convert between different Plex API identifiers."""
 
     def __init__(self, session: PlexApiSession, api: PlexApi) -> None:

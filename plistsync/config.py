@@ -65,10 +65,10 @@ class SpotifyConfig(OptionalService):
 
 @dataclass
 class ServicesConfig:
-    beets: BeetsConfig = field(default_factory=BeetsConfig)
-    plex: PlexConfig = field(default_factory=PlexConfig)
-    tidal: TidalConfig = field(default_factory=TidalConfig)
-    spotify: SpotifyConfig = field(default_factory=SpotifyConfig)
+    beets: BeetsConfig | None = field(default_factory=BeetsConfig)
+    plex: PlexConfig | None = field(default_factory=PlexConfig)
+    tidal: TidalConfig | None = field(default_factory=TidalConfig)
+    spotify: SpotifyConfig | None = field(default_factory=SpotifyConfig)
 
 
 @dataclass
