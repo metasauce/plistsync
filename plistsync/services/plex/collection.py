@@ -11,7 +11,7 @@ from plistsync.services.plex.api_types import (
     PlexApiTrackResponse,
 )
 
-from .api import PlexApi
+from .api import PlaylistApi, PlexApi
 from .track import PlexTrack
 
 
@@ -32,6 +32,7 @@ class PlexLibrarySectionCollection(Collection):
     def __init__(
         self,
         section_id: str | int,
+        server_url: str | None = None,
     ):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
@@ -39,11 +40,11 @@ class PlexLibrarySectionCollection(Collection):
         ----------
         section_id : str | int
             The Name or ID of the Plex library section to fetch.
+        server_url : str, optional
+            The server for this collection. If not specified, loaded from config.
         """
-        self.api = PlexApi()
-        self.section_id = self.api.converts.section_name_to_id(
-            section_id,
-        )
+        self.api = PlexApi(server_url=server_url)
+        self.section_id = self.api.converts.section_name_to_id(section_id)
 
     def preload(self) -> None:
         """Preload the collection data.
@@ -126,18 +127,19 @@ class PlexPlaylistCollection(Collection, TrackStream):
     """
 
     playlist_id: int
+    api: PlexApi
 
     # Requested data from Plex API
     plex_playlist_data: PlexApiPlaylistResponse
     plex_items_data: list[PlexApiTrackResponse]
 
     # parent library for adding tracks
-    library_collection: PlexLibrarySectionCollection | None = None
+    library_collection: PlexLibrarySectionCollection
 
     def __init__(
         self,
         playlist_name_id_or_data: str | int | PlexApiPlaylistResponse,
-        library_collection: PlexLibrarySectionCollection | None = None,
+        library_collection: PlexLibrarySectionCollection,
     ):
         """Initialize the PlexPlaylistCollection from plex given a playlist id.
 
@@ -145,21 +147,24 @@ class PlexPlaylistCollection(Collection, TrackStream):
         ----------
         playlist_id : str | int
             The Name or ID of the Plex playlist to fetch.
-        library_collection : PlexLibrarySectionCollection | None
+        library_collection : PlexLibrarySectionCollection
             The Plex library collection in which the playlist lives.
-            Without a library, no tracks can be added to the playlist.
         """
 
+        self.library_collection = library_collection
+        self.api = self.library_collection.api
+
         if isinstance(playlist_name_id_or_data, (str, int)):
-            self.playlist_id = resolve_playlist_id(playlist_name_id_or_data)
-            self.plex_playlist_data = fetch_playlist(self.playlist_id)
+            self.playlist_id = self.api.converts.section_name_to_id(
+                playlist_name_id_or_data
+            )
+            self.plex_playlist_data = self.api.playlist.fetch_playlist(self.playlist_id)
         else:
             self.plex_playlist_data = playlist_name_id_or_data
             self.playlist_id = int(self.plex_playlist_data["ratingKey"])
 
         # TODO: maybe fetch on access, not init?
-        self.plex_items_data = fetch_playlist_items(self.playlist_id)
-        self.library_collection = library_collection
+        self.plex_items_data = self.api.playlist.fetch_playlist_items(self.playlist_id)
 
     @property
     def is_smart(self) -> bool:
@@ -218,17 +223,21 @@ class PlexPlaylistCollection(Collection, TrackStream):
         if track is None:
             raise ValueError(f"Track with path {path} not found in library collection.")
 
-        return insert_track_into_playlist_by_id(
-            track_id=track.plex_id, playlist_id=self.playlist_id
+        return self.api.playlist.insert_item_into_playlist(
+            item_id=track.plex_id,
+            playlist_id=self.playlist_id,
+            machine_id=self.api.machine_id,
         )
 
-    def insert_by_id(self, track_id: str | int):
+    def insert_by_id(self, item_id: str | int):
         """Insert a track into the playlist by its Plex ID."""
         if self.is_smart:
             raise ValueError("Cannot insert tracks into a smart playlist.")
 
-        return insert_track_into_playlist_by_id(
-            track_id=track_id, playlist_id=self.playlist_id
+        return self.api.playlist.insert_item_into_playlist(
+            item_id=item_id,
+            playlist_id=self.playlist_id,
+            machine_id=self.api.machine_id,
         )
 
     def __repr__(self) -> str:

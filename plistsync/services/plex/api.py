@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import json
+from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import quote
@@ -136,6 +137,30 @@ class PlexApi:
         )
         response.raise_for_status()
         return response.json()
+
+    def server_details(self) -> Any:
+        """Get details of this server via the /identity route.
+
+        Only accessible if a local server URL was used
+        """
+        if "https://plex.tv" in self.session.server_url:
+            # Although we could also iterate the resources and check if there is only
+            # one owned server.
+            raise ValueError("Local server URL is needed to get machine Id from API.")
+        response = self.session.request("GET", f"{self.session.server_url}/identity")
+        response.raise_for_status()
+        return response.json()
+
+    @cached_property
+    def machine_id(self) -> str:
+        """Get this servers unique machineIdentifier.
+
+        Needed for many playlist-related requests.
+        Matches the clientIdentifier found in `resources`
+        Only accessible if a local server URL was used
+        """
+        response = self.server_details()
+        return response["MediaContainer"]["machineIdentifier"]
 
 
 class PlaylistApi:
