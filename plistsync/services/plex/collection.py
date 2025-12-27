@@ -4,7 +4,7 @@ from functools import cached_property
 from pathlib import Path, PurePath
 from typing import Any, Generator, Iterator, Sequence
 
-from plistsync.core import Collection
+from plistsync.core import Collection, LibraryCollection
 from plistsync.core.collection import TrackStream
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
@@ -15,7 +15,7 @@ from .api import PlaylistApi, PlexApi
 from .track import PlexTrack
 
 
-class PlexLibrarySectionCollection(Collection):
+class PlexLibrarySectionCollection(LibraryCollection):
     """A collection of all tracks in a Plex library section.
 
     (Section is the API term they use, in the frontend, this would typically be a music library.)
@@ -67,6 +67,18 @@ class PlexLibrarySectionCollection(Collection):
                 library_collection=self,
             )
             yield pl
+
+    def get_playlist(
+        self, name: Path | str, allow_name=True
+    ) -> PlexPlaylistCollection | None:
+        if isinstance(name, Path):
+            raise ValueError("Playlist name cannot be a Path")
+
+        for pl in self.playlists:
+            if pl.playlist_id == name or (allow_name) and pl.name == name:
+                return pl
+
+        return None
 
     @cached_property
     def locations(self) -> list[Path]:

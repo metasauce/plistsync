@@ -55,6 +55,7 @@ class PlexConfig(OptionalService):
 class TidalConfig(OptionalService):
     client_id: str = field(default="XhEgdcjkjfqTqw1y")
     client_secret: str | None = None
+    country_code: str = field(default="US")
 
 
 @dataclass
