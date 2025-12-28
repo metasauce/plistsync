@@ -16,7 +16,7 @@ def plist_config(tmpdir_factory):
         f"""
         logging:
             level: DEBUG
-
+        redirect_port: 5001
         services:
             beets:
                 enabled: true
@@ -27,7 +27,6 @@ def plist_config(tmpdir_factory):
             spotify:
                 enabled: true
                 client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
-                redirect_port: 5001
         """,
         encoding="utf-8",
     )
@@ -55,12 +54,12 @@ def plist_config(tmpdir_factory):
 
 
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from mutagen._file import File
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def audio_files(plist_config: tuple[Path, Path]):
     # Copy from tests/data/audio to the temporary directory
     # such that we can transform the files without changing the originals
@@ -74,7 +73,10 @@ def audio_files(plist_config: tuple[Path, Path]):
     yield dest
 
     # Clean up the copied files
-    shutil.rmtree(dest)
+    try:
+        shutil.rmtree(dest)
+    except Exception as e:
+        pass
 
 
 @pytest.fixture

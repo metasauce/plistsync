@@ -3,7 +3,10 @@ import re
 from pathlib import Path
 
 from plistsync.logger import log
-from plistsync.services.plex.collection import PlexPlaylistCollection
+from plistsync.services.plex.collection import (
+    PlexLibrarySectionCollection,
+    PlexPlaylistCollection,
+)
 from plistsync.services.plex.track import PathRewrite
 
 # ---------------------------------- Options --------------------------------- #
@@ -12,7 +15,7 @@ playlists = [
     "playlist2",
     "playlist3",
 ]
-
+plex_section_name = "Music"
 output_dir = Path(os.getcwd()).resolve()
 
 path_rewrite = "/media/music/clean:/Volumes/music/clean"
@@ -23,10 +26,16 @@ def main(
     outpath: Path,
     path_rewrite: str | None = None,
 ):
+    # Load Plex library and playlist
+    plex_library = PlexLibrarySectionCollection(
+        plex_section_name,
+    )
     for playlist_id_or_name in playlists:
         log.info(f"\nProcessing playlist: {playlist_id_or_name}")
-
-        pl = PlexPlaylistCollection(playlist_id_or_name)
+        pl = PlexPlaylistCollection(
+            plex_library,
+            playlist_id_or_name,
+        )
 
         if path_rewrite:
             old, new = path_rewrite.split(":")

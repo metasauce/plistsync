@@ -1,11 +1,12 @@
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
 
 from plistsync.logger import log
-from plistsync.services.plex.collection import PlexPlaylistCollection
-from plistsync.services.plex.track import PathRewrite
+from plistsync.services.plex.collection import (
+    PlexLibrarySectionCollection,
+    PlexPlaylistCollection,
+)
 from plistsync.services.traktor.collection import NMLPlaylistCollection
 
 # ---------------------------------- Options --------------------------------- #
@@ -14,9 +15,8 @@ playlists = [
     "playlist2",
     "playlist3",
 ]
-
+plex_section_name = "Music"
 path_rewrite = "/media/music/clean:/Volumes/music/clean"
-
 nml_path = Path("./traktor_collection.nml")
 
 
@@ -25,11 +25,14 @@ def main(
     nml_path: Path,
     path_rewrite: str | None = None,
 ):
+    plex_library = PlexLibrarySectionCollection(
+        plex_section_name,
+    )
     for playlist_id_or_name in playlists:
         log.info(f"\nProcessing playlist: {playlist_id_or_name}")
-
         pl_plex = PlexPlaylistCollection(
-            playlist_id_or_name,
+            library_collection=plex_library,
+            playlist_name_id_or_data=playlist_id_or_name,
         )
 
         # make a backup of the nml file

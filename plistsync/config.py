@@ -33,7 +33,11 @@ class BeetsConfig(OptionalService):
 
 @dataclass
 class PlexConfig(OptionalService):
-    default_server_url: str = field(default="https://plex.tv")
+    default_server_url: Annotated[
+        str,
+        "The URL of the Plex server to connect to by default.",
+        "E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'",
+    ] = field(default="https://plex.tv")
 
     @property
     def app_name(self) -> str:
@@ -66,10 +70,10 @@ class SpotifyConfig(OptionalService):
 
 @dataclass
 class ServicesConfig:
-    beets: BeetsConfig | None = field(default_factory=BeetsConfig)
-    plex: PlexConfig | None = field(default_factory=PlexConfig)
-    tidal: TidalConfig | None = field(default_factory=TidalConfig)
-    spotify: SpotifyConfig | None = field(default_factory=SpotifyConfig)
+    beets: BeetsConfig | None = field(default_factory=lambda: BeetsConfig())
+    plex: PlexConfig | None = field(default_factory=lambda: PlexConfig())
+    tidal: TidalConfig | None = field(default_factory=lambda: TidalConfig())
+    spotify: SpotifyConfig | None = field(default_factory=lambda: SpotifyConfig())
 
 
 @dataclass

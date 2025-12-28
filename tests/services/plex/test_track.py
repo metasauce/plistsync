@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Generator
+from typing import ClassVar, Iterable
 
 import pytest
 from plistsync.services.local.track import LocalTrack
@@ -15,16 +15,18 @@ class TestPlexTrack(TrackTestBase):
         "has_path": True,
     }
 
-    _audio_files: Path
+    _audio_files: ClassVar[Path]
 
-    @pytest.fixture(autouse=True)
-    def _request_audio_files(self, audio_files):
+    @classmethod
+    @pytest.fixture(autouse=True, scope="class")
+    def _request_audio_files(cls, audio_files):
         # Needed because cant pass fixture to normal class method
-        self._audio_files = audio_files
-        set_tags(self._audio_files, {"isrc": "US-AT1-99-00001"})
+        cls._audio_files = audio_files
+        set_tags(cls._audio_files, {"isrc": "US-AT1-99-00001"})
 
-    def create_track(self, *args, **kwargs) -> Generator[PlexTrack, None, None]:
-        for audio_file in self._audio_files.iterdir():
+    @classmethod
+    def create_track(cls, *args, **kwargs) -> Iterable[PlexTrack]:
+        for audio_file in cls._audio_files.iterdir():
             # TODO: dynamically create plex DATA from audio file, i.e. fix inconsistencies
             yield PlexTrack(
                 PlexApiTrackResponse(

@@ -31,7 +31,7 @@ from plistsync.services.plex.collection import (
 )
 from plistsync.services.traktor.collection import NMLCollection, NMLPlaylistCollection
 
-# ------------------- User Variables ------------------- #
+# ---------------------------------- Options --------------------------------- #
 
 playlist_name = "_plistsync"
 traktor_nml_path = Path("/Users/paul/Music/Traktor/collection.nml")
@@ -45,8 +45,8 @@ def main():
         plex_section_name,
     )
     plex_playlist = PlexPlaylistCollection(
-        playlist_name,
         library_collection=plex_library,
+        playlist_name_id_or_data=playlist_name,
     )
 
     # Load Traktor collection and playlist
