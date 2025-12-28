@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import Mock
-from typing import Dict, Any, List
 from pathlib import Path
 from plistsync.services.plex.api import PlexApi
 from plistsync.services.plex.api_types import (

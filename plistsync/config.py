@@ -6,11 +6,10 @@ For more information see `EYConf <https://github.com/semohr/eyconf>`_.
 
 from __future__ import annotations
 
-import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 from eyconf import EYConf
 from eyconf.validation import ConfigurationError

@@ -54,7 +54,7 @@ def plist_config(tmpdir_factory):
 
 
 import shutil
-from pathlib import Path, PurePath
+from pathlib import Path
 
 from mutagen._file import File
 
