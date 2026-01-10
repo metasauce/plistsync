@@ -17,12 +17,11 @@ class TestPlexTrack(TrackTestBase):
 
     _audio_files: ClassVar[Path]
 
-    @classmethod
     @pytest.fixture(autouse=True, scope="class")
-    def _request_audio_files(cls, audio_files):
+    def _request_audio_files(self, audio_files):
         # Needed because cant pass fixture to normal class method
-        cls._audio_files = audio_files
-        set_tags(cls._audio_files, {"isrc": "US-AT1-99-00001"})
+        self.__class__._audio_files = audio_files
+        set_tags(self.__class__._audio_files, {"isrc": "US-AT1-99-00001"})
 
     @classmethod
     def create_track(cls, *args, **kwargs) -> Iterable[PlexTrack]:
