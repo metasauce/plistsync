@@ -33,10 +33,10 @@ class BeetsConfig(OptionalService):
 @dataclass
 class PlexConfig(OptionalService):
     default_server_url: Annotated[
-        str,
+        str | None,
         "The URL of the Plex server to connect to by default.",
         "E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'",
-    ] = field(default="https://plex.tv")
+    ] = field(default=None)
 
     @property
     def app_name(self) -> str:

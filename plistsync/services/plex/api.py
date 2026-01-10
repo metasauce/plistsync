@@ -87,7 +87,12 @@ class PlexApiSession(requests.Session):
 class PlexApi:
     """A Plex API client.
 
-    Can be configured to use a specific Plex server URL.
+    Currently relies on:
+    - a specific Plex server URL for library lookups
+    - plex.tv for authentication.
+
+    In the future, we might extend this to use plex.tv for both, but for that we need to
+    figure out how to forward requests (needed info via .resources).
     """
 
     playlist: PlaylistApi
@@ -99,11 +104,15 @@ class PlexApi:
         server_url: str | None = None,
     ) -> None:
         self.plex_config: PlexConfig = Config().plex
+        if server_url is None and self.plex_config.default_server_url is None:
+            raise ValueError(
+                "Either specify a server_url or set the default in your config."
+            )
         self.session = PlexApiSession(
             self.plex_config.app_name,
             self.plex_config.client_identifier,
             _read_token(self.plex_config.token_path),
-            server_url or self.plex_config.default_server_url,
+            server_url or str(self.plex_config.default_server_url),
         )
         self.playlist = PlaylistApi(self.session)
         self.track = TrackApi(self.session)
@@ -139,14 +148,7 @@ class PlexApi:
         return response.json()
 
     def server_details(self) -> Any:
-        """Get details of this server via the /identity route.
-
-        Only accessible if a local server URL was used
-        """
-        if "https://plex.tv" in self.session.server_url:
-            # Although we could also iterate the resources and check if there is only
-            # one owned server.
-            raise ValueError("Local server URL is needed to get machine Id from API.")
+        """Get details of this server via the /identity route."""
         response = self.session.request("GET", f"{self.session.server_url}/identity")
         response.raise_for_status()
         return response.json()
@@ -156,8 +158,8 @@ class PlexApi:
         """Get this servers unique machineIdentifier.
 
         Needed for many playlist-related requests.
-        Matches the clientIdentifier found in `resources`
-        Only accessible if a local server URL was used
+        Matches the clientIdentifier found in `resources`,
+        which is available via the public plex.tv route (no local server needed).
         """
         response = self.server_details()
         return response["MediaContainer"]["machineIdentifier"]
@@ -388,17 +390,10 @@ class ConvertsApi:
         """
         try:
             section_id = int(section_name_or_id)
-            response = self.session.request(
-                "GET", f"{self.session.server_url}/library/sections/{section_id}"
-            )
-            response.raise_for_status()
+            self.api.section(section_id)  # raises if invalid
+            return section_id
         except ValueError:
-            # TODO: Use api.sections() here instead
-            response = self.session.request(
-                "GET", f"{self.session.server_url}/library/sections"
-            )
-            response.raise_for_status()
-            sections = response.json()["MediaContainer"].get("Directory", [])
+            sections = self.api.sections()["MediaContainer"].get("Directory", [])
             for section in sections:
                 if section.get("title") == section_name_or_id:
                     section_id = int(section.get("key"))
@@ -407,7 +402,6 @@ class ConvertsApi:
                     )
                     return section_id
             raise ValueError(f"Library '{section_name_or_id}' not found.")
-        return section_id
 
     def playlist_name_to_id(self, playlist_name_or_id: str | int) -> int:
         """Resolve a playlist ID from a name or return the ID if already numeric."""
