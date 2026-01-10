@@ -32,10 +32,17 @@ class BeetsConfig(OptionalService):
 
 @dataclass
 class PlexConfig(OptionalService):
-    default_server_url: Annotated[
+    server_url: Annotated[
         str | None,
         "The URL of the Plex server to connect to by default.",
         "E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'",
+    ] = field(default=None)
+
+    server_name: Annotated[
+        str | None,
+        "Instead of the server url, you can specify its name and we look it up online ",
+        "via plex.tv. In this case, we try local routes first.",
+        "E.g. 'my_plex_server'",
     ] = field(default=None)
 
     @property

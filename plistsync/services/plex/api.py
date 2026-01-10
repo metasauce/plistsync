@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import enum
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cached_property
 from pathlib import Path
 from typing import Any, Iterable
@@ -12,7 +14,12 @@ import requests
 from plistsync.config import Config, ConfigurationError, PlexConfig
 from plistsync.logger import log
 
-from .api_types import PlexApiPlaylistResponse, PlexApiTrackResponse
+from .api_types import (
+    PlexApiConnection,
+    PlexApiPlaylistResponse,
+    PlexApiResourcesResponse,
+    PlexApiTrackResponse,
+)
 
 
 def _read_token(path: Path) -> str:
@@ -102,23 +109,52 @@ class PlexApi:
     def __init__(
         self,
         server_url: str | None = None,
+        server_name: str | None = None,
     ) -> None:
         self.plex_config: PlexConfig = Config().plex
-        if server_url is None and self.plex_config.default_server_url is None:
-            raise ValueError(
-                "Either specify a server_url or set the default in your config."
+
+        def _resolve_server_name(server_name):
+            # we need a temporary session for plex.tv, but later want one that uses the
+            # local server name
+            log.info(
+                f"Looking up server ip for '{server_name}', this might take a bit. "
+                + "To speed this up, use a server_url in stead of server_name."
             )
+            temp_session = PlexApiSession(
+                self.plex_config.app_name,
+                self.plex_config.client_identifier,
+                _read_token(self.plex_config.token_path),
+                "https://plex.tv",
+            )
+            conns = self.get_server_connections_for_name(temp_session, server_name)
+            return self.get_valid_connection(temp_session, conns).get("uri", "")
+
+        # priority of server url sources:
+        if server_url:
+            pass
+        elif server_name:
+            server_url = _resolve_server_name(server_name)
+        elif self.plex_config.server_url:
+            server_url = self.plex_config.server_url
+        elif self.plex_config.server_name:
+            server_url = _resolve_server_name(self.plex_config.server_name)
+        else:
+            raise ValueError(
+                "Specify either server_url or server_name (in your config or as kwarg)."
+            )
+
+        # create permanent session for remaining requests
         self.session = PlexApiSession(
             self.plex_config.app_name,
             self.plex_config.client_identifier,
             _read_token(self.plex_config.token_path),
-            server_url or str(self.plex_config.default_server_url),
+            server_url,
         )
         self.playlist = PlaylistApi(self.session)
         self.track = TrackApi(self.session)
         self.converts = ConvertsApi(self.session, self)
 
-    def resources(self) -> Any:
+    def resources(self) -> list[PlexApiResourcesResponse]:
         """Get Plex resources.
 
         This endpoint returns a list of all available Plex resources, this
@@ -127,9 +163,82 @@ class PlexApi:
         Remark: Special endpoint only accessible via https://plex.tv, not
         via the local server URL.
         """
-        response = self.session.request("GET", "https://plex.tv/api/v2/resources")
+        return self._resources(self.session)
+
+    @staticmethod
+    def _resources(session: PlexApiSession) -> list[PlexApiResourcesResponse]:
+        """We split this out to get the resources without requireing a local server."""
+        response = session.request("GET", "https://plex.tv/api/v2/resources")
         response.raise_for_status()
         return response.json()
+
+    @staticmethod
+    def get_server_connections_for_name(
+        session: PlexApiSession, server_name: str
+    ) -> list[PlexApiConnection]:
+        resources = PlexApi._resources(session)
+        servers = [res for res in resources if "server" in res.get("provides", "")]
+        matches = [res for res in servers if res.get("name") == server_name]
+        if len(matches) < 1:
+            raise ValueError(
+                f"Could not find Server with name '{server_name}' "
+                + f"Found servers: {[res.get('name') for res in servers]}"
+            )
+        if len(matches) > 1:
+            log.warning(f"Found {len(matches)} servers for {server_name}, using first.")
+
+        # TODO: Currently we can only access _owned_ servers, but in principle
+        # also those of friends should work - they are listed in resources.
+        if not matches[0].get("owned"):
+            raise NotImplementedError("We can only access your own servers for now.")
+
+        connections = matches[0].get("connections", [])
+        log.debug(
+            f"Found {len(connections)} connections for server_name '{server_name}'"
+        )
+
+        return connections
+
+    @staticmethod
+    def get_valid_connection(
+        session: PlexApiSession,
+        connections: list[PlexApiConnection],
+        timeout: int = 3,
+    ) -> PlexApiConnection:
+        """
+        Check which uris can be reached.
+
+        Prefer local over remote ones.
+        """
+
+        def ping(conn: PlexApiConnection):
+            try:
+                response = session.head(conn.get("uri", ""), timeout=timeout)
+                return conn, response.status_code
+            except Exception:
+                return conn, None
+
+        working_connections = []
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            future_to_conn = [executor.submit(ping, conn) for conn in connections]
+            for future in as_completed(future_to_conn):
+                conn, status_code = future.result()
+                if status_code:
+                    log.debug(
+                        f"Connection {conn.get('uri')} got status code {status_code}"
+                    )
+                else:
+                    log.debug(f"Connection {conn.get('uri')} timed out")
+
+                if status_code == 200:
+                    working_connections.append(conn)
+                    if conn.get("local"):
+                        return conn
+
+        if len(working_connections) > 0:
+            return working_connections[0]
+        else:
+            raise ValueError("No valid connection found")
 
     def sections(self) -> Any:
         """Get Plex library sections."""

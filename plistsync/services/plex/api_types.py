@@ -90,3 +90,44 @@ class PlexApiPlaylistResponse(TypedDict, total=False):
     icon: str  # 'playlist://image.smart'
     viewCount: int  # 34
     lastViewedAt: int  # 1748772887
+
+
+# --------------------------------- Resources -------------------------------- #
+
+
+class PlexApiConnection(TypedDict, total=False):
+    protocol: str  # http / https
+    address: str  # ip
+    port: int
+    uri: str  # http://192.168.0.103:32400
+    local: bool
+    relay: bool
+    IPv6: bool
+
+
+class PlexApiResourcesResponse(TypedDict, total=False):
+    name: str  # 'pauls_media_server'
+    product: str  # 'Plex Media Server'
+    productVersion: str  # '1.42.1.10060-4e8b05daf'
+    platform: str  # 'Linux'
+    platformVersion: str  # '6.8.0-60-generic'
+    device: str  # 'Docker Container'
+    clientIdentifier: str  # hex string, for servers matches machine id
+    provides: str  # 'server' or 'client,player,pubsub-player' (plexamp)
+    ownerId: str | None
+    sourceTitle: str | None
+    publicAddress: str  # '77.23.79.193'
+    accessToken: str  # 'xxx-yyyyyyyyy'
+    searchEnabled: bool
+    createdAt: str  # '2023-03-05T15:32:25Z'
+    lastSeenAt: str  # '2026-01-09T18:56:49Z'
+    owned: bool
+    home: bool
+    synced: bool
+    relay: bool
+    presence: bool
+    httpsRequired: bool
+    publicAddressMatches: bool
+    dnsRebindingProtection: bool
+    natLoopbackSupported: bool
+    connections: List[PlexApiConnection]

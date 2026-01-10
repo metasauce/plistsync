@@ -33,6 +33,7 @@ class PlexLibrarySectionCollection(LibraryCollection):
         self,
         section_id: str | int,
         server_url: str | None = None,
+        server_name: str | None = None,
     ):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
@@ -43,7 +44,7 @@ class PlexLibrarySectionCollection(LibraryCollection):
         server_url : str, optional
             The server for this collection. If not specified, loaded from config.
         """
-        self.api = PlexApi(server_url=server_url)
+        self.api = PlexApi(server_url=server_url, server_name=server_name)
         self.section_id = self.api.converts.section_name_to_id(section_id)
 
     def preload(self) -> None:

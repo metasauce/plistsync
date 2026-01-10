@@ -100,7 +100,7 @@ class TestServiceConfig:
         plex_config = config.plex
         assert config.redirect_port == 5000
         assert plex_config.enabled is True
-        assert plex_config.default_server_url == "http://localhost:32400"
+        assert plex_config.server_url == "http://localhost:32400"
         assert plex_config.app_name is not None
         assert plex_config.client_identifier is not None
         assert plex_config.token_path == temp_config_file[1] / "plex_token.json"
