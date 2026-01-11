@@ -1,8 +1,8 @@
 from plistsync.errors import check_imports
 
 check_imports(
-    service="traktor",
-    required_packages=["nest-asyncio"],
+    service="tidal",
+    required_packages=["nest_asyncio"],
 )
 
 from . import api

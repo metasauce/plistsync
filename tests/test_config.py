@@ -46,7 +46,7 @@ class TestServiceConfig:
                     "services:\n"
                     "    plex:\n"
                     "        enabled: true\n"
-                    "        default_server_url: http://localhost:32400"
+                    "        server_url: http://localhost:32400"
                 ),
             ),
             (
@@ -90,7 +90,7 @@ class TestServiceConfig:
             "services:\n"
             "    plex:\n"
             "        enabled: true\n"
-            "        default_server_url: http://localhost:32400"
+            "        server_url: http://localhost:32400"
         )
         temp_config_file[0].write_text(
             config_data,

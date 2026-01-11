@@ -131,7 +131,7 @@ def beets_lib(plist_config):
     lib._close()
 
     # Remove the beets database
-    (temp_dir / "beets.db").unlink()
+    Path(temp_dir / "beets.db").unlink()
 
 
 @pytest.fixture

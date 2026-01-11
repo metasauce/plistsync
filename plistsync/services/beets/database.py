@@ -13,7 +13,7 @@ class BeetsDatabase:
     path: Path
 
     def __init__(self, db_path: Path | str):
-        if isinstance(db_path, str):
+        if not isinstance(db_path, Path):
             db_path = Path(db_path)
         self.path = db_path
 
