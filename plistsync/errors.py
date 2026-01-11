@@ -1,3 +1,5 @@
+import importlib
+
 from eyconf.validation import ConfigurationError, MultiConfigurationError
 from requests import Response
 
@@ -31,3 +33,59 @@ class ResponseError(Exception):
 
     def __str__(self):
         return self.message
+
+
+class DependencyError(ImportError):
+    """Custom error for missing service dependencies."""
+
+    def __init__(
+        self,
+        service: str,
+        missing_packages: list[str],
+        extra_name: str | None = None,
+    ):
+        self.service = service
+        self.missing_packages = missing_packages
+        self.extra_name = extra_name or service
+
+        if len(missing_packages) == 1:
+            packages_str = missing_packages[0]
+        else:
+            packages_str = ", ".join(f"{pkg}" for pkg in missing_packages)
+
+        msg = (
+            f"Service '{service}' requires package '{packages_str}'.\n"
+            f"Install extra with: pip install 'plistsync[{self.extra_name}]'"
+        )
+        super().__init__(msg)
+
+
+def check_imports(
+    service: str,
+    required_packages: list[str],
+    extra_name: str | None = None,
+) -> None:
+    """
+    Check if required packages are importable.
+
+    Raises
+    ------
+        DependencyError: If packages are missing
+    """
+    missing = []
+
+    for package in required_packages:
+        # Handle extras like 'eyconf[cli]' by extracting base package
+        base_package = (
+            package.split("[")[0].split("<")[0].split(">")[0].split("=")[0].strip()
+        )
+
+        try:
+            importlib.import_module(base_package)
+        except ImportError:
+            missing.append(package)
+
+    if missing:
+        raise DependencyError(
+            service=service, missing_packages=missing, extra_name=extra_name
+        )
