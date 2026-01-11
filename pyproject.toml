@@ -66,27 +66,46 @@ include = [
     "docs/**/*.ipynb",
 ]
 extend-include = ["*.ipynb"]
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
-    "I",
-    "D",
-    # Augment the convention by requiring an imperative mood for all docstrings.
-    "D401",
-    # Unused imports
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "ISC", # flake8-implicit-str-concat
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "PTH", # Use pathlib instead of os.path
+    "D",   # pydocstyle
+    "W",   # pycodestyle
 ]
 ignore = [
     # Ignore req. for public facing functions docstrings
     #"F401",
     "D10",
     "D202",
+    "PTH123", # Do not require Path.open
 ]
 fixable = ["ALL"]
 
-
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["D", "I", "S", "W"]
+"**/tests/**" = [
+    "D",
+    "I",
+    "S",
+    "W",
+    "E501", # long lines
+]
 "**__main__.py" = ["D103"]
+"**/tests/bench_readtags**" = ["ALL"]
+"**/__init__.py" = [
+    "E402", # ignore import order in init files
+]
+"**/*.ipynb" = [
+    "E",
+    "D"
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
