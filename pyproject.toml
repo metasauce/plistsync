@@ -3,7 +3,7 @@ name = "plistsync"
 version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-    "eyconf[cli]>=0.5.0",
+    "eyconf[cli]>=0.5.2",
     "requests>=2.32.5",
     "levenshtein>=0.27.3",
     "typer>=0.21.1",
@@ -17,9 +17,10 @@ spotify = [
     "requests-oauth2client>=1.8.0",
     "tqdm>=4.67.1",
 ]
-tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1"]
+tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1", "requests-oauth2client>=1.8.0"]
 local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
+plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
 
 [dependency-groups]
 # Dev dependencies
@@ -114,10 +115,7 @@ fixable = ["ALL"]
 "**/__init__.py" = ["E402"]
 
 # Less strict for notebooks
-"**/*.ipynb" = [
-    "E",
-    "D"
-]
+"**/*.ipynb" = ["E", "D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"

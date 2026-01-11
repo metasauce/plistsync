@@ -1,13 +1,13 @@
 """Cli entry point."""
 
+import importlib
+
 import typer
 from eyconf.cli import create_config_cli
 
 from .config import Config
+from .errors import DependencyError
 from .logger import log, overwrite_log_level
-from .services.plex.authenticate import plex_cli
-from .services.spotify.authenticate import spotify_cli
-from .services.tidal.authenticate import tidal_cli
 
 cli = typer.Typer(
     rich_markup_mode="rich",
@@ -15,21 +15,33 @@ cli = typer.Typer(
     pretty_exceptions_show_locals=False,
 )
 
-cli.add_typer(tidal_cli, name="tidal")
-cli.add_typer(spotify_cli, name="spotify")
-cli.add_typer(plex_cli, name="plex")
+
+def register_apps(cli: typer.Typer):
+    """Register subcommands.
+
+    To allow partial dependencies we only register cli if the import is sucessfull.
+    """
+
+    imports_ = {
+        "plistsync.services.plex.authenticate": "plex_cli",
+        "plistsync.services.spotify.authenticate": "spotify_cli",
+        "plistsync.services.tidal.authenticate": "tidal_cli",
+    }
+
+    for module_name, obj_name in imports_.items():
+        try:
+            module = importlib.import_module(module_name)
+            cli.add_typer(getattr(module, obj_name), name=obj_name.replace("_cli", ""))
+        except DependencyError:
+            # TODO: register subcommand (should not be shown in help)
+            # prints message how to install service
+            log.debug(
+                f"Skipping '{module_name}.{obj_name}' due to missing dependencies."
+            )
+
+
+register_apps(cli)
 cli.add_typer(create_config_cli(Config), name="config")
-
-
-@cli.command()
-def echo(
-    message: str = typer.Argument(
-        "Hello, World!", help="The message to echo back to the user."
-    ),
-):
-    """Echo a message back to the user."""
-    log.debug(f"Echoing message: {message}")
-    typer.echo(message)
 
 
 # Add global verbose option

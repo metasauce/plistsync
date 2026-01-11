@@ -2,7 +2,7 @@ from plistsync.errors import check_imports
 
 check_imports(
     service="tidal",
-    required_packages=["nest_asyncio"],
+    required_packages=["nest_asyncio", "requests_oauth2client", "tqdm"],
 )
 
 from . import api

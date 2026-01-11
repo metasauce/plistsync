@@ -554,16 +554,16 @@ wheels = [
 
 [[package]]
 name = "eyconf"
-version = "0.5.1"
+version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
     { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6d/70/52a0fd13c02eca28297d58acd91a7d258a9c9dfc2c51b000e93191ded75d/eyconf-0.5.1.tar.gz", hash = "sha256:e62e1ebe2614fdfb8187616ea36830f6df7e3872284d9ebd776d6ec989505a48", size = 73904, upload-time = "2026-01-08T19:09:26.483Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/f4/8eef3777ece74b70a7666e88b13a46feff612b344148d85b96973e34d3bf/eyconf-0.5.2.tar.gz", hash = "sha256:5d860d51f7f3bf59ec8500735e0fc87b40ab63c2ba7480663cba23bcad4d8a69", size = 45018, upload-time = "2026-01-11T18:28:55.802Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/be/b7/88ac5c114ee79ec59393f420ab0cdc25fb10865d3c618e55b51138e1c478/eyconf-0.5.1-py3-none-any.whl", hash = "sha256:d277a1e0411c32171102be2920c1c569350449126109258b70196ce63ea3118d", size = 38678, upload-time = "2026-01-08T19:09:25.211Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/a3/6f8f519bf62ec80b938b1eeca994f4fa68a1b36077a43a1154926118e178/eyconf-0.5.2-py3-none-any.whl", hash = "sha256:64cdd734479bdcb3d062c5f3de9b2d7666b4c668c6e90707c4e6714aeaf8af1e", size = 39083, upload-time = "2026-01-11T18:28:54.45Z" },
 ]
 
 [package.optional-dependencies]
@@ -1702,6 +1702,10 @@ beets = [
 local = [
     { name = "tinytag" },
 ]
+plex = [
+    { name = "nest-asyncio" },
+    { name = "tinytag" },
+]
 spotify = [
     { name = "nest-asyncio" },
     { name = "requests-oauth2client" },
@@ -1709,6 +1713,7 @@ spotify = [
 ]
 tidal = [
     { name = "nest-asyncio" },
+    { name = "requests-oauth2client" },
     { name = "tqdm" },
 ]
 traktor = [
@@ -1764,20 +1769,23 @@ typed = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eyconf", extras = ["cli"], specifier = ">=0.5.0" },
+    { name = "eyconf", extras = ["cli"], specifier = ">=0.5.2" },
     { name = "levenshtein", specifier = ">=0.27.3" },
     { name = "lxml", marker = "extra == 'traktor'", specifier = ">=6.0.2" },
+    { name = "nest-asyncio", marker = "extra == 'plex'", specifier = ">=1.6.0" },
     { name = "nest-asyncio", marker = "extra == 'spotify'", specifier = ">=1.6.0" },
     { name = "nest-asyncio", marker = "extra == 'tidal'", specifier = ">=1.6.0" },
+    { name = "plistsync", extras = ["local"], marker = "extra == 'plex'" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "requests-oauth2client", marker = "extra == 'spotify'", specifier = ">=1.8.0" },
+    { name = "requests-oauth2client", marker = "extra == 'tidal'", specifier = ">=1.8.0" },
     { name = "sqlalchemy", marker = "extra == 'beets'", specifier = ">=2.0.45" },
     { name = "tinytag", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "tqdm", marker = "extra == 'spotify'", specifier = ">=4.67.1" },
     { name = "tqdm", marker = "extra == 'tidal'", specifier = ">=4.67.1" },
     { name = "typer", specifier = ">=0.21.1" },
 ]
-provides-extras = ["traktor", "spotify", "tidal", "local", "beets"]
+provides-extras = ["traktor", "spotify", "tidal", "local", "beets", "plex"]
 
 [package.metadata.requires-dev]
 dev = [
