@@ -29,7 +29,7 @@ jobs:
         run: |
           echo "all_changed_files=$CHANGED_PYTHON_FILES" >> "$GITHUB_OUTPUT"
 
-  ruff:
+  lint:
     name: Check style with Ruff
     runs-on: [self-hosted, linux]
     needs: changed-files
@@ -40,10 +40,26 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Install dependencies
         run: |
-          uv sync --all-extras
+          uv sync --group lint
       - name: Check style with Ruff
         run: |
           uv run ruff check --output-format=github .
+
+  format:
+    name: Check format with Ruff
+    runs-on: [self-hosted, linux]
+    needs: changed-files
+    if: needs.changed-files.outputs.any_python_changed == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: |
+          uv sync --group lint
+      - name: Check format with Ruff
+        run: |
+          uv run ruff format --check --diff .
 
   mypy:
     name: Check type hints with mypy
