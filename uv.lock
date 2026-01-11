@@ -1733,11 +1733,13 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
+    { name = "requests-oauth2client" },
     { name = "ruff" },
     { name = "sphinx" },
     { name = "sphinx-autoapi" },
     { name = "sphinx-copybutton" },
     { name = "sphinxcontrib-typer", extra = ["html"] },
+    { name = "tinytag" },
     { name = "types-requests" },
     { name = "types-tqdm" },
 ]
@@ -1763,6 +1765,8 @@ test = [
 typed = [
     { name = "lxml-stubs" },
     { name = "mypy" },
+    { name = "requests-oauth2client" },
+    { name = "tinytag" },
     { name = "types-requests" },
     { name = "types-tqdm" },
 ]
@@ -1800,11 +1804,13 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
     { name = "pytest-benchmark", specifier = ">=5.2.3" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
+    { name = "requests-oauth2client", specifier = ">=1.8.0" },
     { name = "ruff", specifier = ">=0.14.11" },
     { name = "sphinx", specifier = ">=8.2.3" },
     { name = "sphinx-autoapi", specifier = ">=3.6.1" },
     { name = "sphinx-copybutton", specifier = ">=0.5.2" },
     { name = "sphinxcontrib-typer", extras = ["html"], specifier = ">=0.7.2" },
+    { name = "tinytag", specifier = ">=2.2.0" },
     { name = "types-requests", specifier = ">=2.32.4.20260107" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250809" },
 ]
@@ -1828,6 +1834,8 @@ test = [
 typed = [
     { name = "lxml-stubs", specifier = ">=0.5.1" },
     { name = "mypy", specifier = ">=1.19.1" },
+    { name = "requests-oauth2client", specifier = ">=1.8.0" },
+    { name = "tinytag", specifier = ">=2.2.0" },
     { name = "types-requests", specifier = ">=2.32.4.20260107" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250809" },
 ]

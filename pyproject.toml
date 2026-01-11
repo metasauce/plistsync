@@ -14,10 +14,10 @@ dependencies = [
 traktor = ["lxml>=6.0.2"]
 spotify = [
     "nest-asyncio>=1.6.0",
-    "requests-oauth2client>=1.8.0",
+    "requests_oauth2client>=1.8.0",
     "tqdm>=4.67.1",
 ]
-tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1", "requests-oauth2client>=1.8.0"]
+tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1", "requests_oauth2client>=1.8.0"]
 local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
@@ -54,6 +54,10 @@ typed = [
     "lxml-stubs>=0.5.1",
     "types-requests>=2.32.4.20260107",
     "types-tqdm>=4.67.0.20250809",
+    # FIXME: maybe we can remove this somehow as this is needed to full
+    # run mypy on the src (optional dependencies need types)
+    "requests_oauth2client>=1.8.0",
+    "tinytag>=2.2.0",
 ]
 
 [project.scripts]
