@@ -1,5 +1,6 @@
+from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePath
-from typing import Any, Iterable, Iterator, List
+from typing import Any
 
 from sqlalchemy import Row, String, cast, select
 
@@ -22,7 +23,7 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
         else:
             self.db = BeetsDatabase(db_path)
 
-    def get_by_isrc(self, isrc: str) -> List[BeetsTrack]:
+    def get_by_isrc(self, isrc: str) -> list[BeetsTrack]:
         """Get a list of tracks that match an ISRC."""
         table = self.db.get_table("items")
 
@@ -34,7 +35,7 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
 
         return BeetsTrack.tracks_from_db_rows(rows)
 
-    def get_by_path(self, path: str | PurePath) -> List[BeetsTrack]:
+    def get_by_path(self, path: str | PurePath) -> list[BeetsTrack]:
         """Get a track by its file path."""
         table = self.db.get_table("items")
 
@@ -73,7 +74,8 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
                     return tracks[0]
                 case _:
                     log.warning(
-                        f"Multiple tracks found for ISRC {isrc}. Returning the first one."
+                        f"Multiple tracks found for ISRC {isrc}."
+                        " Returning the first one."
                     )
                     return tracks[0]
 
@@ -95,7 +97,8 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
             return tracks[0]
         else:
             log.warning(
-                f"Multiple tracks found for local IDs {local_ids}. Returning the first one."
+                f"Multiple tracks found for local IDs {local_ids}."
+                " Returning the first one."
             )
             return tracks[0]
 

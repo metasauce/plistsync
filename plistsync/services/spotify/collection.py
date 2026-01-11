@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator, Self
+from typing import Self
 
 import nest_asyncio
 
@@ -58,8 +59,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
         plist_identifier: str = name
 
-        # We want to be able to resolve names of playlists without fetching all playlists
-        # We fetch all playlists by the user and check if the name matches first
+        # We fetch all playlists by the user and check if the name matches
         if allow_name:
             plists = asyncio.run(get_user_playlists_simplified())
             for plist in plists:
@@ -117,7 +117,8 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
             if len(spotify_ids) != len(tracks):
                 log.warning(
-                    f"Expected {len(spotify_ids)} tracks but received {len(tracks)} tracks as result from spotify batch lookup."
+                    f"Expected {len(spotify_ids)} tracks but received {len(tracks)} "
+                    "tracks as result from spotify batch lookup."
                 )
 
             for idx, track in zip(idxes, tracks):
@@ -265,7 +266,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
                 yield SpotifyPlaylistTrack(item)
             else:
                 log.debug(
-                    f"Skipping non-track item in playlist '{self.name}': {item['track']['type']}"
+                    f"Skipping non-track item in playlist "
+                    f"'{self.name}': {item['track']['type']}"
                 )
 
     def __len__(self) -> int:

@@ -1,5 +1,6 @@
 from pathlib import Path
-from typing import ClassVar, Iterable
+from typing import ClassVar
+from collections.abc import Iterable
 
 import pytest
 from plistsync.services.local.track import LocalTrack

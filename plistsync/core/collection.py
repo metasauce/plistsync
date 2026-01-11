@@ -1,9 +1,9 @@
 """Collection Protocols for Track Management.
 
-This module defines a set of protocols that model different capabilities a track collection
-might support. These protocols use Python's structural subtyping (PEP 544) rather than
-inheritance-based interfaces, offering flexibility in composing complex behaviors while
-maintaining strong type safety and clarity.
+This module defines a set of protocols that model different capabilities a track
+collection might support. These protocols use Python's structural subtyping (PEP 544)
+rather than inheritance-based interfaces, offering flexibility in composing complex
+behaviors while maintaining strong type safety and clarity.
 
 Key Design Principles:
 ----------------------
@@ -23,10 +23,10 @@ Key Design Principles:
    The ``@runtime_checkable`` decorator allows collections to be verified at runtime,
    while static type checkers can verify protocol compliance during development.
 
-The main :py:class:`Collection` abstract base class (ABC) demonstrates the integration of these
-protocols into a comprehensive track matching strategy via the ``match`` method.
-Developers are encouraged to extend the :py:class:`Collection` class to create new collection types
-with different internal storage strategies (e.g., in-memory, databases).
+The main :py:class:`Collection` abstract base class (ABC) demonstrates the integration
+of these protocols into a comprehensive track matching strategy via the `match` method.
+Developers are encouraged to extend the :py:class:`Collection` class to create new
+collection types with different internal storage strategies (e.g. in-memory, databases).
 
 Usage Example:
 --------------
@@ -44,15 +44,12 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable, Iterator
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import (
-    Callable,
     Concatenate,
     Generic,
-    Iterable,
-    Iterator,
-    List,
     ParamSpec,
     Protocol,
     TypeVar,
@@ -134,17 +131,22 @@ class TrackStream(Protocol[T]):
         max_workers: int = 4,
         *args: P.args,
         **kwargs: P.kwargs,
-    ) -> Iterable[tuple[List[R], List[T]]]:
+    ) -> Iterable[tuple[list[R], list[T]]]:
         """Map a function to each track in parallel.
 
-        Iterate over all tracks in the collection and apply a function to each track. Use a threadpool to parallelize a computation. This method should be used to parallelize compute heavy operations on the collection or to speed up the processing of large collections.
+        Iterate over all tracks in the collection and apply a function to each track.
+        Use a threadpool to parallelize a computation. This method should be used to
+        parallelize compute heavy operations on the collection or to speed up the
+        processing of large collections.
 
-        To allow processing large collections we process the collection in chunks of `chunk_size` tracks. This should help to reduce the memory footprint.
+        To allow processing large collections we process the collection in chunks of
+        `chunk_size` tracks. This should help to reduce the memory footprint.
 
         Parameters
         ----------
         func: Callable[[Track], T]
-            The function to apply to each element in the collection. First argument should be a track.
+            The function to apply to each element in the collection. First argument
+            should be a track.
         chunk_size: int
             The maximum number of tracks to process in each chunk.
         **kwargs: Any
@@ -153,14 +155,19 @@ class TrackStream(Protocol[T]):
 
         Example
         -------
-        If you want to apply a function to each track in the collection, you can use this method like this:
+        If you want to apply a function to each track in the collection, you can use
+        this method like this:
 
         .. code-block:: python
 
             def heavy_computation(track: Track, *args) -> int:
                 pass # Do some heavy computation on the track and return a result
 
-            for results, tracks in collection.map_threadpool(heavy_computation, chunk_size=100, *args):
+            for results, tracks in collection.map_threadpool(
+                heavy_computation,
+                chunk_size=100,
+                *args,
+            ):
                 # do something with the results and related tracks
                 pass
         """
@@ -198,7 +205,8 @@ class TrackStream(Protocol[T]):
     ) -> Iterable[tuple[R, T]]:
         """Map a function to each track in parallel and return a list of results.
 
-        This is a convenience method that uses `map_threadpool_chunked` to process the entire collection and return a flat list of results.
+        This is a convenience method that uses `map_threadpool_chunked` to process the
+        entire collection and return a flat list of results.
         """
         for chunk in self.map_threadpool_chunked(
             func, chunk_size, max_workers, *args, **kwargs
@@ -213,10 +221,12 @@ def _fuzzy_match_track(a: Track, b: Track) -> Similarity:
 class Collection(ABC):
     """A generic data structure that allows lookup or iteration of tracks.
 
-    Collections act as flexible track containers, accommodating multiple storage formats and sources,
-    such as online databases or local files, without dictating a specific storage mechanism.
+    Collections act as flexible track containers, accommodating multiple storage formats
+    and sources, such as online databases or local files, without dictating a specific
+      storage mechanism.
 
-    This abstract base class is designed to support adaptable implementations for accessing and interacting with tracks in diverse ways, see protocols above.
+    This abstract base class is designed to support adaptable implementations for
+    accessing and interacting with tracks in diverse ways, see protocols above.
     """
 
     def match(
@@ -226,7 +236,7 @@ class Collection(ABC):
         skip_after_perfect_fuzzy_match: bool = True,
         cutoff=0.6,
     ) -> Matches:
-        """Return potential matches for the given track based on different lookup strategies.
+        """Potential matches for the given track based on different lookup strategies.
 
         The method checks for matches in this order:
 
@@ -252,7 +262,8 @@ class Collection(ABC):
         found_tracks: list[Track] = []
         similarities: list[Similarity] = []
 
-        # Check capabilities of this collection, protocol instance checks can be expensive
+        # Check capabilities of this collection,
+        # protocol instance checks can be expensive
         has_global_lookup = isinstance(self, GlobalLookup)
         has_local_lookup = isinstance(self, LocalLookup)
         has_info_lookup = isinstance(self, InfoLookup)

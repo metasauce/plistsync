@@ -143,7 +143,7 @@ async def search_tracks(query: str, max: int = 100) -> list[dict]:
 async def get_user_playlists_simplified() -> list[dict]:
     """Get the current user's playlists.
 
-        This returns a simplified version of the playlists, without resolving all tracks.
+    This returns a simplified version of the playlists, without resolving all tracks.
 
     Returns
     -------

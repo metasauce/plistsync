@@ -1,5 +1,5 @@
-import os
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -7,7 +7,7 @@ from plistsync.config import Config
 from plistsync.logger import log
 from plistsync.utils.bearer_token import (
     BearerToken,
-    InvalidToken,
+    InvalidTokenError,
     requires_bearer_token,
 )
 
@@ -42,9 +42,9 @@ def refresh_spotify_token(token: BearerToken) -> None:
         res.raise_for_status()
     except requests.HTTPError as e:
         log.error(res.text, stack_info=False)
-        raise InvalidToken(token) from e
+        raise InvalidTokenError(token) from e
 
     token_data = res.json()
     token.update(token_data)
-    token.save(os.path.join(Config.get_dir(), "spotify_token.json"))
+    token.save(Config.get_dir() / "spotify_token.json")
     return

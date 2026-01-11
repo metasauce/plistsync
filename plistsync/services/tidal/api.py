@@ -43,7 +43,7 @@ async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
     country_code = Config().tidal.country_code
 
     data, included, _ = await tidal_get_req_paged(
-        f"/tracks",
+        "/tracks",
         params={
             **params,
             "include": ["albums", "artists"],
@@ -81,7 +81,8 @@ async def get_tracks(tidal_ids: list[str]) -> list[tuple[dict, LookupDict]]:
 
     if len(tracks) != len(tidal_ids):
         log.debug(
-            f"Expected {len(tidal_ids)} tracks but received {len(tracks)} tracks as result from tidal batch lookup."
+            f"Expected {len(tidal_ids)} tracks but received {len(tracks)} "
+            "tracks as result from tidal batch lookup."
         )
 
     included_by_track: list[LookupDict] = []
@@ -93,7 +94,8 @@ async def get_tracks(tidal_ids: list[str]) -> list[tuple[dict, LookupDict]]:
                     track_lookup[(type, item["id"])] = lookup_data
                 else:
                     log.debug(
-                        f"Related item of type '{type}' with id '{item['id']}' not found in included data of tracks batch lookup."
+                        f"Related item of type '{type}' with id '{item['id']}' not"
+                        " found in included data of tracks batch lookup."
                     )
         included_by_track.append(track_lookup)
 
@@ -128,7 +130,8 @@ async def get_tracks_by_isrc(isrcs: list[str]) -> list[tuple[dict, LookupDict]]:
 
     if len(tracks) != len(isrcs):
         log.debug(
-            f"Expected {len(isrcs)} tracks but received {len(tracks)} tracks as result from tidal batch lookup."
+            f"Expected {len(isrcs)} tracks but received {len(tracks)} "
+            "tracks as result from tidal batch lookup."
         )
 
     included_by_track: list[LookupDict] = []
@@ -140,7 +143,8 @@ async def get_tracks_by_isrc(isrcs: list[str]) -> list[tuple[dict, LookupDict]]:
                     track_lookup[(type, item["id"])] = lookup_data
                 else:
                     log.debug(
-                        f"Related item of type '{type}' with id '{item['id']}' not found in included data of tracks batch lookup."
+                        f"Related item of type '{type}' with id '{item['id']}' not "
+                        "found in included data of tracks batch lookup."
                     )
         included_by_track.append(track_lookup)
 
@@ -157,7 +161,7 @@ async def get_playlist(playlist_id: str) -> tuple[dict, LookupDict]:
     """
 
     playlists, included, _ = await tidal_get_req_paged(
-        f"/playlists",
+        "/playlists",
         params={
             "filter[id]": [playlist_id],
             # Tracks need albums and artists to be useful
@@ -193,7 +197,8 @@ async def get_user_playlists(
     tuple[list[dict], list[LookupDict]]
         A tuple containing:
         - A list of playlist data dicts.
-        - A list of lookup dicts of included items for each playlist, keyed by (type, id).
+        - A list of lookup dicts of included items for each playlist,
+        keyed by (type, id).
 
     """
 
@@ -293,8 +298,8 @@ async def add_tracks_to_playlist(
     track_ids : list[str]
         A list of track ids to add to the playlist.
     position_before : str | None, optional
-        The id of the track to insert the new tracks before. If None, the tracks are added
-        to the end of the playlist, by default None.
+        The id of the track to insert the new tracks before. If None, the tracks
+        are added to the end of the playlist, by default None.
 
     Returns
     -------
@@ -347,7 +352,8 @@ async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
     Parameters
     ----------
     path : str
-        The API endpoint path. If it does not start with '/', it will be prefixed with '/'.
+        The API endpoint path. If it does not start with '/',
+        it will be prefixed with '/'.
     token : BearerToken
         The authentication token to use for the request.
     **kwargs : dict
@@ -377,7 +383,8 @@ async def tidal_get_req_paged(
     Parameters
     ----------
     path : str
-        The API endpoint path. If it does not start with '/', it will be prefixed with '/'.
+        The API endpoint path. If it does not start with '/',
+        it will be prefixed with '/'.
     token : BearerToken
         The authentication token to use for the request.
     **kwargs : dict
@@ -418,7 +425,8 @@ async def tidal_get_req_paged(
             layer_2_keys.add(split[1])
         if len(split) > 2:
             log.warning(
-                f"Include parameter '{p}' has more than two layers, which is not supported by tidal API."
+                f"Include parameter '{p}' has more than two layers, "
+                "which is not supported by tidal API."
             )
 
     for key in layer_1_keys:

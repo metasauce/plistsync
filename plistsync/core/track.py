@@ -83,22 +83,24 @@ class TrackInfo(TypedDict, total=False):
     title: str
     artists: list[str]
     albums: list[str]
-    # TODO: Add _unified_ fields like genres, year etc. they should follow _our_ convention,
-    # likely close to beets.
+    # TODO: Add _unified_ fields like genres, year etc. they should follow _our_
+    # convention, likely close to beets.
 
 
 class Track(ABC):
     """An abstract class representing a track.
 
     A track is a piece of music. It has a title, artists, albums and identifiers.
-    It can be used in a number of places where the generic information about a track is needed.
+    It can be used in a number of places where the generic information about a track
+    is needed.
     """
 
     # ----------------------------- Info Getters ----------------------------- #
 
     # Lets not overdo it, in principle we could expose all underlying data, but
     # this bloats a lot.
-    # Convention: The convenience getters give value or None, or lists that can be empty.
+    # Convention: The convenience getters give value or None,
+    # or lists that can be empty but have the same length as the input
 
     @property
     def title(self) -> str | None:

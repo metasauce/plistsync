@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import enum
-from typing import List, Required, TypedDict, Union
+from typing import Required, TypedDict
 
 # ---------------------------------- Tracks ---------------------------------- #
 
@@ -36,8 +36,8 @@ class PlexApiTrackResponse(TypedDict, total=False):
     duration: int  # 294990
     addedAt: int  # 1734353414
     musicAnalysisVersion: str  # '1'
-    Media: List[PlexApiTrackMedia]
-    Image: List[PlexApiTrackImage]
+    Media: list[PlexApiTrackMedia]
+    Image: list[PlexApiTrackImage]
     librarySectionID: int  # 5
     librarySectionKey: str  # '/library/sections/5'
     librarySectionTitle: str  # 'Music'
@@ -51,17 +51,17 @@ class PlexApiTrackMedia(TypedDict, total=False):
     audioCodec: str  # 'flac'
     container: str  # 'flac'
     hasVoiceActivity: bool  # False
-    Part: List[PlexApiTrackPart]
+    Part: list[PlexApiTrackPart]
 
 
 class PlexApiTrackPart(TypedDict, total=False):
     id: int  # 152858
     key: str  # '/library/parts/152858/1735423490/file.flac'
     duration: int  # 294990
-    file: str  # '/media/music/clean/Various Artists/10 Years of Symmetry/01 If I Could [1047kbps].flac'
+    file: str  # '/media/music/clean/01[1047kbps].flac'
     size: int  # 38826912
     container: str  # 'flac'
-    hasThumbnail: Union[str, bool]  # '1'
+    hasThumbnail: str | bool  # '1'
 
 
 class PlexApiTrackImage(TypedDict, total=False):
@@ -131,7 +131,7 @@ class PlexApiResourcesResponse(TypedDict, total=False):
     publicAddressMatches: bool
     dnsRebindingProtection: bool
     natLoopbackSupported: bool
-    connections: List[PlexApiConnection]
+    connections: list[PlexApiConnection]
 
 
 class PlexServerIdentity(TypedDict):

@@ -1,5 +1,5 @@
 import sys
-from typing import Generator
+from collections.abc import Generator
 
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import pytest
@@ -11,20 +11,17 @@ from plistsync.services.traktor.collection import NMLPlaylistCollection
 from plistsync.services.traktor.collection import NMLCollection
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase, TrackTestBase
 
-import lxml.etree as ET
+import lxml.etree as ET  # noqa: N812
 
 
-import pytest
-
-
-@pytest.fixture()
+@pytest.fixture
 def collection():
     """Fixture to create a NMLCollection for testing."""
     t_path = Path(__file__).parent.parent / "data" / "traktor_playlist.nml"
     return NMLCollection(t_path)
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_track():
     """Fixture to create a sample NMLTrack for testing."""
     return NMLTrack(
@@ -213,7 +210,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         # Test with a valid traktor path
-        example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
+        example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"  # noqa: E501
         track = p1.find_by_traktor_path(TraktorPath(example_path))
         assert track is not None
 

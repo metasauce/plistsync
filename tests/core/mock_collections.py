@@ -1,4 +1,4 @@
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 from plistsync.core.track import TrackInfo, GlobalTrackIDs, LocalTrackIDs
 from .mock_track import MockTrack
 

@@ -40,9 +40,9 @@ def auth(
         "forward",
         "--mode",
         "-m",
-        help="If set to 'manual', the CLI will not start a local server and instead ask you to "
-        "paste the redirected URL after logging in. This should be used if you are running the CLI "
-        "on a remote server without browser access.",
+        help="If set to 'manual', the CLI will not start a local server and instead ask"
+        " you to paste the redirected URL after login. This should be used if you"
+        " are running the CLI on a remote server without browser access.",
     ),
     port: int | None = typer.Option(
         None,
@@ -83,7 +83,8 @@ def auth(
         safe_webbrowser_open(url)
     except Exception:
         typer.echo(
-            "Failed to open the url in the default browser automatically. Please open the URL manually."
+            "Failed to open the url in the default browser automatically. "
+            "Please open the URL manually."
         )
 
     # Start a local server to handle the redirect

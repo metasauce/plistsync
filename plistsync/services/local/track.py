@@ -31,7 +31,7 @@ class FileCache:
     _file_cache: dict[Path, TagDict] = {}
 
     def __getitem__(self, path: Path) -> TagDict:
-        if not path in self._file_cache:
+        if path not in self._file_cache:
             self._file_cache[path] = self.get_from_disk(path)
         return self._file_cache[path]
 
@@ -61,7 +61,7 @@ class FileCache:
 
             try:
                 self._file_cache[path] = self.get_from_disk(path)
-            except:
+            except Exception:
                 log.error(f"Could not read metadata. {track=} {path=}")
 
     @staticmethod
@@ -80,7 +80,7 @@ class FileCache:
         if len(meta) == 0:
             log.warning(
                 f"Could not read metadata from {path}. "
-                + "Might be due to inconsistent mount points or permissions."
+                "Might be due to inconsistent mount points or permissions."
             )
         return meta
 
@@ -194,7 +194,7 @@ class LocalTrack(Track):
             if len(title) > 1:
                 log.warning(
                     f"Multiple titles found for {self.path}: {title}. "
-                    + "Using the first one. Tags broken?"
+                    "Using the first one. Tags broken?"
                 )
         if len(title) > 0:
             info["title"] = str(title[0])

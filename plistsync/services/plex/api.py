@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import enum
 import json
-import time
+from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 from urllib.parse import quote
 
 import requests
@@ -27,14 +26,15 @@ from .api_types import (
 def _read_token(path: Path) -> str:
     if not path.exists():
         raise ConfigurationError(
-            f"Plex token file not found at {path}! Please run `plistsync plex auth` to authenticate."
+            f"Plex token file not found at {path}! "
+            "Please run `plistsync plex auth` to authenticate."
         )
-    with open(path, "r") as f:
+    with open(path) as f:
         data = json.load(f)
     token = data.get("X-Plex-Token")
     if token is None:
         raise ConfigurationError(
-            f"Plex token not found! Please run `plistsync plex auth` to authenticate."
+            "Plex token not found! Please run `plistsync plex auth` to authenticate."
         )
     return token
 
@@ -75,7 +75,8 @@ class PlexApiSession(requests.Session):
             response = super().request("GET", f"{self.server_url}/api/v2/user")
             if response.status_code == 401:
                 raise ConfigurationError(
-                    "Plex token not valid anymore! Run `plistsync plex auth` to refresh it."
+                    "Plex token not valid anymore! "
+                    "Run `plistsync plex auth` to refresh it."
                 )
             self.token_valid = True
         except requests.exceptions.RequestException as e:
@@ -124,7 +125,7 @@ class PlexApi:
             # local server name
             log.info(
                 f"Looking up server ip for '{server_name}', this might take a bit. "
-                + "To speed this up, use a server_url in stead of server_name."
+                "To speed this up, use a server_url in stead of server_name."
             )
             temp_session = PlexApiSession(
                 self.plex_config.app_name,
@@ -188,7 +189,7 @@ class PlexApi:
         if len(matches) < 1:
             raise ValueError(
                 f"Could not find Server with name '{server_name}' "
-                + f"Found servers: {[res.get('name') for res in servers]}"
+                f"Found servers: {[res.get('name') for res in servers]}"
             )
         if len(matches) > 1:
             log.warning(f"Found {len(matches)} servers for {server_name}, using first.")
@@ -312,7 +313,8 @@ class PlaylistApi:
 
         if len(playlist_data) > 1:
             log.error(
-                f"Multiple playlists found for ID '{playlist_id}'. Returning the first one."
+                f"Multiple playlists found for ID '{playlist_id}'. "
+                "Returning the first one."
             )
 
         return playlist_data[0]
@@ -415,7 +417,8 @@ class TrackApi:
             total_size = response.json()["MediaContainer"].get("totalSize", 0)
             if total_size != 0:
                 log.debug(
-                    f"Fetched {num_fetched} of {total_size} tracks from section {section_id}."
+                    f"Fetched {num_fetched} of {total_size} tracks"
+                    " from section {section_id}."
                 )
 
             yield from tracks
@@ -497,8 +500,9 @@ class ConvertsApi:
 
         Note on ids and rating keys (strings vs ints):
         - Plex uses ratingKey as a unique identifier for items, which is a string.
-        - However, some endpoints like `/library/sections/5` give you the id of the section as
-          `'librarySectionID': 5` so we are quite sure that they are always integers.
+        - However, some endpoints like `/library/sections/5` give you the id of the
+          section as `'librarySectionID': 5` so we are quite sure
+          that they are always integers.
 
         Returns
         -------
@@ -514,7 +518,8 @@ class ConvertsApi:
                 if section.get("title") == section_name_or_id:
                     section_id = int(section.get("key"))
                     log.debug(
-                        f"Resolved section {section_id} with title '{section.get('title')}'."
+                        f"Resolved section {section_id} with title"
+                        f" '{section.get('title')}'."
                     )
                     return section_id
             raise ValueError(f"Library '{section_name_or_id}' not found.")
@@ -534,7 +539,8 @@ class ConvertsApi:
                 ):
                     playlist_id = int(playlist["ratingKey"])
                     log.debug(
-                        f"Resolved playlist {playlist_id} with title '{playlist.get('title')}'."
+                        f"Resolved playlist {playlist_id} with title"
+                        f" '{playlist.get('title')}'."
                     )
                     return playlist_id
 

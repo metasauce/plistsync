@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Generator, Iterator, Sequence
 from functools import cached_property
 from pathlib import Path, PurePath
-from typing import Any, Generator, Iterator, Sequence
+from typing import Any
 
 from plistsync.core import Collection, LibraryCollection
 from plistsync.core.collection import TrackStream
@@ -18,12 +19,14 @@ from .track import PlexTrack
 class PlexLibrarySectionCollection(LibraryCollection):
     """A collection of all tracks in a Plex library section.
 
-    (Section is the API term they use, in the frontend, this would typically be a music library.)
+    `section` is the term plex use in the backend, this aligns in the plex frontend
+    this is often called `library`.
 
     Notes
     -----
     - Plex Collections are lazy loaded, but once loaded (by iterate) they are cached.
-    - To refresh the state from the server, you need to recreate the collection instance.
+    - To refresh the state from the server, you need to recreate the collection
+    instance.
     """
 
     section_id: int
@@ -56,7 +59,7 @@ class PlexLibrarySectionCollection(LibraryCollection):
         _ = list(self)
 
     @property
-    def playlists(self) -> Iterator["PlexPlaylistCollection"]:
+    def playlists(self) -> Iterator[PlexPlaylistCollection]:
         """Get all playlists in the library as PlexPlaylistCollection objects."""
 
         for pl_data in self.api.playlist.fetch_playlists():
@@ -89,9 +92,9 @@ class PlexLibrarySectionCollection(LibraryCollection):
         for section in sections["MediaContainer"].get("Directory", []):
             if int(section.get("key")) == int(self.section_id):
                 locations = section.get("Location", [{}])
-                for l in locations:
-                    if "path" in l:
-                        paths.append(Path(l.get("path")))
+                for loc in locations:
+                    if "path" in loc:
+                        paths.append(Path(loc.get("path")))
 
         return paths
 
@@ -135,8 +138,10 @@ class PlexPlaylistCollection(Collection, TrackStream):
     Notes
     -----
     - Plex Playlist Collections are loaded once during initialization.
-    - To refresh the state from the server, you need to recreate the collection instance.
-    - Plex Playlists do not seem to be linked to a particular section_id - they can contain tracks from multiple libraries.
+    - To refresh the state from the server, you need to recreate
+    - the collection instance.
+    - Plex Playlists do not seem to be linked to a particular section_id
+    - they can contain tracks from multiple libraries.
     """
 
     # parent library for adding tracks
@@ -279,7 +284,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
     def __repr__(self) -> str:
         return (
             f"PlexPlaylistCollection {self.playlist_id} "
-            + f'["{self.name}", {len(self._items_data)} tracks]'
+            f'["{self.name}", {len(self._items_data)} tracks]'
         )
 
     # --------------------------------- Protocols -------------------------------- #

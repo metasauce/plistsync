@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import os
+from collections.abc import Generator
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from glob import iglob
 from pathlib import Path
-from typing import Generator
 
 from plistsync.core import Collection, GlobalTrackIDs
 
@@ -81,9 +79,9 @@ class LocalCollection(Collection):
         return None
 
     def __iter__(self) -> Generator[LocalTrack, None, None]:
-        pattern = str(self.path / "**" / "*")
-        for file_path in iglob(pattern, recursive=True):
-            if os.path.isfile(file_path):
-                potential_track = LocalTrack(Path(file_path))
+        # Use rglob to recursively find all files
+        for file_path in self.path.rglob("*"):
+            if file_path.is_file():
+                potential_track = LocalTrack(file_path)
                 if potential_track is not None:
                     yield potential_track

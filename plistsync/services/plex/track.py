@@ -55,17 +55,19 @@ class PlexTrack(Track):
 
         Parameters
         ----------
-        - path_rewrite (PathRewrite | None): e.g. if you have local copy of the remote files
+        - path_rewrite (PathRewrite | None): e.g. if you have local copy of the
+        remote files
         - file_cache (FileCache | None): A file cache to use. See LocalTrack
 
         Returns
         -------
-        - TrackInfo: A TrackInfo object with the track information from the file metadata.
+            TrackInfo: A TrackInfo object with the track information from the
+            file metadata.
 
         Raises
         ------
-        - FileNotFoundError: If the files are not available on the local filesystem or cache
-          (e.g. old tidal tracks or using different mount points)
+        - FileNotFoundError: If the files are not available on the local filesystem
+          or cache (e.g. old tidal tracks or using different mount points)
         - ValueError: If reading file metadata fails.
         """
 
@@ -100,7 +102,7 @@ class PlexTrack(Track):
         except IndexError:
             log.debug(
                 # Plex used to support remote tracks from Tidal.
-                f"Could not get path from plex metadata, might be an old tidal track."
+                "Could not get path from plex metadata, might be an old tidal track."
             )
 
         # plex_id

@@ -49,7 +49,7 @@ def get_config_dir() -> pathlib.Path:
     str: The configuration directory.
     """
     o = os.getenv("PSYNC_CONFIG_DIR", "./config")
-    os.makedirs(o, exist_ok=True)
+    pathlib.Path(o).mkdir(parents=True)
     return pathlib.Path(o).resolve()
 
 

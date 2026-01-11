@@ -1,15 +1,16 @@
 """Playlist collections.
 
-This module defines the `PlaylistCollection` class, which represents a collection of tracks
-as a playlist. To support playlist management on different platforms, we define a number of
-protocols which each service-specific implementation may adhere to.
+This module defines the `PlaylistCollection` class, which represents a collection of
+tracks as a playlist. To support playlist management on different platforms, we define a
+number of protocols which each service-specific implementation may adhere to.
 
-The main idea here is to have an abstraction to allow updates/edit playlist in a generic way.
+The main idea here is to have an abstraction to allow updates/edit playlist in a generic
+way.
 
 Usage Example:
 --------------
-Create a custom playlist collection by subclassing `PlaylistCollection` and implementing the
-required methods.
+Create a custom playlist collection by subclassing `PlaylistCollection` and implementing
+the required methods.
 
 .. code-block:: python
 
@@ -21,14 +22,13 @@ required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 from typing import (
-    Callable,
     Generic,
-    Iterator,
     Literal,
 )
 

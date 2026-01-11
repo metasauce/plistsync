@@ -3,91 +3,123 @@ name = "plistsync"
 version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-    "requests",
-    "requests_oauth2client",
-    "sqlalchemy",
-    "beets",
-    "jsonschema",
-    "numpy",
-    "mutagen",
-    "cachetools",
-    "asyncache",
-    "tinytag",
-    "levenshtein",
-    "typer",
-    "eyconf[cli]>=0.5.0",
-    "lxml",
-    "tqdm",
-    "nest_asyncio",
+    "eyconf[cli]>=0.5.2",
+    "requests>=2.32.5",
+    "levenshtein>=0.27.3",
+    "typer>=0.21.1",
+]
+
+[project.optional-dependencies]
+# Service specific dependencies
+traktor = ["lxml>=6.0.2"]
+spotify = [
+    "nest-asyncio>=1.6.0",
+    "requests_oauth2client>=1.8.0",
+    "tqdm>=4.67.1",
+]
+tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1", "requests_oauth2client>=1.8.0"]
+local = ["tinytag>=2.2.0"]
+beets = ["sqlalchemy>=2.0.45"]
+plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
+
+[dependency-groups]
+# Dev dependencies
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "docs" },
+    { include-group = "typed" },
+    "pre-commit>=4.5.1",
+]
+
+lint = ["ruff>=0.14.11"]
+test = [
+    "beets>=2.5.1",
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.0.0",
+]
+docs = [
+    "furo>=2025.12.19",
+    "myst-nb>=1.3.0",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-autoapi>=3.6.1",
+    "sphinx-copybutton>=0.5.2",
+    "sphinxcontrib-typer[html]>=0.7.2",
+]
+typed = [
+    "mypy>=1.19.1",
+    "types-lxml>=2026.1.1",
+    "types-requests>=2.32.4.20260107",
+    "types-tqdm>=4.67.0.20250809",
+    # FIXME: maybe we can remove this somehow as this is needed to full
+    # run mypy on the src (optional dependencies need types)
+    "requests_oauth2client>=1.8.0",
+    "tinytag>=2.2.0",
 ]
 
 [project.scripts]
 plistsync = "plistsync.__main__:cli"
-
-
-[project.optional-dependencies]
-test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-benchmark"]
-dev = ["ruff", "pre-commit"]
-bench = ["tinytag", "mutagen", "pytaglib", "music-tag", "eyeD3"]
-typed = [
-    "mypy",
-    "types-lxml",
-    "types-cachetools",
-    "types-requests",
-    "types-tqdm",
-]
-docs = [
-    "sphinx>=8.0.2",
-    "furo>=2024.8.6",
-    "sphinx-autoapi>=3.6.0",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-inline-tabs>=2023.4.21",
-    "sphinxcontrib-typer[html]>=0.5.0",
-    "myst-parser>=4.0.0",
-    "myst-nb>=1.1.2",
-]
-jupyter = [
-    "ipykernel",
-    "ipywidgets",
-]
-all = ["plistsync[dev,test,typed,docs]"]
-
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["plistsync", "plistsync_server"]
-
-[tool.hatch.metadata]
-# Needed to install from git directly
-allow-direct-references = true
+packages = ["plistsync"]
 
 [tool.ruff]
-include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py", "docs/**/*.ipynb"]
+include = [
+    "pyproject.toml",
+    "plistsync/**/*.py",
+    "tests/**/*.py",
+    "docs/**/*.ipynb",
+]
 extend-include = ["*.ipynb"]
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
-    "I",
-    "D",
-    # Augment the convention by requiring an imperative mood for all docstrings.
-    "D401",
-    # Unused imports
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # isort
+    "ISC", # flake8-implicit-str-concat
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "PTH", # Use pathlib instead of os.path
+    "D",   # pydocstyle
+    "W",   # pycodestyle
 ]
 ignore = [
     # Ignore req. for public facing functions docstrings
     #"F401",
     "D10",
     "D202",
+    "PTH123", # Do not require Path.open
 ]
 fixable = ["ALL"]
 
-
 [tool.ruff.lint.per-file-ignores]
-"**/tests/**" = ["D", "I", "S", "W"]
+"**/tests/**" = [
+    "D",
+    "I",
+    "S",
+    "W",
+    "E501", # long lines
+]
 "**__main__.py" = ["D103"]
+
+# TODO: Reevaluate if we can remove benchmarks
+"**/tests/bench_readtags**" = ["ALL"]
+
+# ignore import order in init files
+# to allow dependency error handling
+"**/__init__.py" = ["E402"]
+
+# Less strict for notebooks
+"**/*.ipynb" = ["E", "D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "numpy"
@@ -99,15 +131,15 @@ pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.report]
-exclude_lines = ["if TYPE_CHECKING"]
-
 omit = ["*/tests/*"]
+exclude_lines = ["if TYPE_CHECKING"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-module = ["eyconf.*", "beets.*", "taglib.*", "music_tag.*", "nest_asyncio.*"]
+module = ["nest_asyncio.*"]
 ignore_missing_imports = true

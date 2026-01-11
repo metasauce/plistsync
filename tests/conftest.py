@@ -1,9 +1,12 @@
 import json
 import platform
 import subprocess
-from typing import Any, List
+from typing import Any
 import pytest
 import os
+import shutil
+from pathlib import Path
+from mutagen._file import File
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -53,12 +56,6 @@ def plist_config(tmpdir_factory):
     return config_file, tmp_dir
 
 
-import shutil
-from pathlib import Path
-
-from mutagen._file import File
-
-
 @pytest.fixture(scope="session")
 def audio_files(plist_config: tuple[Path, Path]):
     # Copy from tests/data/audio to the temporary directory
@@ -75,7 +72,7 @@ def audio_files(plist_config: tuple[Path, Path]):
     # Clean up the copied files
     try:
         shutil.rmtree(dest)
-    except Exception as e:
+    except Exception:
         pass
 
 
@@ -124,7 +121,7 @@ def beets_lib(plist_config):
             session.execute(stmt)
 
     # Test the library
-    assert os.path.exists(temp_dir / "beets.db")
+    assert (temp_dir / "beets.db").exists()
     assert "PSYNC_CONFIG_DIR" in os.environ
     assert "BEETSDIR" in os.environ
     assert len(lib.items()) == 0
@@ -134,7 +131,7 @@ def beets_lib(plist_config):
     lib._close()
 
     # Remove the beets database
-    os.remove(temp_dir / "beets.db")
+    Path(temp_dir / "beets.db").unlink()
 
 
 @pytest.fixture
@@ -152,10 +149,10 @@ def beets_lib_empty(beets_lib):
             session.execute(stmt)
 
     assert len(beets_lib.items()) == 0
-    yield beets_lib
+    return beets_lib
 
 
-def set_tags(file_dir: Path | List[Path], tags: dict[str, Any]):
+def set_tags(file_dir: Path | list[Path], tags: dict[str, Any]):
     # Set the tags of the audio files
 
     if isinstance(file_dir, Path):

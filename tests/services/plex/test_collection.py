@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Iterator
+from collections.abc import Iterable, Iterator
 
 import pytest
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
