@@ -39,10 +39,12 @@ class NMLTrack(Track):
         <TEMPO BPM="128.005371" BPM_QUALITY="100.000000"></TEMPO>
         <LOUDNESS ...></LOUDNESS>
         <MUSICAL_KEY VALUE="21"></MUSICAL_KEY>
-        <CUE_V2 NAME="AutoGrid" DISPL_ORDER="0" TYPE="4" START="1536.363840" LEN="0.000000" REPEATS="-1" HOTCUE="-1">
+        <CUE_V2 NAME="AutoGrid" DISPL_ORDER="0" TYPE="4" START="1536.363840"
+        LEN="0.000000" REPEATS="-1" HOTCUE="-1">
             <GRID BPM="128.005371"></GRID>
         </CUE_V2>
-        <CUE_V2 NAME="AutoGrid" DISPL_ORDER="0" TYPE="0" START="1536.363840" LEN="0.000000" REPEATS="-1" HOTCUE="0" COLOR="#FFFFFF"></CUE_V2>
+        <CUE_V2 NAME="AutoGrid" DISPL_ORDER="0" TYPE="0" START="1536.363840"
+        LEN="0.000000" REPEATS="-1" HOTCUE="0" COLOR="#FFFFFF"></CUE_V2>
     </ENTRY>
     ```
     """
@@ -107,7 +109,7 @@ class NMLTrack(Track):
         # Only has one artist
         artists = self.entry.get("ARTIST")
         if artists is not None:
-            # TODO: heuristic, we split at semicolons and commas, should be configurable.
+            # TODO: heuristic, we split at semicolons and commas, should be configurable
             info["artists"] = [a for a in re.split(r"[,;]", artists) if a != ""]
 
         album = self.entry.find("ALBUM")
@@ -124,19 +126,23 @@ class NMLPlaylistTrack(Track):
 
     Tracks in Playlists are stored differently than in the main collection,
     and they only hold the file path. And do not need to exist in the
-    main collection. Traktor will add them to the collection when "checking consistency", but it will also remove tracks from a playlist if they are neither found on disk nor in the main collection.
+    main collection. Traktor will add them to the collection if "checking consistency",
+    but it will also remove tracks from a playlist if they are neither found on disk nor
+    in the main collection.
 
     ```
     # macOS
     <ENTRY>
         <PRIMARYKEY TYPE="TRACK"
-            KEY="vigsoe/:Users/:paul/:Music/:clean/:Dr. Apollo, Pesa One/:Culito/:01 Culito [950kbps].flac"></PRIMARYKEY>
+            KEY="vigsoe/:Users/:paul/:Music/:clean/:Dr. Apollo, Pesa One/:Culito/:01
+            Culito [950kbps].flac"></PRIMARYKEY>
     </ENTRY>
 
     # Windows
     <ENTRY>
         <PRIMARYKEY TYPE="TRACK"
-            KEY="D:/:SYNC/:library/:QZB/:Delirium Ep/:01 Tech Priest [956kbps].flac"></PRIMARYKEY>
+            KEY="D:/:SYNC/:library/:QZB/:Delirium Ep/:01 Tech Priest [956kbps].flac">
+        </PRIMARYKEY>
     </ENTRY>
     ```
     """
@@ -175,7 +181,11 @@ class NMLPlaylistTrack(Track):
 
     @classmethod
     def from_track(cls, track: Track) -> NMLPlaylistTrack:
-        """Create a NMLPlaylistTrack with underlying XML Entry from any track with a path."""
+        """Create a NMLPlaylistTrack.
+
+        Includes underlying XML Entry from any
+        track with a path.
+        """
         if track.path is None:
             raise ValueError(
                 "Track does not have a path, cannot create NMLPlaylistTrack."
@@ -325,15 +335,15 @@ class TraktorPath:
             # Windows
             if not re.match(r"^[A-Za-z]:/", path):
                 raise ValueError(
-                    f"Path looks like a windows path (does not start with / ) but "
-                    + f"has an unexpected drive letter ({path})"
+                    "Path looks like a windows path (does not start with / ) but "
+                    f"has an unexpected drive letter ({path})"
                 )
         else:
             # MacOS
             if not path.startswith("/Volumes/"):
                 raise ValueError(
-                    f"Path looks like a macOS path (starts with / ) but "
-                    + f"does not start with /Volumes ({path})"
+                    "Path looks like a macOS path (starts with / ) but "
+                    f"does not start with /Volumes ({path})"
                 )
             # Remove /Volumes prefix
             path = path[len("/Volumes/") :]

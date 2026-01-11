@@ -8,8 +8,9 @@ similarity scores, and handling different types of metadata such as strings and 
 from __future__ import annotations
 
 import itertools
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable, Iterator, Mapping, Sequence, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 from Levenshtein import ratio as levenshtein_ratio
 
@@ -60,7 +61,8 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
     """Calculate the similarity between two track infos.
 
     Interpreting the results:
-    - 1.0: Every found metadata is the same. Skipping each undefined metadata this includes empty strings and None values.
+    - 1.0: All found metadata is equal. (All does not include undefined metadata,
+      including empty strings and None values.)
     - 0.0: No metadata is the same.
 
     Return:
@@ -141,7 +143,8 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
         return max(distances) * (len(a) / len(b))
 
     log.warning(
-        f"Cannot calculate distance between {a} and {b}. Type '{type(a)}' and '{type(b)}' not supported."
+        f"Cannot calculate distance between {a} and {b}."
+        f"Comparing type '{type(a)}' and '{type(b)}' not supported."
     )
     return None
 

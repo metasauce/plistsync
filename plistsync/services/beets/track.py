@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, List, Self
+from typing import Any, Self
 
 from plistsync.core.track import LocalTrackIDs, TrackInfo
 
@@ -33,7 +33,7 @@ class BeetsTrack(Track):
             self.row["path"] = self.row["path"].decode("utf-8")
 
     @classmethod
-    def tracks_from_db_rows(cls, rows: List[dict]) -> List[Self]:
+    def tracks_from_db_rows(cls, rows: list[dict]) -> list[Self]:
         """Construct one or multiple tracks from a row in the beets database.
 
         One track in beets might have multiple isrcs or identifier associated with it.

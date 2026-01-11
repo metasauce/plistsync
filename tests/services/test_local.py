@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 from plistsync.services.local import LocalTrack
@@ -35,9 +35,9 @@ class TestLocalTrack(TrackTestBase):
 
     def test_create_no_path(self):
         with pytest.raises(FileNotFoundError):
-            t = LocalTrack(Path("does/not/exist"))
+            LocalTrack(Path("does/not/exist"))
         with pytest.raises(FileNotFoundError):
-            t = LocalTrack("does/not/exist")
+            LocalTrack("does/not/exist")
 
     def test_create_invalid_file(self):
         with pytest.raises(ValueError):
@@ -55,7 +55,7 @@ class TestLocalTrack(TrackTestBase):
         # Test empty isrc identifier
         set_tags(self._audio_files, {"isrc": ""})
         for track in self.create_track():
-            assert track.global_ids.get("isrc") == None, "ISRC should be None"
+            assert track.global_ids.get("isrc") is None, "ISRC should be None"
 
         # Test multiple isrc identifiers
         set_tags(self._audio_files, {"isrc": [isrc, isrc + "2"]})

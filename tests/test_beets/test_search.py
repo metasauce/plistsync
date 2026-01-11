@@ -7,7 +7,7 @@ from ._common import item
 
 
 def test_db_create(beets_lib):
-    db = BeetsDatabase(beets_lib.path)
+    BeetsDatabase(beets_lib.path)
 
 
 def test_isrc(beets_lib_empty: Library):

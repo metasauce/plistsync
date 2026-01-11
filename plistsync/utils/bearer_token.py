@@ -1,18 +1,16 @@
 """Bearer token handling.
 
-This module provides functionality to manage Bearer tokens, including loading, saving to json.
+This module provides functionality to manage Bearer tokens, including loading, saving to
+json.
 """
 
 import json
-import os
+from collections.abc import AsyncGenerator, Callable
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
 from typing import (
     Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
     Self,
 )
 
@@ -29,7 +27,7 @@ class BearerToken:
         self.token = token
 
     @classmethod
-    def from_dict(cls, token_dict: Dict[str, Any]) -> Self:
+    def from_dict(cls, token_dict: dict[str, Any]) -> Self:
         """Create a BearerToken instance from a dictionary."""
         if "expires_at" in token_dict:
             expires_at = token_dict.pop("expires_at")
@@ -42,7 +40,7 @@ class BearerToken:
     @classmethod
     def from_file(cls, file_path: str | Path) -> Self:
         """Load token data from a JSON file."""
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             token_dict = json.load(f)
         return cls.from_dict(token_dict)
 
@@ -65,7 +63,7 @@ class BearerToken:
         res += ", ".join([f"{k}={v}" for k, v in self.as_dict().items()])
         return res + ")"
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         """Get the token data as a dictionary."""
         d = self.token.as_dict()
         if self.token.expires_at is not None:
@@ -73,7 +71,7 @@ class BearerToken:
         d.pop("expires_in", None)
         return d
 
-    def update(self, token_data: Dict[str, Any]) -> None:
+    def update(self, token_data: dict[str, Any]) -> None:
         """Update the token data in place."""
         self.token = BearerTokenOauth2Client(**token_data)
 
@@ -89,7 +87,7 @@ class BearerToken:
         return datetime.now(tz=timezone.utc) >= expires_at
 
 
-class InvalidToken(Exception):
+class InvalidTokenError(Exception):
     def __init__(self, token: BearerToken | None):
         if token:
             self.message = f"Invalid token: {token}"
@@ -214,15 +212,16 @@ async def get_bearer_token(config_key: str = "tidal") -> BearerToken:
     service_config = getattr(config, config_key, None)
     if not service_config or not service_config.enabled:
         raise ConfigurationError(
-            f"{config_key.capitalize()} config not available or {config_key} integration disabled!",
+            f"{config_key.capitalize()} config not available or {config_key}"
+            "integration disabled!",
             config_key,
         )
 
-    token_file = os.path.join(config.get_dir(), f"{config_key}_token.json")
+    token_file = config.get_dir() / f"{config_key}_token.json"
     try:
         token = BearerToken.from_file(token_file)
     except Exception as e:
-        raise InvalidToken(None) from e
+        raise InvalidTokenError(None) from e
 
     return token
 

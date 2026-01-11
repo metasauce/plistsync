@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Generator, Iterable, Iterator
 from pathlib import Path, PurePath
-from typing import TYPE_CHECKING, Generator, Iterable, Iterator
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from lxml import etree
@@ -19,8 +20,9 @@ if TYPE_CHECKING:
 
 
 def xpath_string_escape(input_str: str) -> str:
-    """Create a concatenation of alternately-quoted strings that is always a valid XPath expression.
+    """Create a concatenation of alternately-quoted strings.
 
+    This is always a valid XPath expression.
     see https://stackoverflow.com/questions/57639667/how-to-deal-with-single-and-double-quotes-in-xpath-in-python
     """
     if "'" not in input_str:
@@ -34,7 +36,9 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
 
-    Sadly nml files do not contain unique identifiers for tracks, thus we need to iterate over all tracks to find a match. Might be less efficient than other collections.
+    Sadly nml files do not contain unique identifiers for tracks, thus we need to
+    iterate over all tracks to find a match. Might be less efficient than other
+    collections.
     """
 
     path: Path
@@ -71,7 +75,9 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         Parameter
         ---------
         traktor_path : TraktorPath
-            The file path of the track to find. This should be the full path including the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified, it should will be ignored for the search.
+            The file path of the track to find. This should be the full path including
+            the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
+            it should will be ignored for the search.
         """
 
         collection = self.tree.find("COLLECTION")
@@ -80,8 +86,8 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
 
         entry = collection.xpath(
             f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
-            + f"[@FILE={xpath_string_escape(traktor_path.file)}]"
-            + f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
+            f"[@FILE={xpath_string_escape(traktor_path.file)}]"
+            f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
         )
         if len(entry) == 0:
             return None
@@ -170,8 +176,8 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         library_collection : NMLCollection | str | Path
             The root collection from which the playlists are derived.
         playlist : str | _Element
-            The name or uuid of the playlist to fetch, or an XML element representing the
-            playlist. If an XML element is provided, it will override any existing
+            The name or uuid of the playlist to fetch, or an XML element representing
+            the playlist. If an XML element is provided, it will override any existing
             playlist with the same uuid. If None, creates a new empty playlist.
         create : bool
             If True, creates a new empty playlist in the library_collection,
@@ -195,7 +201,8 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
             p_name = playlist.replace("$", "*").replace("\\", "|").lstrip("_")
             if p_name != playlist:
                 log.warning(
-                    f"Had to change playlist name from {playlist} to {p_name} to avoid issues with Traktor."
+                    f"Had to change playlist name from {playlist} to {p_name} to avoid",
+                    " issues with Traktor.",
                 )
             playlist = p_name
             root_node = self.library_collection._get_playlist_root_node(playlist)
@@ -221,7 +228,7 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
 
             # Playlists live in a SUBNODES node of the $ROOT folder
             subnodes = self.library_collection.tree.xpath(
-                f".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
+                ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
             )
             if len(subnodes) == 0:
                 raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
@@ -232,7 +239,7 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         elif root_node is None:
             raise ValueError(
                 f"Could not find playlist {playlist} in collection "
-                + f"{self.library_collection.path}. Consider setting `create=True`."
+                f"{self.library_collection.path}. Consider setting `create=True`."
             )
 
         playlist_node = root_node.find("PLAYLIST")
@@ -321,7 +328,9 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
         Parameter
         ---------
         path : str
-            The file path of the track to find. This should be the full path including the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified, it should will be ignored for the search.
+            The file path of the track to find. This should be the full path including
+            the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
+            it should will be ignored for the search.
         """
 
         entries = self.playlist_node.xpath(
@@ -331,7 +340,8 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
             return None
         elif len(entries) > 1:
             log.warning(
-                f"Found duplicate entries for path '{traktor_path}' in playlist, using first one."
+                f"Found duplicate entries for path '{traktor_path}' in playlist"
+                ", using first one."
             )
 
         return NMLPlaylistTrack(entries[0])

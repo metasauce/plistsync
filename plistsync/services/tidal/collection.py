@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator, Self
+from typing import Self
 
 import nest_asyncio
 
@@ -53,8 +54,7 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         plist_identifier: str = name
 
-        # We want to be able to resolve names of playlists without fetching all playlists
-        # We fetch all playlists by the user and check if the name matches first
+        # We fetch all playlists by the user and check if the name matches
         if allow_name:
             for pl, lookup in asyncio.run(get_user_playlists(include_items=False)):
                 if pl["attributes"]["name"] == name:
@@ -209,7 +209,8 @@ class TidalPlaylistCollection(Collection, TrackStream):
                 self.data, self.data_lookup = asyncio.run(get_playlist(self.id))
             except Exception as e:
                 log.debug(
-                    f"Could not refresh playlist data after adding tracks to {self.name}: {e}"
+                    f"Could not refresh playlist data after adding tracks to"
+                    f"{self.name}: {e}"
                 )
 
     @classmethod
@@ -256,7 +257,8 @@ class TidalPlaylistCollection(Collection, TrackStream):
                         lookup[(type, item["id"])] = lookup_data
                     else:
                         log.debug(
-                            f"Related item of type '{type}' with id '{item['id']}' not found in included data of playlist '{self.name}'"
+                            f"Related item of type '{type}' with id '{item['id']}' not"
+                            " found in included data of playlist '{self.name}'"
                         )
             return track_data, lookup
         return None
@@ -275,7 +277,8 @@ class TidalPlaylistCollection(Collection, TrackStream):
             # We add a placeholder to keep the order
             if item["type"] != "tracks":
                 log.debug(
-                    f"Skipping non-track item in playlist '{self.name}': {item['track']['type']}"
+                    "Skipping non-track item in playlist"
+                    f"'{self.name}': {item['track']['type']}"
                 )
                 continue
 
@@ -287,7 +290,8 @@ class TidalPlaylistCollection(Collection, TrackStream):
                 )
             else:
                 log.debug(
-                    f"Track with id '{item['id']}' not found in cached tracks of playlist '{self.name}'"
+                    f"Track with id '{item['id']}' not found in cached"
+                    " tracks of playlist '{self.name}'"
                 )
 
     def __len__(self) -> int:

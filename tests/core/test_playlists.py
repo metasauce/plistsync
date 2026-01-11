@@ -187,6 +187,6 @@ class TestPlaylistCollection:
         assert playlist.description is None
 
         # Test context manager
-        with playlist.edit() as pl:
+        with playlist.edit():
             assert list(playlist) == tracks
         assert playlist[0] == tracks[0]

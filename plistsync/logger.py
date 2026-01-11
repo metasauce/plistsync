@@ -5,7 +5,7 @@ from plistsync.config import Config
 
 log = logging.getLogger("plistsync")
 
-use_existing_config = Config.exists() and not "pytest" in sys.modules
+use_existing_config = Config.exists() and "pytest" not in sys.modules
 # Get logging level from configuration or default to INFO
 log.setLevel(Config().logging_level.upper() if use_existing_config else "INFO")
 # Set all other loggers to warning level by default

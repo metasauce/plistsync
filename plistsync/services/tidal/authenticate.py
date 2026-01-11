@@ -40,7 +40,9 @@ def auth(
         "forward",
         "--mode",
         "-m",
-        help="If set to 'manual', the CLI will not start a local server and instead ask you to paste the redirected URL after logging in. This should be used if you are running the CLI on a remote server without browser access.",
+        help="If set to 'manual', the CLI will not start a local server and instead ask"
+        " you to paste the redirected URL after login. This should be used if you"
+        " are running the CLI on a remote server without browser access.",
     ),
     port: int | None = typer.Option(
         None,
@@ -80,7 +82,8 @@ def auth(
         safe_webbrowser_open(url)
     except Exception:
         typer.echo(
-            "Failed to open the url in the default browser automatically. Please open the URL manually."
+            "Failed to open the url in the default browser automatically. "
+            "Please open the URL manually."
         )
         typer.echo(url)
 
@@ -158,7 +161,7 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
             # Stop the server after handling the error
             self.send_response(400)
             self.end_headers()
-            self.wfile.write(f"Error: {error} - {error_description}".encode("utf-8"))
+            self.wfile.write(f"Error: {error} - {error_description}".encode())
             return
 
         self.send_response(200)
@@ -183,17 +186,17 @@ def get_auth_code_server(port):
         allow_reuse_address = True
 
     try:
-        handler = lambda *args, **kwargs: RedirectHandler(
-            *args, results=results, **kwargs
-        )
-        with ReusableTCPServer(("", port), handler) as httpd:
+        with ReusableTCPServer(
+            ("", port),
+            lambda *args, **kwargs: RedirectHandler(*args, results=results, **kwargs),
+        ) as httpd:
             httpd.handle_request()  # Handle a single request; adjust as needed
     finally:
         if httpd:
             httpd.server_close()
     if results.get("error"):
         typer.echo(
-            f"Authentication failed: {results['error']} - {results['error_description']}"
+            f"Authentication failed: {results['error']} {results['error_description']}"
         )
         typer.Exit(code=1)
 

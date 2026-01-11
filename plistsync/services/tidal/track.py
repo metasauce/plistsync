@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Iterable
 
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
@@ -12,11 +12,12 @@ from .api import LookupDict
 class TidalTrack(Track):
     """TidalTrack is a track object that represents a track we got from the tidal api.
 
-    We opted to just use the returned data and included relationships from the tidal api as it is.
-    For simplicity we add artists and albums as keys to the data dict see `get_tracks`.
+    We opted to just use the returned data and included relationships from the tidal api
+    as it is. For simplicity we add artists and albums as keys to the data dict see
+    `get_tracks`.
 
-    As usual with all Track objects, this class implements all abstract methods from the Track class
-    to get the different properties of the track if available.
+    As usual with all Track objects, this class implements all abstract methods from
+    the Track class to get the different properties of the track if available.
     """
 
     data: dict
@@ -48,17 +49,15 @@ class TidalTrack(Track):
 
     @property
     def _raw_artists(self) -> Iterable[dict]:
-        for artist in filter(
+        yield from filter(
             lambda x: x.get("type") == "artists", self.data_lookup.values()
-        ):
-            yield artist
+        )
 
     @property
     def _raw_albums(self) -> Iterable[dict]:
-        for album in filter(
+        yield from filter(
             lambda x: x.get("type") == "albums", self.data_lookup.values()
-        ):
-            yield album
+        )
 
     # ---------------------------------------------------------------------------- #
     #                                 ABC methods                                  #

@@ -9,11 +9,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from eyconf import EYConf
 from eyconf.validation import ConfigurationError
-from typing_extensions import Literal
 
 # ---------------------------------------------------------------------------- #
 #                                 Config schema                                #
@@ -133,7 +132,7 @@ class Config(EYConf[ConfigSchema]):
     def get_dir() -> Path:
         """Get the path to the config directory."""
         c_dir = Path(os.getenv("PSYNC_CONFIG_DIR", "./config"))
-        os.makedirs(c_dir, exist_ok=True)
+        c_dir.mkdir(parents=True, exist_ok=True)
         return c_dir.resolve()
 
     @staticmethod

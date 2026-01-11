@@ -1,5 +1,5 @@
 import pytest
-from typing import Generator
+from collections.abc import Generator
 
 from plistsync.core import Track
 from plistsync.services.beets.database import BeetsDatabase

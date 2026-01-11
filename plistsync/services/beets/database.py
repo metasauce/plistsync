@@ -1,7 +1,7 @@
 import os
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator
 
 from sqlalchemy import Engine, MetaData, Table, create_engine
 from sqlalchemy.orm import Session, scoped_session, sessionmaker
@@ -17,7 +17,7 @@ class BeetsDatabase:
             db_path = Path(db_path)
         self.path = db_path
 
-        if not os.path.isfile(db_path) or not os.access(db_path, os.R_OK):
+        if not self.path.is_file() or not os.access(db_path, os.R_OK):
             raise FileNotFoundError(
                 f"Beets database file not found or not readable: {db_path}"
             )

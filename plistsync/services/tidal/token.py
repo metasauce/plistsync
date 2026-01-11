@@ -1,12 +1,12 @@
-import os
-from typing import Callable, TypeVar
+from collections.abc import Callable
+from typing import TypeVar
 
 import requests
 
 from plistsync.config import Config
 from plistsync.utils.bearer_token import (
     BearerToken,
-    InvalidToken,
+    InvalidTokenError,
     requires_bearer_token,
 )
 
@@ -41,9 +41,9 @@ def refresh_tidal_token(token: BearerToken) -> None:
     try:
         res.raise_for_status()
     except requests.HTTPError as e:
-        raise InvalidToken(token) from e
+        raise InvalidTokenError(token) from e
 
     token_data = res.json()
     token.update(token_data)
-    token.save(os.path.join(Config.get_dir(), "tidal_token.json"))
+    token.save(Config.get_dir() / "tidal_token.json")
     return

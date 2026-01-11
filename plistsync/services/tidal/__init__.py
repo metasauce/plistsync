@@ -7,7 +7,7 @@ check_imports(
 
 from . import api
 from .collection import TidalLibraryCollection, TidalPlaylistCollection
-from .track import *
+from .track import TidalTrack
 
 __all__ = [
     "TidalTrack",

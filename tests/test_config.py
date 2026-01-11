@@ -13,7 +13,7 @@ def temp_config_file(tmp_path):
 
 def test_create_default_config(temp_config_file):
     config = Config()
-    assert os.path.exists(temp_config_file[0])
+    assert temp_config_file[0].exists()
 
     # Default values from the schema
     assert config.path == temp_config_file[0]
@@ -24,12 +24,12 @@ class TestServiceConfig:
     @pytest.mark.parametrize("service", ["beets", "plex", "tidal", "spotify"])
     def test_service_not_enabled_by_default(self, temp_config_file, service):
         config = Config()
-        assert os.path.exists(temp_config_file[0])
+        assert temp_config_file[0].exists()
         with pytest.raises(ConfigurationError):
             getattr(config, service)
 
     @pytest.mark.parametrize(
-        "service, config_data",
+        ("service", "config_data"),
         [
             (
                 "beets",
@@ -77,7 +77,7 @@ class TestServiceConfig:
             encoding="utf-8",
         )
         config = Config()
-        assert os.path.exists(temp_config_file[0])
+        assert temp_config_file[0].exists()
         service_config = getattr(config, service)
         assert service_config.enabled is True
 

@@ -23,9 +23,9 @@ def auth(
         "forward",
         "--mode",
         "-m",
-        help="If set to 'polling', the CLI will not start a local server and instead ask you to "
-        "paste the redirected URL after logging in. This should be used if you are running the CLI "
-        "on a remote server without browser access.",
+        help="If set to 'manual', the CLI will not start a local server and instead ask"
+        " you to paste the redirected URL after login. This should be used if you"
+        " are running the CLI on a remote server without browser access.",
     ),
     port: int | None = typer.Option(
         None,
@@ -51,7 +51,7 @@ def auth(
     # Check if token exists and is valid
     token_path = Config.get_dir() / "plex_token.json"
     if token_path.exists() and not force:
-        with open(token_path, "r") as f:
+        with open(token_path) as f:
             token = json.load(f)
 
         response = requests.get(
@@ -89,14 +89,15 @@ def auth(
     }
     if mode == "forward":
         params["forwardUrl"] = f"http://localhost:{redirect_port}/"
-    auth_url = f"https://app.plex.tv/auth#?" + urlencode(params)
+    auth_url = "https://app.plex.tv/auth#?" + urlencode(params)
 
     # Try to open the URL in the default browser
     try:
         safe_webbrowser_open(auth_url)
     except Exception:
         typer.echo(
-            "Failed to open the url in the default browser automatically. Please open the URL manually."
+            "Failed to open the url in the default browser automatically. "
+            "Please open the URL manually."
         )
         typer.echo(auth_url)
 
@@ -145,8 +146,8 @@ class RedirectHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests.
 
-        There are no additional information sent by Plex here this is just to confirm the user
-        has logged in successfully.
+        There are no additional information sent by Plex here this is just to
+        confirm the user has logged in successfully.
         """
         url = self.path
         self.results.update(
@@ -177,10 +178,10 @@ def get_auth_code_server(port):
         allow_reuse_address = True
 
     try:
-        handler = lambda *args, **kwargs: RedirectHandler(
-            *args, results=results, **kwargs
-        )
-        with ReusableTCPServer(("", port), handler) as httpd:
+        with ReusableTCPServer(
+            ("", port),
+            lambda *args, **kwargs: RedirectHandler(*args, results=results, **kwargs),
+        ) as httpd:
             httpd.handle_request()  # Handle a single request; adjust as needed
     finally:
         if httpd:
