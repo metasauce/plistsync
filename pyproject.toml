@@ -3,69 +3,68 @@ name = "plistsync"
 version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-    "requests",
-    "requests_oauth2client",
-    "sqlalchemy",
-    "beets",
-    "jsonschema",
-    "numpy",
-    "mutagen",
-    "cachetools",
-    "asyncache",
-    "tinytag",
-    "levenshtein",
-    "typer",
     "eyconf[cli]>=0.5.0",
-    "lxml",
-    "tqdm",
-    "nest_asyncio",
+    "requests>=2.32.5",
+    "levenshtein>=0.27.3",
+    "typer>=0.21.1",
 ]
+
+[project.optional-dependencies]
+# Service specific dependencies
+traktor = ["lxml>=6.0.2"]
+spotify = [
+    "nest-asyncio>=1.6.0",
+    "requests-oauth2client>=1.8.0",
+    "tqdm>=4.67.1",
+]
+tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1"]
+local = ["tinytag>=2.2.0"]
+beets = ["sqlalchemy>=2.0.45"]
+
+[dependency-groups]
+# Dev dependencies
+dev = [
+    { include-group = "lint" },
+    { include-group = "test" },
+    { include-group = "docs" },
+    "pre-commit>=4.5.1",
+]
+
+lint = ["ruff>=0.14.11"]
+test = [
+    "pytest>=9.0.2",
+    "pytest-asyncio>=1.3.0",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=7.0.0",
+]
+docs = [
+    "furo>=2025.12.19",
+    "myst-nb>=1.3.0",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-autoapi>=3.6.1",
+    "sphinx-copybutton>=0.5.2",
+    "sphinxcontrib-typer[html]>=0.7.2",
+]
+typed = ["mypy>=1.19.1"]
 
 [project.scripts]
 plistsync = "plistsync.__main__:cli"
-
-
-[project.optional-dependencies]
-test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-benchmark"]
-dev = ["ruff", "pre-commit"]
-bench = ["tinytag", "mutagen", "pytaglib", "music-tag", "eyeD3"]
-typed = [
-    "mypy",
-    "types-lxml",
-    "types-cachetools",
-    "types-requests",
-    "types-tqdm",
-]
-docs = [
-    "sphinx>=8.0.2",
-    "furo>=2024.8.6",
-    "sphinx-autoapi>=3.6.0",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-inline-tabs>=2023.4.21",
-    "sphinxcontrib-typer[html]>=0.5.0",
-    "myst-parser>=4.0.0",
-    "myst-nb>=1.1.2",
-]
-jupyter = [
-    "ipykernel",
-    "ipywidgets",
-]
-all = ["plistsync[dev,test,typed,docs]"]
-
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["plistsync", "plistsync_server"]
-
-[tool.hatch.metadata]
-# Needed to install from git directly
-allow-direct-references = true
+packages = ["plistsync"]
 
 [tool.ruff]
-include = ["pyproject.toml", "plistsync/**/*.py", "tests/**/*.py", "docs/**/*.ipynb"]
+include = [
+    "pyproject.toml",
+    "plistsync/**/*.py",
+    "tests/**/*.py",
+    "docs/**/*.ipynb",
+]
 extend-include = ["*.ipynb"]
 
 [tool.ruff.lint]
@@ -99,15 +98,15 @@ pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.report]
-exclude_lines = ["if TYPE_CHECKING"]
-
 omit = ["*/tests/*"]
+exclude_lines = ["if TYPE_CHECKING"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true
 
 [[tool.mypy.overrides]]
-module = ["eyconf.*", "beets.*", "taglib.*", "music_tag.*", "nest_asyncio.*"]
+module = ["nest_asyncio.*"]
 ignore_missing_imports = true
