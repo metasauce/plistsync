@@ -51,7 +51,7 @@ docs = [
 ]
 typed = [
     "mypy>=1.19.1",
-    "lxml-stubs>=0.5.1",
+    "types-lxml>=2026.1.1",
     "types-requests>=2.32.4.20260107",
     "types-tqdm>=4.67.0.20250809",
     # FIXME: maybe we can remove this somehow as this is needed to full
