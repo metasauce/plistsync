@@ -33,43 +33,45 @@ class TestServiceConfig:
         [
             (
                 "beets",
-                """
-                beets:
-                    enabled: true
-                    database: ./test.db
-                """,
+                (
+                    "services:\n"
+                    "    beets:\n"
+                    "        enabled: true\n"
+                    "        database: ./test.db"
+                ),
             ),
             (
                 "plex",
-                """
-                plex:
-                    enabled: true
-                    server_url: http://localhost:32400
-                    auth_token: testtoken
-                    machine_id: testmachineid
-                """,
+                (
+                    "services:\n"
+                    "    plex:\n"
+                    "        enabled: true\n"
+                    "        default_server_url: http://localhost:32400"
+                ),
             ),
             (
                 "tidal",
-                """
-                tidal:
-                    enabled: true
-                    client_id: testclientid
-                    redirect_port: 5001
-                """,
+                (
+                    "services:\n"
+                    "    tidal:\n"
+                    "        enabled: true\n"
+                    "        client_id: testuser\n"
+                    "        country_code: DE\n"
+                ),
             ),
             (
                 "spotify",
-                """
-                spotify:
-                    enabled: true
-                    client_id: testclientid
-                    redirect_port: 5001
-                """,
+                (
+                    "services:\n"
+                    "    spotify:\n"
+                    "        enabled: true\n"
+                    "        client_id: testclientid\n"
+                ),
             ),
         ],
     )
     def test_enable_service_in_config(self, temp_config_file, service, config_data):
+        config_data = "logging:\n    level: DEBUG\nredirect_port: 5000\n" + config_data
         temp_config_file[0].write_text(
             config_data,
             encoding="utf-8",
@@ -78,3 +80,27 @@ class TestServiceConfig:
         assert os.path.exists(temp_config_file[0])
         service_config = getattr(config, service)
         assert service_config.enabled is True
+
+    def test_properties(self, temp_config_file):
+        """This test is mainly for test coverage tbh"""
+        config_data = (
+            "logging:\n"
+            "    level: DEBUG\n"
+            "redirect_port: 5000\n"
+            "services:\n"
+            "    plex:\n"
+            "        enabled: true\n"
+            "        default_server_url: http://localhost:32400"
+        )
+        temp_config_file[0].write_text(
+            config_data,
+            encoding="utf-8",
+        )
+        config = Config()
+        plex_config = config.plex
+        assert config.redirect_port == 5000
+        assert plex_config.enabled is True
+        assert plex_config.server_url == "http://localhost:32400"
+        assert plex_config.app_name is not None
+        assert plex_config.client_identifier is not None
+        assert plex_config.token_path == temp_config_file[1] / "plex_token.json"

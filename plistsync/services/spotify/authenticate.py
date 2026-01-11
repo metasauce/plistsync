@@ -4,6 +4,7 @@ This is used to obtain the initial authentication token for Spotify.
 """
 
 import secrets
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -35,24 +36,28 @@ SCOPES = " ".join(
 
 @spotify_cli.command()
 def auth(
-    no_server: bool = typer.Option(
-        False,
-        "--no-server",
-        "-ns",
-        help="Do not run a server. You will need to manually paste the URL.",
+    mode: Literal["forward", "manual"] = typer.Option(
+        "forward",
+        "--mode",
+        "-m",
+        help="If set to 'manual', the CLI will not start a local server and instead ask you to "
+        "paste the redirected URL after logging in. This should be used if you are running the CLI "
+        "on a remote server without browser access.",
     ),
-    force_paste: bool = typer.Option(
-        False,
-        "--force-paste",
-        "-fp",
-        help="Force to paste the URL even if a server can be started.",
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        "-p",
+        help="Port for the local server (if server is used).",
     ),
 ):
     """Use your Spotify account to authenticate with the Spotify API.
 
     This will open a browser window to log in to Spotify and obtain an access token.
     """
-    spotify_config = Config().spotify
+    config = Config()
+    spotify_config = config.spotify
+    redirect_port = port if port is not None else config.redirect_port
     code_verifier, code_challenge = generate_pkce_codes()
     state = secrets.token_urlsafe(8)
 
@@ -61,7 +66,7 @@ def auth(
         {
             "response_type": "code",
             "client_id": spotify_config.client_id,
-            "redirect_uri": f"http://127.0.0.1:{spotify_config.redirect_port}",
+            "redirect_uri": f"http://127.0.0.1:{redirect_port}",
             "scope": SCOPES,
             "code_challenge_method": "S256",
             "code_challenge": code_challenge,
@@ -82,11 +87,11 @@ def auth(
         )
 
     # Start a local server to handle the redirect
-    if no_server:
+    if mode == "manual":
         pasted_url = typer.prompt("Paste the redirected URL after logging into Spotify")
         results = _handle_pasted_url(pasted_url)
     else:
-        results = get_auth_code_server(spotify_config.redirect_port)
+        results = get_auth_code_server(redirect_port)
 
     # Send request to get spotify token
     token_url = "https://accounts.spotify.com/api/token"
@@ -94,7 +99,7 @@ def auth(
         "grant_type": "authorization_code",
         "client_id": spotify_config.client_id,
         "code": results.get("code"),
-        "redirect_uri": f"http://127.0.0.1:{spotify_config.redirect_port}",
+        "redirect_uri": f"http://127.0.0.1:{redirect_port}",
         "code_verifier": code_verifier,
     }
     response = requests.post(

@@ -9,7 +9,6 @@ hide-toc: true
 :end-before: <!-- end intro -->
 ```
 
-
 ```{note}
 This documentation is very much a work in progress. If you have any questions or suggestions, please feel free to open an issue or a pull request.
 ```
@@ -30,8 +29,6 @@ This documentation is very much a work in progress. If you have any questions or
 
 If this is your first time using `plistsync`, we recommend reading the [getting started guide](getting-started.md) to familiarize yourself with the core concepts and functionalities of the library.
 
-
-
 ```{toctree}
 :hidden:
 :caption: 📚 Usage
@@ -47,6 +44,7 @@ details/matching.md
 
 services/tidal
 services/spotify
+services/plex
 ```
 
 ```{toctree}

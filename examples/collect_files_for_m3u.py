@@ -11,8 +11,7 @@ m3u_file = Path("playlist.m3u")
 
 
 def collect_m3u_files(m3u_file: Path):
-    """
-    Takes a path to an m3u, reads the file paths in there, and copies all files
+    """Takes a path to an m3u, reads the file paths in there, and copies all files
     into a directory next to the m3u file.
     """
     # Create collection directory next to the M3U file

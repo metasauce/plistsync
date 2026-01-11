@@ -9,10 +9,11 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Annotated
 
 from eyconf import EYConf
 from eyconf.validation import ConfigurationError
+from typing_extensions import Literal
 
 # ---------------------------------------------------------------------------- #
 #                                 Config schema                                #
@@ -21,85 +22,91 @@ from eyconf.validation import ConfigurationError
 
 @dataclass
 class OptionalService:
-    enabled: bool
+    enabled: bool = field(default=False)
 
 
 @dataclass
 class BeetsConfig(OptionalService):
-    database: str
+    database: str = field(default="./config/beets/beets.db")
 
 
 @dataclass
 class PlexConfig(OptionalService):
-    server_url: str
-    auth_token: str
-    machine_id: str
+    server_url: Annotated[
+        str | None,
+        "The URL of the Plex server to connect to by default.",
+        "E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'",
+    ] = field(default=None)
+
+    server_name: Annotated[
+        str | None,
+        "Instead of the server url, you can specify its name and we look it up online ",
+        "via plex.tv. In this case, we try local routes first.",
+        "E.g. 'my_plex_server'",
+    ] = field(default=None)
+
+    @property
+    def app_name(self) -> str:
+        return "plistsync-local"
+
+    @property
+    def client_identifier(self) -> str:
+        # Random generated UUID, we could generate this for each
+        # user but it is not strictly necessary and one global
+        # id might allow us profiling across installs in the future.
+        return "510457cfb15e4bf48d34563d0e4f1de1"
+
+    @property
+    def token_path(self) -> Path:
+        return Config.get_dir() / "plex_token.json"
 
 
 @dataclass
 class TidalConfig(OptionalService):
-    client_id: str
-    redirect_port: int
-    client_secret: Optional[str] = None
-    country_code: Optional[str] = "DE"
+    client_id: str = field(default="XhEgdcjkjfqTqw1y")
+    client_secret: str | None = None
+    country_code: str = field(default="US")
 
 
 @dataclass
 class SpotifyConfig(OptionalService):
-    client_id: str
-    redirect_port: int
-    client_secret: Optional[str] = None
+    client_id: str = field(default="3b408bca2c3344dfa1cda1c7fa9adde4")
+    client_secret: str | None = None
+
+
+@dataclass
+class ServicesConfig:
+    beets: BeetsConfig | None = field(default_factory=lambda: BeetsConfig())
+    plex: PlexConfig | None = field(default_factory=lambda: PlexConfig())
+    tidal: TidalConfig | None = field(default_factory=lambda: TidalConfig())
+    spotify: SpotifyConfig | None = field(default_factory=lambda: SpotifyConfig())
 
 
 @dataclass
 class LoggingConfig:
-    level: str = field(default="INFO")
+    level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        "Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+        "For production we recommend INFO or higher",
+    ] = field(default="INFO")
 
 
 @dataclass
 class ConfigSchema:
-    logging: Optional[LoggingConfig] = field(default_factory=LoggingConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
-    beets: Optional[BeetsConfig] = None
-    plex: Optional[PlexConfig] = None
-    tidal: Optional[TidalConfig] = None
-    spotify: Optional[SpotifyConfig] = None
+    services: Annotated[
+        ServicesConfig,
+        "Optional services:",
+        "plistsync works without any of the services but using",
+        "some of them will improve matching tremendously",
+        "See the setup guide for more information!",
+    ] = field(default_factory=ServicesConfig)
 
-
-# ---------------------------------------------------------------------------- #
-#                                 Default yaml                                 #
-# ---------------------------------------------------------------------------- #
-
-
-default = """
-# Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL
-# For production we recommend INFO or higher
-logging:
-    level: INFO
-
-
-# Optional services:
-# The sync should work without these services but using some
-# of them will improve matching tremendously
-# See the setup guide for more information!
-beets:
-    enabled: false
-    database: ./config/beets/beets.db
-plex:
-    enabled: false
-    server_url: http://localhost:32400
-    auth_token: place_your_token_here
-    # TODO: automate machine id like tidal.
-    machine_id: 'curl -X GET "http://localhost:32400/identity/?X-Plex-Token=your_auth_token"'
-tidal:
-    enabled: false
-    client_id: XhEgdcjkjfqTqw1y
-    redirect_port: 5001
-spotify:
-    enabled: false
-    client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
-    redirect_port: 5001
-"""
+    redirect_port: Annotated[
+        int,
+        "The port used for authentication callbacks",
+    ] = field(default=5001)
 
 
 # ---------------------------------------------------------------------------- #
@@ -129,10 +136,6 @@ class Config(EYConf[ConfigSchema]):
         os.makedirs(c_dir, exist_ok=True)
         return c_dir.resolve()
 
-    def default_yaml(self) -> str:
-        """Get the default YAML configuration."""
-        return default
-
     @staticmethod
     def get_file() -> Path:
         """Get the path to the config file."""
@@ -149,35 +152,39 @@ class Config(EYConf[ConfigSchema]):
     # ---------------------------------------------------------------------------- #
     @property
     def plex(self) -> PlexConfig:
-        if not self.data.plex or not self.data.plex.enabled:
+        if not self.data.services.plex or not self.data.services.plex.enabled:
             raise ConfigurationError(
                 "'plex' is not enabled or missing in the configuration."
             )
-        return self.data.plex
+        return self.data.services.plex
 
     @property
     def beets(self) -> BeetsConfig:
-        if not self.data.beets or not self.data.beets.enabled:
+        if not self.data.services.beets or not self.data.services.beets.enabled:
             raise ConfigurationError(
                 "'beets' is not enabled or missing in the configuration."
             )
-        return self.data.beets
+        return self.data.services.beets
 
     @property
     def tidal(self) -> TidalConfig:
-        if not self.data.tidal or not self.data.tidal.enabled:
+        if not self.data.services.tidal or not self.data.services.tidal.enabled:
             raise ConfigurationError(
                 "'tidal' is not enabled or missing in the configuration."
             )
-        return self.data.tidal
+        return self.data.services.tidal
 
     @property
     def spotify(self) -> SpotifyConfig:
-        if not self.data.spotify or not self.data.spotify.enabled:
+        if not self.data.services.spotify or not self.data.services.spotify.enabled:
             raise ConfigurationError(
                 "'spotify' is not enabled or missing in the configuration."
             )
-        return self.data.spotify
+        return self.data.services.spotify
+
+    @property
+    def redirect_port(self) -> int:
+        return self.data.redirect_port
 
 
 __all__ = [

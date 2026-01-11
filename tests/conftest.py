@@ -14,18 +14,19 @@ def plist_config(tmpdir_factory):
     config_file = tmp_dir / "config.yml"
     config_file.write_text(
         f"""
-        beets:
-            enabled: true
-            database: {tmp_dir}/beets.db
-        plex:
-            enabled: true
-            server_url: http://localhost:32400
-            auth_token: {os.environ.get("PLEX_AUTH_TOKEN", None)}
-            machine_id: {os.environ.get("PLEX_MACHINE_ID", None)}
-        spotify:
-            enabled: true
-            client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
-            redirect_port: 5001
+        logging:
+            level: DEBUG
+        redirect_port: 5001
+        services:
+            beets:
+                enabled: true
+                database: {tmp_dir}/beets.db
+            plex:
+                enabled: true
+                default_server_url: http://localhost:32400
+            spotify:
+                enabled: true
+                client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
         """,
         encoding="utf-8",
     )
@@ -42,6 +43,13 @@ def plist_config(tmpdir_factory):
     }
     spotify_token_file.write_text(json.dumps(spotify_token, indent=4), encoding="utf-8")
 
+    # Also write plex token
+    plex_token_file = tmp_dir / "plex_token.json"
+    plex_token = {
+        "X-Plex-Token": os.environ.get("PLEX_AUTH_TOKEN", "FAKE_TOKEN_FOR_TESTS_ONLY"),
+    }
+    plex_token_file.write_text(json.dumps(plex_token, indent=4), encoding="utf-8")
+
     return config_file, tmp_dir
 
 
@@ -51,7 +59,7 @@ from pathlib import Path
 from mutagen._file import File
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def audio_files(plist_config: tuple[Path, Path]):
     # Copy from tests/data/audio to the temporary directory
     # such that we can transform the files without changing the originals
@@ -65,7 +73,10 @@ def audio_files(plist_config: tuple[Path, Path]):
     yield dest
 
     # Clean up the copied files
-    shutil.rmtree(dest)
+    try:
+        shutil.rmtree(dest)
+    except Exception as e:
+        pass
 
 
 @pytest.fixture

@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path, PurePath
-from typing import Generator
+from typing import ClassVar
 from abc import ABC, abstractmethod
 
 from plistsync.core import LibraryCollection, Track, Collection
@@ -20,14 +20,14 @@ class TrackTestBase(ABC):
     Implements some basic tests for tracks which should be the same for all tracks.
     """
 
-    track_class: type[Track]
+    track_class: ClassVar[type[Track]]
 
     test_config = {
         "has_path": False,
     }
 
     @abstractmethod
-    def create_track(self, *args, **kwargs) -> Generator[Track, None, None]:
+    def create_track(self, *args, **kwargs) -> Iterable[Track]:
         """Create a track for testing.
 
         This method should create a track with some dummy data. Has to be implemented by the subclass.
@@ -87,10 +87,10 @@ class CollectionTestBase(ABC):
     Implements some basic tests for collections that should be the same for all types of collections.
     """
 
-    collection_class: type[Collection]
+    collection_class: ClassVar[type[Collection]]
 
     @abstractmethod
-    def create_collection(self, *args, **kwargs) -> Generator[Collection, None, None]:
+    def create_collection(self, *args, **kwargs) -> Iterable[Collection]:
         """Create a collection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
@@ -162,9 +162,7 @@ class CollectionTestBase(ABC):
 
 class LibraryCollectionTestBase(CollectionTestBase, ABC):
     @abstractmethod
-    def create_collection(
-        self, *args, **kwargs
-    ) -> Generator[LibraryCollection, None, None]:
+    def create_collection(self, *args, **kwargs) -> Iterable[LibraryCollection]:
         """Create a collection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.

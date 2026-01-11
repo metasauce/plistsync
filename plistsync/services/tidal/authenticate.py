@@ -8,6 +8,7 @@ import hashlib
 import http.server
 import secrets
 import socketserver
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 import requests
@@ -35,18 +36,26 @@ SCOPES = " ".join(
 
 @tidal_cli.command()
 def auth(
-    no_server: bool = typer.Option(
-        False,
-        "--no-server",
-        "-ns",
-        help="Do not run a server. You will need to manually paste the URL.",
+    mode: Literal["forward", "manual"] = typer.Option(
+        "forward",
+        "--mode",
+        "-m",
+        help="If set to 'manual', the CLI will not start a local server and instead ask you to paste the redirected URL after logging in. This should be used if you are running the CLI on a remote server without browser access.",
+    ),
+    port: int | None = typer.Option(
+        None,
+        "--port",
+        "-p",
+        help="Port for the local server (if 'forward' mode is used).",
     ),
 ):
     """Use your Tidal account to authenticate with the Tidal API.
 
     This will open a browser window to log in to Tidal and obtain an access token.
     """
-    tidal_config = Config().tidal
+    config = Config()
+    tidal_config = config.tidal
+    redirect_port = port if port is not None else config.redirect_port
     code_verifier, code_challenge = generate_pkce_codes()
     state = secrets.token_urlsafe(8)
 
@@ -55,7 +64,7 @@ def auth(
         {
             "response_type": "code",
             "client_id": tidal_config.client_id,
-            "redirect_uri": f"http://localhost:{tidal_config.redirect_port}",
+            "redirect_uri": f"http://localhost:{redirect_port}",
             "scope": SCOPES,
             "code_challenge_method": "S256",
             "code_challenge": code_challenge,
@@ -76,11 +85,11 @@ def auth(
         typer.echo(url)
 
     # Start a local server to handle the redirect
-    if no_server:
+    if mode == "manual":
         pasted_url = typer.prompt("Paste the redirected URL after logging into Tidal")
         results = handle_pasted_url(pasted_url)
     else:
-        results = get_auth_code_server(tidal_config.redirect_port)
+        results = get_auth_code_server(redirect_port)
 
     # Send request to get tidal token
     token_url = "https://auth.tidal.com/v1/oauth2/token"
@@ -88,7 +97,7 @@ def auth(
         "grant_type": "authorization_code",
         "client_id": tidal_config.client_id,
         "code": results.get("code"),
-        "redirect_uri": f"http://localhost:{tidal_config.redirect_port}",
+        "redirect_uri": f"http://localhost:{redirect_port}",
         "code_verifier": code_verifier,
     }
     response = requests.post(token_url, data=data)
