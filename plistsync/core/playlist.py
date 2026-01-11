@@ -8,7 +8,8 @@ The main idea here is to have an abstraction to allow updates/edit playlist in a
 
 Usage Example:
 --------------
-Create a custom playlist collection by subclassing `PlaylistCollection` and implementing the required methods.
+Create a custom playlist collection by subclassing `PlaylistCollection` and implementing the
+required methods.
 
 .. code-block:: python
 

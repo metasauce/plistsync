@@ -4,7 +4,7 @@ import enum
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import cached_property
+from functools import cache, cached_property
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import quote
@@ -19,6 +19,8 @@ from .api_types import (
     PlexApiPlaylistResponse,
     PlexApiResourcesResponse,
     PlexApiTrackResponse,
+    PlexMediaTypes,
+    PlexServerIdentity,
 )
 
 
@@ -35,12 +37,6 @@ def _read_token(path: Path) -> str:
             f"Plex token not found! Please run `plistsync plex auth` to authenticate."
         )
     return token
-
-
-class PlexTypes(enum.Enum):
-    """Plex media types."""
-
-    TRACK = 10
 
 
 class PlexApiSession(requests.Session):
@@ -75,12 +71,17 @@ class PlexApiSession(requests.Session):
         According to Plex API docs, one should use the /api/v2/user endpoint
         to validate tokens.
         """
-        response = super().request("GET", f"{self.server_url}/api/v2/user")
-        if response.status_code == 401:
+        try:
+            response = super().request("GET", f"{self.server_url}/api/v2/user")
+            if response.status_code == 401:
+                raise ConfigurationError(
+                    "Plex token not valid anymore! Run `plistsync plex auth` to refresh it."
+                )
+            self.token_valid = True
+        except requests.exceptions.RequestException as e:
             raise ConfigurationError(
-                "Plex token not valid anymore! Run `plistsync plex auth` to refresh it."
-            )
-        self.token_valid = True
+                f"Plex token validation failed due to network error: {str(e)}"
+            ) from e
 
     def request(self, *args, **kwargs) -> requests.Response:
         """Override request to add Plex auth token and headers."""
@@ -88,7 +89,12 @@ class PlexApiSession(requests.Session):
         if not self.token_valid:
             self._validate_token()
 
-        return super().request(*args, **kwargs)
+        try:
+            return super().request(*args, **kwargs)
+        except requests.exceptions.RequestException as e:
+            raise ConfigurationError(
+                f"Plex API request failed due to network error: {str(e)}"
+            ) from e
 
 
 class PlexApi:
@@ -256,11 +262,12 @@ class PlexApi:
         response.raise_for_status()
         return response.json()
 
-    def server_details(self) -> Any:
-        """Get details of this server via the /identity route."""
+    @cache
+    def identity(self) -> PlexServerIdentity:
+        """Get Plex server identity."""
         response = self.session.request("GET", f"{self.session.server_url}/identity")
         response.raise_for_status()
-        return response.json()
+        return response.json()["MediaContainer"]
 
     @cached_property
     def machine_id(self) -> str:
@@ -270,8 +277,8 @@ class PlexApi:
         Matches the clientIdentifier found in `resources`,
         which is available via the public plex.tv route (no local server needed).
         """
-        response = self.server_details()
-        return response["MediaContainer"]["machineIdentifier"]
+        response = self.identity()
+        return response["machineIdentifier"]
 
 
 class PlaylistApi:
@@ -391,7 +398,7 @@ class TrackApi:
                 "GET",
                 f"{self.session.server_url}/library/sections/{section_id}/all",
                 params={
-                    "type": PlexTypes.TRACK.value,
+                    "type": PlexMediaTypes.TRACK.value,
                     "X-Plex-Container-Start": start,
                     "X-Plex-Container-Size": page_size,
                 },
@@ -439,7 +446,7 @@ class TrackApi:
         response = self.session.request(
             "GET",
             f"{self.session.server_url}/library/sections/{section_id}/all",
-            params={"type": PlexTypes.TRACK.value, "filename": encoded_path},
+            params={"type": PlexMediaTypes.TRACK.value, "filename": encoded_path},
         )
         response.raise_for_status()
         return response.json()["MediaContainer"].get("Metadata", [])

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import enum
 from typing import List, Required, TypedDict, Union
 
 # ---------------------------------- Tracks ---------------------------------- #
@@ -131,3 +132,33 @@ class PlexApiResourcesResponse(TypedDict, total=False):
     dnsRebindingProtection: bool
     natLoopbackSupported: bool
     connections: List[PlexApiConnection]
+
+
+class PlexServerIdentity(TypedDict):
+    apiVersion: str  # '1.23.5.4852'
+    machineIdentifier: str  # 'XXXXXXXXXXXX
+    claimed: bool
+    version: str  # '1.28.5.6758-85f0f3f4e'
+
+
+class PlexMediaTypes(enum.Enum):
+    """Plex media types.
+
+    https://developer.plex.tv/pms/#section/API-Info/Types
+    """
+
+    MOVIE = 1
+    SHOW = 2
+    SEASON = 3
+    EPISODE = 4
+    TRAILER = 5
+    PERSON = 7
+    ARTIST = 8
+    ALBUM = 9
+    TRACK = 10
+    CLIP = 12
+    PHOTO = 13
+    PHOTO_ALBUM = 14
+    PLAYLIST = 15
+    PLAYLIST_FOLDER = 16
+    COLLECTION = 18
