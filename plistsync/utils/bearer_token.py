@@ -185,7 +185,7 @@ def requires_bearer_token_generator(
     ) -> Callable[..., AsyncGenerator[Any, None]]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any):
-            token = await get_bearer_token()
+            token = get_bearer_token()
             # Pass the token as a keyword argument
             async for res in func(*args, token=token, **kwargs):
                 yield res
@@ -195,7 +195,7 @@ def requires_bearer_token_generator(
     return decorator
 
 
-async def get_bearer_token(config_key: str = "tidal") -> BearerToken:
+def get_bearer_token(config_key: str = "tidal") -> BearerToken:
     """Get the Tidal token.
 
     Raises
