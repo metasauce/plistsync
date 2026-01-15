@@ -128,6 +128,102 @@ class TidalApiSession(requests.Session):
                 return self.request(method, url, *args, **kwargs)
             raise e
 
+    def tidal_get_req_paged(
+        self, url: str, params: dict = {}, **kwargs
+    ) -> tuple[list[dict], LookupDict, dict]:
+        """
+        Perform a GET request to the Tidal API.
+
+        This will resolve pagination in the root level of the response.
+        This function handles rate limiting by waiting if the rate limit is exceeded.
+
+        Parameters
+        ----------
+        path : str
+            The API endpoint path. If it does not start with '/',
+            it will be prefixed with '/'.
+        token : BearerToken
+            The authentication token to use for the request.
+        **kwargs : dict
+            Additional keyword arguments to pass to the `requests.get` method.
+
+        Returns
+        -------
+        tuple[list[dict], dict, dict]
+            A tuple containing:
+            - A list of data items from the paged response.
+            - A lookup dictionary of included items, keyed by (type, id).
+            - The last links object from the paged response.
+        """
+
+        data: list[dict] = []
+        included: LookupDict = {}
+        links = {"next": url}
+
+        while links.get("next"):
+            res = self.request(
+                method="GET",
+                url=links["next"],
+                params=params,
+                **kwargs,
+            )
+            res_json = res.json()
+            data.extend(res_json.get("data", []))
+            included.update(include_to_lookup_list(res_json.get("included", [])))
+            links = res_json.get("links", {})
+
+        # If params are included we also want to resolve their pagination
+        # normally they are single words "albums" but can also be nested "items.albums"
+        # ["data"][int]["relationships"][<word>]["links"]["next"]
+        # Tidal does only every return two layers of includes...
+        layer_1_keys = set()
+        layer_2_keys = set()
+        for p in params.get("include", []):
+            split = p.split(".")
+            layer_1_keys.add(split[0])
+            if len(split) > 1:
+                layer_2_keys.add(split[1])
+            if len(split) > 2:
+                log.warning(
+                    f"Include parameter '{p}' has more than two layers, "
+                    "which is not supported by tidal API."
+                )
+
+        for key in layer_1_keys:
+            for item in data:
+                item_links = item.get("relationships", {}).get(key, {}).get("links", {})
+                if item_links.get("next"):
+                    item_data, item_included, item_link = self.tidal_get_req_paged(
+                        item_links.get("next"),
+                        params={"include": params.get("include", [])},
+                    )
+
+                    if item_data:
+                        item["relationships"][key]["data"].extend(item_data)
+
+                    item["relationships"][key]["links"] = item_link
+                    included.update(item_included)
+
+        for key in layer_2_keys:
+            # We only resolve layer 2 if data is included and has next
+            for inc in included.values():
+                rel = inc.get("relationships", {}).get(key, {})
+                next_url = rel.get("links", {}).get("next")
+                if next_url and rel.get("data") is not None:
+                    inc_data, inc_included, inc_link = self.tidal_get_req_paged(
+                        next_url,
+                        params={"include": params.get("include", [])},
+                    )
+
+                    if inc_data:
+                        inc["relationships"][key]["data"].extend(inc_data)
+                    inc["relationships"][key]["links"] = inc_link
+                    included.update(inc_included)
+
+        return data, included, links
+
+
+
 
 async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
     """Fetch multiple tracks by their tidal ids or isrcs.
@@ -435,191 +531,6 @@ async def add_tracks_to_playlist(
             json=body,
             params={"countryCode": country_code},
         )
-
-
-# ---------------------------------------------------------------------------- #
-#                               REQUEST handling                               #
-# ---------------------------------------------------------------------------- #
-
-
-TIDAL_BASE_URL = "https://openapi.tidal.com/v2"
-
-
-@requires_tidal_token
-async def tidal_get_req(path: str, token: BearerToken, **kwargs) -> dict:
-    """
-    Perform a GET request to the Tidal API.
-
-    This function handles rate limiting by waiting if the rate limit is exceeded.
-
-    Parameters
-    ----------
-    path : str
-        The API endpoint path. If it does not start with '/',
-        it will be prefixed with '/'.
-    token : BearerToken
-        The authentication token to use for the request.
-    **kwargs : dict
-        Additional keyword arguments to pass to the `requests.get` method.
-
-
-    Returns
-    -------
-    dict
-        The JSON response from the API.
-    """
-
-    res = await __tidal_req("GET", path, token, **kwargs)
-    return res.json()
-
-
-@requires_tidal_token
-async def tidal_get_req_paged(
-    path: str, token: BearerToken, params: dict = {}, **kwargs
-) -> tuple[list[dict], LookupDict, dict]:
-    """
-    Perform a GET request to the Tidal API.
-
-    This will resolve pagination in the root level of the response.
-    This function handles rate limiting by waiting if the rate limit is exceeded.
-
-    Parameters
-    ----------
-    path : str
-        The API endpoint path. If it does not start with '/',
-        it will be prefixed with '/'.
-    token : BearerToken
-        The authentication token to use for the request.
-    **kwargs : dict
-        Additional keyword arguments to pass to the `requests.get` method.
-
-    Returns
-    -------
-    tuple[list[dict], dict, dict]
-        A tuple containing:
-        - A list of data items from the paged response.
-        - A lookup dictionary of included items, keyed by (type, id).
-        - The last links object from the paged response.
-    """
-
-    data: list[dict] = []
-    included: LookupDict = {}
-    links = {"next": path}
-
-    while links.get("next"):
-        res = await __tidal_req(
-            method="GET", path=links["next"], token=token, params=params, **kwargs
-        )
-        res_json = res.json()
-        data.extend(res_json.get("data", []))
-        included.update(include_to_lookup_list(res_json.get("included", [])))
-        links = res_json.get("links", {})
-
-    # If params are included we also want to resolve their pagination
-    # normally they are single words "albums" but can also be nested "items.albums"
-    # ["data"][int]["relationships"][<word>]["links"]["next"]
-    # Tidal does only every return two layers of includes...
-    layer_1_keys = set()
-    layer_2_keys = set()
-    for p in params.get("include", []):
-        split = p.split(".")
-        layer_1_keys.add(split[0])
-        if len(split) > 1:
-            layer_2_keys.add(split[1])
-        if len(split) > 2:
-            log.warning(
-                f"Include parameter '{p}' has more than two layers, "
-                "which is not supported by tidal API."
-            )
-
-    for key in layer_1_keys:
-        for item in data:
-            item_links = item.get("relationships", {}).get(key, {}).get("links", {})
-            if item_links.get("next"):
-                item_data, item_included, item_link = await tidal_get_req_paged(
-                    item_links.get("next"),
-                    token=token,
-                    params={"include": params.get("include", [])},
-                )
-
-                if item_data:
-                    item["relationships"][key]["data"].extend(item_data)
-
-                item["relationships"][key]["links"] = item_link
-                included.update(item_included)
-
-    for key in layer_2_keys:
-        # We only resolve layer 2 if data is included and has next
-        for inc in included.values():
-            rel = inc.get("relationships", {}).get(key, {})
-            next_url = rel.get("links", {}).get("next")
-            if next_url and rel.get("data") is not None:
-                inc_data, inc_included, inc_link = await tidal_get_req_paged(
-                    next_url,
-                    token=token,
-                    params={"include": params.get("include", [])},
-                )
-
-                if inc_data:
-                    inc["relationships"][key]["data"].extend(inc_data)
-                inc["relationships"][key]["links"] = inc_link
-                included.update(inc_included)
-
-    return data, included, links
-
-
-async def __tidal_req(
-    method: str, path: str, token: BearerToken, **kwargs
-) -> requests.Response:
-    # Ensure the path starts with a '/'
-    if not path.startswith("/"):
-        path = "/" + path
-
-    # Perform the GET request
-    try:
-        res = requests.request(method, TIDAL_BASE_URL + path, auth=token, **kwargs)
-        log.debug(f"{method} {TIDAL_BASE_URL + path} {res.status_code}")
-    except ExpiredAccessToken:
-        refresh_tidal_token(token)
-        return await __tidal_req(method, path, token, **kwargs)
-
-    # Handle rate limiting
-    if res.status_code == 429:
-        await handle_rate_limit(res.headers)
-        return await __tidal_req(method, path, token, **kwargs)
-
-    # Handle token expiration
-    if res.status_code == 401:
-        log.info("Tidal token expired, refreshing...")
-        refresh_tidal_token(token)
-        return await __tidal_req(method, path, token, **kwargs)
-
-    # Handle other errors
-    if not res.ok:
-        log.error(f"Tidal API request failed: {res.status_code} {res.text}")
-
-    res.raise_for_status()
-
-    return res
-
-
-async def handle_rate_limit(headers: CaseInsensitiveDict):
-    """Handle tidal rate limit.
-
-    Extract rate limit headers and await the time until the rate limit is reset.
-    """
-
-    remaining = int(headers.get("Retry-After", 0))
-
-    if remaining > 0:
-        log.info(f"Tidal rate limit exceeded: Waiting {remaining} seconds")
-        await asyncio.sleep(remaining)
-    else:
-        raise Exception(
-            "Rate limit handling failed: Retry-After header is missing or invalid"
-        )
-
-    return
 
 
 def include_to_lookup_list(included: list[dict]) -> LookupDict:
