@@ -10,9 +10,12 @@ from requests_oauth2client import ExpiredAccessToken
 
 from plistsync.config import Config
 from plistsync.logger import log
-from plistsync.services.tidal.token import BearerToken
 from plistsync.utils import chunk_list
-from plistsync.utils.bearer_token import InvalidTokenError, get_bearer_token
+from plistsync.utils.bearer_token import (
+    BearerToken,
+    InvalidTokenError,
+    get_bearer_token,
+)
 
 
 class SpotifyApiSession(requests.Session):
@@ -67,7 +70,7 @@ class SpotifyApiSession(requests.Session):
             )
         return
 
-    def request(self, *args, **kwargs) -> requests.Response:
+    def request(self, method: str, url: str, *args, **kwargs) -> requests.Response:
         """Request with Spotify token.
 
         Slightly different from the normal request, this will raise the status code!
@@ -75,28 +78,32 @@ class SpotifyApiSession(requests.Session):
         if self.token.is_expired:
             self._refresh_spotify_token()
 
+        # Prepend spotify API base URL if not a full URL
+        if not url.startswith("http"):
+            url = self.server_url + url
+
         # Calling requests again can in theory
         # create a infinite recursion but
         # should not happen in practice (fingers crossed)
         # we can add some max retry logic if this ever
         # is an issue
         try:
-            res = super().request(*args, **kwargs)
+            res = super().request(method, url, *args, **kwargs)
             res.raise_for_status()
             return res
         except ExpiredAccessToken:
             self._refresh_spotify_token()
-            return self.request(*args, **kwargs)
+            return self.request(method, url, *args, **kwargs)
         except requests.HTTPError as e:
             # Handle rate limiting
             if e.response.status_code == 429:
                 self._handle_rate_limit(e.response.headers)
-                return self.request(*args, **kwargs)
+                return self.request(method, url, *args, **kwargs)
 
             # Handle token expiration
             if e.response.status_code == 401:
                 self._refresh_spotify_token()
-                return self.request(*args, **kwargs)
+                return self.request(method, url, *args, **kwargs)
             raise e
 
 
@@ -126,8 +133,8 @@ class PlaylistApi:
     def get(self, playlist_id: str) -> dict:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
+            "GET",
             f"/playlists/{playlist_id}",
-            method="GET",
         ).json()
 
         # Resolve tracks (pagination)
@@ -136,8 +143,8 @@ class PlaylistApi:
             all_items = tracks_obj.get("items", [])
             while next_page:
                 tracks = self.session.request(
+                    "GET",
                     next_page,
-                    method="GET",
                 ).json()
                 all_items.extend(tracks.get("items", []))
                 next_page = tracks.get("next")
@@ -178,8 +185,8 @@ class PlaylistApi:
         }
 
         playlist = self.session.request(
+            "POST",
             f"/users/{user_id}/playlists",
-            method="POST",
             json=body,
         ).json()
         return playlist
@@ -254,8 +261,8 @@ class PlaylistApi:
             data["snapshot_id"] = snapshot_id
 
         response = self.session.request(
+            "PUT",
             f"/playlists/{playlist_id}/tracks",
-            method="PUT",
             json=data,
         )
 
@@ -278,8 +285,8 @@ class PlaylistApi:
         """
         data = {"uris": track_uris}
         response = self.session.request(
+            "PUT",
             f"/playlists/{playlist_id}/tracks",
-            method="PUT",
             json=data,
         )
         return response.json()["snapshot_id"]
@@ -321,8 +328,8 @@ class PlaylistApi:
                 body["snapshot_id"] = snapshot_id
 
             response = self.session.request(
+                "POST",
                 f"/playlists/{playlist_id}/tracks",
-                method="POST",
                 json=body,
             )
             data = response.json()
@@ -448,8 +455,8 @@ class PlaylistApi:
                 body["tracks"].append({"uri": uri})
 
             response = self.session.request(
+                "DELETE",
                 f"/playlists/{playlist_id}/tracks",
-                method="DELETE",
                 json=body,
             )
             data = response.json()
@@ -464,7 +471,10 @@ class TrackApi:
 
     def get(self, spotify_id: str) -> dict:
         """Get a single track by its Spotify identifier."""
-        res = self.session.request(f"/tracks/{spotify_id}", method="GET")
+        res = self.session.request(
+            "GET",
+            f"/tracks/{spotify_id}",
+        )
         return res.json()
 
     def get_many(self, spotify_ids: list[str]) -> list[dict]:
@@ -472,7 +482,10 @@ class TrackApi:
         tracks: list[dict] = []
         for ids in chunk_list(spotify_ids, 50):
             ids_param = ",".join(ids)
-            res = self.session.request(f"/tracks?ids={ids_param}", method="GET")
+            res = self.session.request(
+                "GET",
+                f"/tracks?ids={ids_param}",
+            )
             json_res = res.json()
             tracks.extend(json_res.get("tracks", []))
         return tracks
@@ -481,7 +494,8 @@ class TrackApi:
         """Get a single track by its ISRC code."""
 
         json_res = self.session.request(
-            f"/search?q=isrc%3A{isrc}&type=track", method="GET"
+            "GET",
+            f"/search?q=isrc%3A{isrc}&type=track",
         ).json()
         tracks = json_res.get("tracks", {}).get("items", [])
         if len(tracks) == 0:
@@ -502,7 +516,10 @@ class TrackApi:
         next_page = f"/search?type=track&q={query}&limit=50"
         tracks: list[dict] = []
         while next_page and len(tracks) < max_results:
-            json_res = self.session.request(next_page, method="GET").json()
+            json_res = self.session.request(
+                "GET",
+                next_page,
+            ).json()
             tracks.extend(json_res.get("tracks", {}).get("items", []))
             next_page = json_res.get("tracks", {}).get("next", None)
         return tracks[:max_results]
@@ -525,7 +542,10 @@ class UserApi:
 
     def get_current_user(self) -> dict:
         """Get the current user's profile."""
-        return self.session.request("/me", method="GET").json()
+        return self.session.request(
+            "GET",
+            "/me",
+        ).json()
 
     def _get_playlists_simplified(self) -> list[dict]:
         """Get the current user's playlists without resolving all tracks.
@@ -538,7 +558,10 @@ class UserApi:
         next_page = "/me/playlists?limit=50"
         simplified_playlists: list[dict] = []
         while next_page:
-            json_res = self.session.request(next_page, method="GET").json()
+            json_res = self.session.request(
+                "GET",
+                next_page,
+            ).json()
             simplified_playlists.extend(json_res.get("items", []))
             next_page = json_res.get("next", None)
         return simplified_playlists
