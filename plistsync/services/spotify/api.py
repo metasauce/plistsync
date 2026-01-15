@@ -26,10 +26,10 @@ if TYPE_CHECKING:
 
 
 class SpotifyApiSession(requests.Session):
-    """A requests Session configured for Spotify API.
+    """A requests Session configured for Spotify.
 
-    Automatically attaches the Plex auth token and refreshes
-    it as needed. Use for making multiple requests to the Plex API.
+    Automatically attaches the auth token and refreshes
+    it as needed. Use for making multiple requests to the API.
     """
 
     token: BearerToken
@@ -40,10 +40,10 @@ class SpotifyApiSession(requests.Session):
         self.headers["Accept"] = "application/json"
         self.token = get_bearer_token("spotify")
 
-    def _refresh_spotify_token(self) -> None:
+    def _refresh_token(self) -> None:
         """Validate the spotify token by making a test request.
 
-        According to Plex API docs, one should use the /api/v2/user endpoint
+        According to API docs, one should use the /api/v2/user endpoint
         to validate tokens.
         """
         log.debug("Refreshing expired Spotify token...")
@@ -65,7 +65,6 @@ class SpotifyApiSession(requests.Session):
         token_data = res.json()
         self.token.update(token_data)
         self.token.save(Config.get_dir() / "spotify_token.json")
-        print(token_data)
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
@@ -86,7 +85,7 @@ class SpotifyApiSession(requests.Session):
         Slightly different from the normal request, this will raise the status code!
         """
         if self.token.is_expired:
-            self._refresh_spotify_token()
+            self._refresh_token()
 
         # Prepend spotify API base URL if not a full URL
         if isinstance(url, str) and not url.startswith("http"):
@@ -110,7 +109,7 @@ class SpotifyApiSession(requests.Session):
             res.raise_for_status()
             return res
         except ExpiredAccessToken:
-            self._refresh_spotify_token()
+            self._refresh_token()
             return self.request(method, url, *args, **kwargs)
         except requests.HTTPError as e:
             # Handle rate limiting
@@ -120,7 +119,7 @@ class SpotifyApiSession(requests.Session):
 
             # Handle token expiration
             if e.response.status_code == 401:
-                self._refresh_spotify_token()
+                self._refresh_token()
                 return self.request(method, url, *args, **kwargs)
             raise e
 
