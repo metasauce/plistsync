@@ -223,6 +223,32 @@ class TidalApiSession(requests.Session):
         return data, included, links
 
 
+class TidalApi:
+    session: TidalApiSession
+
+    def __init__(self):
+        self.session = TidalApiSession()
+
+
+class TidalTrackApi:
+    session: TidalApiSession
+
+    def __init__(self, session: TidalApiSession):
+        self.session = session
+
+
+class TidalPlaylistApi:
+    session: TidalApiSession
+
+    def __init__(self, session: TidalApiSession):
+        self.session = session
+
+
+class TidalUserApi:
+    session: TidalApiSession
+
+    def __init__(self, session: TidalApiSession):
+        self.session = session
 
 
 async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
