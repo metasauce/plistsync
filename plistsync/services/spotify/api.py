@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from time import sleep
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 import requests
 from requests.structures import CaseInsensitiveDict
@@ -16,6 +16,9 @@ from plistsync.utils.bearer_token import (
     InvalidTokenError,
     get_bearer_token,
 )
+
+if TYPE_CHECKING:
+    from .api_types import CreatePlaylistResponse, Playlist, SimplifiedPlaylist, Track
 
 
 class SpotifyApiSession(requests.Session):
@@ -58,6 +61,7 @@ class SpotifyApiSession(requests.Session):
         token_data = res.json()
         self.token.update(token_data)
         self.token.save(Config.get_dir() / "spotify_token.json")
+        print(token_data)
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
@@ -88,7 +92,13 @@ class SpotifyApiSession(requests.Session):
         # we can add some max retry logic if this ever
         # is an issue
         try:
-            res = super().request(method, url, *args, **kwargs)
+            res = super().request(
+                method,
+                url,
+                *args,
+                **kwargs,
+                auth=self.token,
+            )
             res.raise_for_status()
             return res
         except ExpiredAccessToken:
@@ -130,7 +140,7 @@ class PlaylistApi:
         self.session = session
         self.api = api
 
-    def get(self, playlist_id: str) -> dict:
+    def get(self, playlist_id: str) -> Playlist:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
             "GET",
@@ -160,7 +170,7 @@ class PlaylistApi:
         description: str,
         public: bool = False,
         collaborative: bool = False,
-    ) -> dict:
+    ) -> CreatePlaylistResponse:
         """Create a new playlist for the current user.
 
         Parameters
@@ -343,7 +353,7 @@ class PlaylistApi:
         remove_uris: list[str],
         positions: list[int],
         snapshot_id: str | None = None,
-        plist_data: dict | None = None,
+        plist_data: Playlist | None = None,
     ) -> str:
         """Remove tracks from a playlist at specific positions.
 
@@ -469,7 +479,7 @@ class TrackApi:
     def __init__(self, session: SpotifyApiSession):
         self.session = session
 
-    def get(self, spotify_id: str) -> dict:
+    def get(self, spotify_id: str) -> Track:
         """Get a single track by its Spotify identifier."""
         res = self.session.request(
             "GET",
@@ -477,9 +487,9 @@ class TrackApi:
         )
         return res.json()
 
-    def get_many(self, spotify_ids: list[str]) -> list[dict]:
+    def get_many(self, spotify_ids: list[str]) -> list[Track]:
         """Get multiple tracks by their Spotify IDs."""
-        tracks: list[dict] = []
+        tracks: list[Track] = []
         for ids in chunk_list(spotify_ids, 50):
             ids_param = ",".join(ids)
             res = self.session.request(
@@ -490,7 +500,7 @@ class TrackApi:
             tracks.extend(json_res.get("tracks", []))
         return tracks
 
-    def get_by_isrc(self, isrc: str) -> dict:
+    def get_by_isrc(self, isrc: str) -> Track:
         """Get a single track by its ISRC code."""
 
         json_res = self.session.request(
@@ -503,7 +513,7 @@ class TrackApi:
             raise ValueError(f"No track found with ISRC {isrc}")
         return tracks[0]
 
-    def search(self, query: str, max_results: int = 100) -> list[dict]:
+    def search(self, query: str, max_results: int = 100) -> list[Track]:
         """Search for tracks by a query string.
 
         Parameters
@@ -514,7 +524,7 @@ class TrackApi:
             The maximum number of results to return, by default 100.
         """
         next_page = f"/search?type=track&q={query}&limit=50"
-        tracks: list[dict] = []
+        tracks: list[Track] = []
         while next_page and len(tracks) < max_results:
             json_res = self.session.request(
                 "GET",
@@ -533,7 +543,17 @@ class UserApi:
         self.session = session
         self.api = api
 
-    def get_playlists(self, simplified: bool = False) -> list[dict]:
+    @overload
+    def get_playlists(
+        self, simplified: Literal[True] = ...
+    ) -> list[SimplifiedPlaylist]: ...
+
+    @overload
+    def get_playlists(self, simplified: Literal[False]) -> list[Playlist]: ...
+
+    def get_playlists(
+        self, simplified: bool = False
+    ) -> list[SimplifiedPlaylist] | list[Playlist]:
         # Migrated from get_user_playlists_simplified() and get_user_playlists_full()
         if simplified:
             return self._get_playlists_simplified()
@@ -547,7 +567,7 @@ class UserApi:
             "/me",
         ).json()
 
-    def _get_playlists_simplified(self) -> list[dict]:
+    def _get_playlists_simplified(self) -> list[SimplifiedPlaylist]:
         """Get the current user's playlists without resolving all tracks.
 
         Returns
@@ -556,7 +576,7 @@ class UserApi:
             A list of simplified playlist data from the Spotify API.
         """
         next_page = "/me/playlists?limit=50"
-        simplified_playlists: list[dict] = []
+        simplified_playlists: list[SimplifiedPlaylist] = []
         while next_page:
             json_res = self.session.request(
                 "GET",
@@ -566,7 +586,7 @@ class UserApi:
             next_page = json_res.get("next", None)
         return simplified_playlists
 
-    def _get_playlists_full(self) -> list[dict]:
+    def _get_playlists_full(self) -> list[Playlist]:
         """Get the current user's playlists with full details.
 
         Returns
