@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+from time import sleep
+from typing import ClassVar
 
 import requests
 from requests.structures import CaseInsensitiveDict
@@ -12,6 +14,8 @@ from plistsync.config import Config
 from plistsync.utils import chunk_list
 from plistsync.utils.bearer_token import (
     BearerToken,
+    InvalidTokenError,
+    get_bearer_token,
 )
 
 from ...logger import log
@@ -24,6 +28,105 @@ LookupDict = dict[tuple[str, str], dict]
 #             High level functions to interact with the Tidal API.             #
 # ---------------------------------------------------------------------------- #
 MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
+
+
+class TidalApiSession(requests.Session):
+    """A request Session configured for Tidal.
+
+    Automatically attaches the auth token and refreshes
+    it as needed. Use for making multiple requests to the API.
+    """
+
+    token: BearerToken
+    server_url: ClassVar[str] = "https://openapi.tidal.com/v2"
+
+    def __init__(self):
+        super().__init__()
+        self.headers["Accept"] = "application/json"
+        self.token = get_bearer_token("tidal")
+
+    def _refresh_token(self) -> None:
+        """Refresh the Tidal token.
+
+        This function will refresh the Tidal token using the refresh token.
+        It will update the token in place.
+        """
+        log.debug("Refreshing expired Tidal token...")
+        tidal_config = Config().tidal
+        res = self.post(
+            "https://auth.tidal.com/v1/oauth2/token",
+            data={
+                "grant_type": "refresh_token",
+                "client_id": tidal_config.client_id,
+                "refresh_token": self.token.as_dict()["refresh_token"],
+            },
+        )
+        try:
+            res.raise_for_status()
+        except requests.HTTPError as e:
+            log.error(res.text, stack_info=False)
+            raise InvalidTokenError(self.token) from e
+
+        token_data = res.json()
+        self.token.update(token_data)
+        self.token.save(Config.get_dir() / "tidal_token.json")
+
+    def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
+        remaining = int(headers.get("Retry-After", 0))
+        if remaining > 0:
+            log.warning(f"Rate limit exceeded. Retrying after {remaining} seconds.")
+            sleep(remaining)
+        else:
+            raise Exception(
+                "Rate limit handling failed: Retry-After header is missing or invalid"
+            )
+        return
+
+    def request(
+        self, method: str | bytes, url: str | bytes, *args, **kwargs
+    ) -> requests.Response:
+        """Request with auth token.
+
+        Slightly different from the normal request, this will raise the status code!
+        """
+        if self.token.is_expired:
+            self._refresh_token()
+
+        # Prepend API base URL if not a full URL
+        if isinstance(url, str) and not url.startswith("http"):
+            url = self.server_url + url
+
+        # Always use our Spotify token for authentication
+        kwargs["auth"] = self.token
+
+        # Calling requests again can in theory
+        # create a infinite recursion but
+        # should not happen in practice (fingers crossed)
+        # we can add some max retry logic if this ever
+        # is an issue
+        try:
+            res = super().request(
+                method,
+                url,
+                *args,
+                **kwargs,
+            )
+            res.raise_for_status()
+            return res
+        except ExpiredAccessToken:
+            self._refresh_token()
+            return self.request(method, url, *args, **kwargs)
+        except requests.HTTPError as e:
+            # Handle rate limiting
+            if e.response.status_code == 429:
+                self._handle_rate_limit(e.response.headers)
+                return self.request(method, url, *args, **kwargs)
+
+            # Handle token expiration
+            if e.response.status_code == 401:
+                self._refresh_token()
+                return self.request(method, url, *args, **kwargs)
+            raise e
 
 
 async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
