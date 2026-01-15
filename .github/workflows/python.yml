@@ -86,7 +86,6 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
     env:
-      IS_MAIN_PYTHON: ${{ matrix.python-version == '3.12' }}
       PYTEST_ADDOPTS: "--color=yes"
     steps:
       - uses: actions/checkout@v6
@@ -97,16 +96,11 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --all-extras
-      - if: ${{ env.IS_MAIN_PYTHON != 'true' }}
-        name: Test without coverage
+          source .venv/bin/activate
+      - name: Test with coverage
         run: |
-          uv run pytest -v
-      - if: ${{ env.IS_MAIN_PYTHON == 'true' }}
-        name: Test with coverage
-        run: |
-          uv run pytest --cov --junitxml=junit.xml -v
-      - if: ${{ env.IS_MAIN_PYTHON == 'true' }}
-        name: Upload coverage reports to Codecov
+          uv run pytest --cov=plistsync --cov-report xml:coverage.xml --junitxml=junit.xml -o junit_family=legacy -v
+      - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
