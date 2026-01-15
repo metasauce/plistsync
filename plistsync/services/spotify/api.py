@@ -18,7 +18,11 @@ from plistsync.utils.bearer_token import (
 )
 
 if TYPE_CHECKING:
-    from .api_types import CreatePlaylistResponse, Playlist, SimplifiedPlaylist, Track
+    from .api_types import (
+        SimplifiedPlaylist,
+        SpotifyApiPlaylistResponse,
+        SpotifyApiTrackResponse,
+    )
 
 
 class SpotifyApiSession(requests.Session):
@@ -144,7 +148,7 @@ class PlaylistApi:
         self.session = session
         self.api = api
 
-    def get(self, playlist_id: str) -> Playlist:
+    def get(self, playlist_id: str) -> SpotifyApiPlaylistResponse:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
             "GET",
@@ -174,7 +178,7 @@ class PlaylistApi:
         description: str,
         public: bool = False,
         collaborative: bool = False,
-    ) -> CreatePlaylistResponse:
+    ) -> SpotifyApiPlaylistResponse:
         """Create a new playlist for the current user.
 
         Parameters
@@ -357,7 +361,7 @@ class PlaylistApi:
         remove_uris: list[str],
         positions: list[int],
         snapshot_id: str | None = None,
-        plist_data: Playlist | None = None,
+        plist_data: SpotifyApiPlaylistResponse | None = None,
     ) -> str:
         """Remove tracks from a playlist at specific positions.
 
@@ -483,7 +487,7 @@ class TrackApi:
     def __init__(self, session: SpotifyApiSession):
         self.session = session
 
-    def get(self, spotify_id: str) -> Track:
+    def get(self, spotify_id: str) -> SpotifyApiTrackResponse:
         """Get a single track by its Spotify identifier."""
         res = self.session.request(
             "GET",
@@ -491,9 +495,9 @@ class TrackApi:
         )
         return res.json()
 
-    def get_many(self, spotify_ids: list[str]) -> list[Track]:
+    def get_many(self, spotify_ids: list[str]) -> list[SpotifyApiTrackResponse]:
         """Get multiple tracks by their Spotify IDs."""
-        tracks: list[Track] = []
+        tracks: list[SpotifyApiTrackResponse] = []
         for ids in chunk_list(spotify_ids, 50):
             ids_param = ",".join(ids)
             res = self.session.request(
@@ -504,7 +508,7 @@ class TrackApi:
             tracks.extend(json_res.get("tracks", []))
         return tracks
 
-    def get_by_isrc(self, isrc: str) -> Track:
+    def get_by_isrc(self, isrc: str) -> SpotifyApiTrackResponse:
         """Get a single track by its ISRC code."""
 
         json_res = self.session.request(
@@ -517,7 +521,9 @@ class TrackApi:
             raise ValueError(f"No track found with ISRC {isrc}")
         return tracks[0]
 
-    def search(self, query: str, max_results: int = 100) -> list[Track]:
+    def search(
+        self, query: str, max_results: int = 100
+    ) -> list[SpotifyApiTrackResponse]:
         """Search for tracks by a query string.
 
         Parameters
@@ -528,7 +534,7 @@ class TrackApi:
             The maximum number of results to return, by default 100.
         """
         next_page = f"/search?type=track&q={query}&limit=50"
-        tracks: list[Track] = []
+        tracks: list[SpotifyApiTrackResponse] = []
         while next_page and len(tracks) < max_results:
             json_res = self.session.request(
                 "GET",
@@ -548,16 +554,14 @@ class UserApi:
         self.api = api
 
     @overload
-    def get_playlists(
-        self, simplified: Literal[True] = ...
-    ) -> list[SimplifiedPlaylist]: ...
-
+    def get_playlists(self, simplified: Literal[True]) -> list[SimplifiedPlaylist]: ...
     @overload
-    def get_playlists(self, simplified: Literal[False]) -> list[Playlist]: ...
-
+    def get_playlists(
+        self, simplified: Literal[False] = ...
+    ) -> list[SpotifyApiPlaylistResponse]: ...
     def get_playlists(
         self, simplified: bool = False
-    ) -> list[SimplifiedPlaylist] | list[Playlist]:
+    ) -> list[SimplifiedPlaylist] | list[SpotifyApiPlaylistResponse]:
         # Migrated from get_user_playlists_simplified() and get_user_playlists_full()
         if simplified:
             return self._get_playlists_simplified()
@@ -590,7 +594,7 @@ class UserApi:
             next_page = json_res.get("next", None)
         return simplified_playlists
 
-    def _get_playlists_full(self) -> list[Playlist]:
+    def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponse]:
         """Get the current user's playlists with full details.
 
         Returns
