@@ -136,7 +136,7 @@ def requires_bearer_token(
             if "token" in kwargs:
                 return await func(*args, **kwargs)
 
-            token = await get_bearer_token(config_key)
+            token = get_bearer_token(config_key)
             # Pass the token as a keyword argument
             return await func(*args, token=token, **kwargs)
 

@@ -74,7 +74,9 @@ class SpotifyApiSession(requests.Session):
             )
         return
 
-    def request(self, method: str, url: str, *args, **kwargs) -> requests.Response:
+    def request(
+        self, method: str | bytes, url: str | bytes, *args, **kwargs
+    ) -> requests.Response:
         """Request with Spotify token.
 
         Slightly different from the normal request, this will raise the status code!
@@ -83,8 +85,11 @@ class SpotifyApiSession(requests.Session):
             self._refresh_spotify_token()
 
         # Prepend spotify API base URL if not a full URL
-        if not url.startswith("http"):
+        if isinstance(url, str) and not url.startswith("http"):
             url = self.server_url + url
+
+        # Always use our Spotify token for authentication
+        kwargs["auth"] = self.token
 
         # Calling requests again can in theory
         # create a infinite recursion but
@@ -97,7 +102,6 @@ class SpotifyApiSession(requests.Session):
                 url,
                 *args,
                 **kwargs,
-                auth=self.token,
             )
             res.raise_for_status()
             return res
