@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import asyncio
 from time import sleep
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, Sequence, cast, overload
 
 import requests
 from requests.structures import CaseInsensitiveDict
@@ -19,9 +18,21 @@ from plistsync.utils.bearer_token import (
 )
 
 from ...logger import log
-from .token import refresh_tidal_token, requires_tidal_token
+from .token import requires_tidal_token
 
-LookupDict = dict[tuple[str, str], dict]
+if TYPE_CHECKING:
+    from .api_types import (
+        MultiRelationshipDataDocument,
+        MultiResourceDataDocument,
+        RelatinionshipResource,
+        T_Included,
+        TrackDocument,
+        TrackIncludedResource,
+        TrackListDocument,
+        TrackResource,
+    )
+
+    LookupDict = dict[tuple[str, str], T_Included]
 
 
 # ---------------------------------------------------------------------------- #
@@ -42,7 +53,6 @@ class TidalApiSession(requests.Session):
 
     def __init__(self):
         super().__init__()
-        self.headers["Accept"] = "application/json"
         self.token = get_bearer_token("tidal")
 
     def _refresh_token(self) -> None:
@@ -128,106 +138,161 @@ class TidalApiSession(requests.Session):
                 return self.request(method, url, *args, **kwargs)
             raise e
 
-    def tidal_get_req_paged(
-        self, url: str, params: dict = {}, **kwargs
-    ) -> tuple[list[dict], LookupDict, dict]:
+    def get_paginated(
+        self,
+        url: str,
+        include: list[str] | None = None,
+        params: dict | None = None,
+        **kwargs,
+    ) -> MultiResourceDataDocument:
         """
-        Perform a GET request to the Tidal API.
+        Perform a GET request to the Tidal API with pagination resolution.
 
-        This will resolve pagination in the root level of the response.
-        This function handles rate limiting by waiting if the rate limit is exceeded.
-
-        Parameters
-        ----------
-        path : str
-            The API endpoint path. If it does not start with '/',
-            it will be prefixed with '/'.
-        token : BearerToken
-            The authentication token to use for the request.
-        **kwargs : dict
-            Additional keyword arguments to pass to the `requests.get` method.
+        This handles both top-level pagination and nested relationship pagination.
 
         Returns
         -------
-        tuple[list[dict], dict, dict]
-            A tuple containing:
-            - A list of data items from the paged response.
-            - A lookup dictionary of included items, keyed by (type, id).
-            - The last links object from the paged response.
+            tuple: (data_items, included_lookup, last_links)
         """
+        include = include or []
+        params = params or {}
 
-        data: list[dict] = []
-        included: LookupDict = {}
-        links = {"next": url}
+        doc: MultiResourceDataDocument = {
+            "data": [],
+            "included": [],
+            "links": {"next": url},
+        }
 
-        while links.get("next"):
+        while next := doc.get("links", {}).get("next"):
             res = self.request(
                 method="GET",
-                url=links["next"],
-                params=params,
+                url=next,
+                params={**params, "include": include},
                 **kwargs,
             )
-            res_json = res.json()
-            data.extend(res_json.get("data", []))
-            included.update(include_to_lookup_list(res_json.get("included", [])))
-            links = res_json.get("links", {})
+            page_doc: MultiResourceDataDocument = res.json()
+            doc = self._merge_multiresource_pagination(doc, page_doc)
 
-        # If params are included we also want to resolve their pagination
-        # normally they are single words "albums" but can also be nested "items.albums"
-        # ["data"][int]["relationships"][<word>]["links"]["next"]
-        # Tidal does only every return two layers of includes...
-        layer_1_keys = set()
-        layer_2_keys = set()
-        for p in params.get("include", []):
-            split = p.split(".")
+        # Resolve nested pageinated relatinships
+        doc = self._resolve_nested_pagination(include, doc)
+        # Dedupe include
+        doc["included"] = list(include_to_lookup(doc.get("included", [])).values())
+        return doc
+
+    def _merge_multiresource_pagination(
+        self,
+        a: MultiResourceDataDocument,
+        b: MultiResourceDataDocument,
+    ) -> MultiResourceDataDocument:
+        """
+        Merge of b into a, following JSON:API spec rules.
+
+        - Appends data arrays
+        - Deduplicates included by (type,id)
+        - Updates links (b overrides a)
+        - Merges meta objects
+        """
+        a["included"] = a.get("included", [])
+        a["links"] = a.get("links", {})
+
+        # Append data (primary resources)
+        a["data"].extend(b["data"])
+
+        # Merge included with deduplication
+        seen = {(item["type"], item["id"]) for item in a["included"]}
+        for item in b.get("included", []):
+            key = (item["type"], item["id"])
+            if key not in seen:
+                seen.add(key)
+                a["included"].append(item)
+
+        # Update pagination links (final state wins)
+        if "links" in b:
+            a["links"].update(b["links"])
+
+        # Merge meta (deep merge if needed)
+        if "meta" in b:
+            if "meta" not in a:
+                a["meta"] = b["meta"]
+            else:
+                a["meta"].update(b["meta"])
+
+        return a
+
+    def _resolve_nested_pagination(
+        self,
+        include: list[str],
+        doc: MultiResourceDataDocument[RelatinionshipResource, Any],
+    ) -> MultiResourceDataDocument[RelatinionshipResource, Any]:
+        """
+        Recursively resolve pagination for nested relationships.
+
+        Modifies data and included in-place.
+        """
+        # Parse include parameters for layers
+        layer_1_keys: set[str] = set()
+        layer_2_keys: set[str] = set()
+
+        for param in include:
+            split = param.split(".")
             layer_1_keys.add(split[0])
             if len(split) > 1:
                 layer_2_keys.add(split[1])
             if len(split) > 2:
                 log.warning(
-                    f"Include parameter '{p}' has more than two layers, "
+                    f"Include parameter '{param}' has more than two layers, "
                     "which is not supported by tidal API."
                 )
 
+        if "included" not in doc:
+            doc["included"] = []
+
+        # Layer 1: Primary data relationships
         for key in layer_1_keys:
-            for item in data:
-                item_links = item.get("relationships", {}).get(key, {}).get("links", {})
-                if item_links.get("next"):
-                    item_data, item_included, item_link = self.tidal_get_req_paged(
-                        item_links.get("next"),
-                        params={"include": params.get("include", [])},
-                    )
+            for item in doc["data"]:
+                rel: MultiRelationshipDataDocument = item.get("relationships", {}).get(
+                    key, {}
+                )
+                if next_url := rel.get("links", {}).get("next"):
+                    rel_doc = self.get_paginated(next_url, include)
 
-                    if item_data:
-                        item["relationships"][key]["data"].extend(item_data)
+                    # Extend relationship.data identifiers
+                    if "data" not in rel:
+                        rel["data"] = []
+                    rel["data"].extend(rel_doc["data"])
+                    rel["links"].update(rel_doc.get("links", {}))
 
-                    item["relationships"][key]["links"] = item_link
-                    included.update(item_included)
+                    # Included values are collected on root level
+                    doc["included"].extend(rel_doc.get("included", []))
 
+        # Resolve layer 2 relationships (on included items)
         for key in layer_2_keys:
-            # We only resolve layer 2 if data is included and has next
-            for inc in included.values():
-                rel = inc.get("relationships", {}).get(key, {})
-                next_url = rel.get("links", {}).get("next")
-                if next_url and rel.get("data") is not None:
-                    inc_data, inc_included, inc_link = self.tidal_get_req_paged(
-                        next_url,
-                        params={"include": params.get("include", [])},
-                    )
+            for inc_item in doc["included"]:
+                rel: MultiRelationshipDataDocument = inc_item.get(
+                    "relationships", {}
+                ).get(key, {})
+                if next_url := rel.get("links", {}).get("next"):
+                    rel_doc = self.get_paginated(next_url, include)
 
-                    if inc_data:
-                        inc["relationships"][key]["data"].extend(inc_data)
-                    inc["relationships"][key]["links"] = inc_link
-                    included.update(inc_included)
+                    # Extend relationship.data identifiers
+                    if "data" not in rel:
+                        rel["data"] = []
+                    rel["data"].extend(rel_doc["data"])
+                    rel["links"].update(rel_doc.get("links", {}))
 
-        return data, included, links
+                    # Included values are collected on root level
+                    doc["included"].extend(rel_doc.get("included", []))
+
+        return doc
 
 
 class TidalApi:
     session: TidalApiSession
+    tracks: TidalTrackApi
 
     def __init__(self):
         self.session = TidalApiSession()
+        self.tracks = TidalTrackApi(self.session)
 
 
 class TidalTrackApi:
@@ -235,6 +300,148 @@ class TidalTrackApi:
 
     def __init__(self, session: TidalApiSession):
         self.session = session
+
+    def _get(
+        self,
+        id: str,
+        include: list[str] | None = None,
+    ) -> TrackDocument:
+        """Raw API call - returns exactly what the server sends."""
+        params = {"include": include} if include else None
+        return self.session.request(
+            "GET",
+            f"/tracks/{id}",
+            params=params,
+        ).json()
+
+    def get(
+        self,
+        id: str,
+        include: list[str] | None = None,
+    ) -> tuple[TrackResource, LookupDict[TrackIncludedResource]]:
+        """Get single track WITHOUT related resources."""
+        track_document = self._get(id, include=include)
+        lookup = include_to_lookup(track_document.get("included", []))
+        return track_document["data"], lookup
+
+    def _get_many(
+        self,
+        ids: list[str] | None = None,
+        isrcs: list[str] | None = None,
+        country_code: str | None = None,
+        include: list[str] | None = None,
+        owner_ids: list[str] | None = None,
+        share_code: str | None = None,
+    ) -> TrackListDocument:
+        """Fetch tracks resolving pagination and included items.
+
+        Should only ever be called with 20 items as
+        tidal does not support more per requests.
+
+        https://tidal-music.github.io/tidal-api-reference/#/tracks/get_tracks
+        """
+        # The abstraction here is slightly inconsistent and jank
+
+        params = {}
+        if include:
+            params["include"] = include
+        if country_code:
+            params["countryCode"] = country_code
+        if ids:
+            params["filter[id]"] = ids
+        if isrcs:
+            params["filter[isrc]"] = isrcs
+        if owner_ids:
+            params["filter[owners.id]"] = owner_ids
+        if share_code:
+            params["shareCode"] = share_code
+
+        return self.session.get_paginated(
+            "/tracks",
+            include,
+            params=params,
+        )
+
+    def get_many(
+        self,
+        ids: list[str],
+        include: list[str] | None = None,
+        country_code: str | None = None,
+    ) -> tuple[list[TrackResource | None], LookupDict[TrackIncludedResource]]:
+        """Fetch multiple tracks by their tidal ids.
+
+        Parameters
+        ----------
+        ids : list[str]
+            A list of tidal track ids to fetch.
+        include : list[str] | None
+            An optional list of related resources to include in the lookupdict,
+            defaults to ["albums","artists"].
+        """
+        id_to_index = {tid: i for i, tid in enumerate(ids)}
+        tracks: list[TrackResource] = []
+        lookup: LookupDict[TrackIncludedResource] = {}
+
+        # Tidal does only support 20 filters at onece!
+        for chunk in chunk_list(ids, MAX_FILTER_SIZE):
+            tracks_doc = self._get_many(
+                ids=chunk,
+                include=include or ["albums", "artists"],
+                country_code=country_code,
+            )
+            tracks.extend(tracks_doc["data"])
+            lookup.update(include_to_lookup(tracks_doc.get("included", [])))
+
+        # Same order for tracks as inserted
+        tracks_sorted = sorted(tracks, key=lambda t: id_to_index[t["id"]])
+
+        # Handle missing tracks (Tidal might not return all)
+        result: list[TrackResource | None] = [None] * len(ids)
+        for track in tracks_sorted:
+            result[id_to_index[track["id"]]] = track
+
+        return result, lookup
+
+    def get_many_by_isrc(
+        self,
+        isrcs: list[str],
+        include: list[str] | None = None,
+        country_code: str | None = None,
+    ):
+        """Fetch multiple tracks by their isrcs.
+
+        Parameters
+        ----------
+        isrcs : list[str]
+            A list of track isrcs to fetch.
+        include : list[str] | None
+            An optional list of related resources to include in the lookupdict,
+            defaults to ["albums","artists"].
+        """
+        # FIXME: It might be possible to dedup this with the function above
+        isrc_to_index = {tid: i for i, tid in enumerate(isrcs)}
+        tracks: list[TrackResource] = []
+        lookup: LookupDict[TrackIncludedResource] = {}
+
+        # Tidal does only support 20 filters at onece!
+        for chunk in chunk_list(isrcs, MAX_FILTER_SIZE):
+            tracks_doc = self._get_many(
+                ids=chunk,
+                include=include or ["albums", "artists"],
+                country_code=country_code,
+            )
+            tracks.extend(tracks_doc["data"])
+            lookup.update(include_to_lookup(tracks_doc.get("included", [])))
+
+        # Same order for tracks as inserted
+        tracks_sorted = sorted(tracks, key=lambda t: isrc_to_index[t["id"]])
+
+        # Handle missing tracks (Tidal might not return all)
+        result: list[TrackResource | None] = [None] * len(isrcs)
+        for track in tracks_sorted:
+            result[isrc_to_index[track["id"]]] = track
+
+        return result, lookup
 
 
 class TidalPlaylistApi:
@@ -249,131 +456,6 @@ class TidalUserApi:
 
     def __init__(self, session: TidalApiSession):
         self.session = session
-
-
-async def _get_tracks(params: dict) -> tuple[list[dict], LookupDict]:
-    """Fetch multiple tracks by their tidal ids or isrcs.
-
-    filter[id] and filter[isrc] are mutually exclusive. The api will not return
-    an error tho...
-
-    Parameters
-    ----------
-    params : dict
-        The parameters to pass to the tidal API. Should contain either
-        "filter[id]" or "filter[isrc]" with a list of ids or is
-        respectively.
-
-    """
-    country_code = Config().tidal.country_code
-
-    data, included, _ = await tidal_get_req_paged(
-        "/tracks",
-        params={
-            **params,
-            "include": ["albums", "artists"],
-            "countryCode": country_code,
-        },
-    )
-    return data, included
-
-
-async def get_tracks(tidal_ids: list[str]) -> list[tuple[dict, LookupDict]]:
-    """Fetch multiple tracks by their tidal ids.
-
-    Parameters
-    ----------
-    tidal_ids : list[str]
-        A list of tidal track ids to fetch.
-
-    Returns
-    -------
-    list[dict]
-        A list of track data dicts. Order is not guaranteed to be the same as the input
-        list.
-    """
-
-    tracks: list[dict] = []
-    included: LookupDict = {}
-    if not tidal_ids:
-        return []
-
-    for chunk in chunk_list(tidal_ids, MAX_FILTER_SIZE):
-        params = {"filter[id]": chunk}
-        chunk_tracks, chunk_included = await _get_tracks(params)
-        tracks.extend(chunk_tracks)
-        included.update(chunk_included)
-
-    if len(tracks) != len(tidal_ids):
-        log.debug(
-            f"Expected {len(tidal_ids)} tracks but received {len(tracks)} "
-            "tracks as result from tidal batch lookup."
-        )
-
-    included_by_track: list[LookupDict] = []
-    for track in tracks:
-        track_lookup = {("tracks", track["id"]): track}
-        for type, rel in track.get("relationships", {}).items():
-            for item in rel.get("data", []):
-                if lookup_data := included.get((type, item["id"])):
-                    track_lookup[(type, item["id"])] = lookup_data
-                else:
-                    log.debug(
-                        f"Related item of type '{type}' with id '{item['id']}' not"
-                        " found in included data of tracks batch lookup."
-                    )
-        included_by_track.append(track_lookup)
-
-    return list(zip(tracks, included_by_track))
-
-
-async def get_tracks_by_isrc(isrcs: list[str]) -> list[tuple[dict, LookupDict]]:
-    """Fetch multiple tracks by their isrcs.
-
-    Parameters
-    ----------
-    isrcs : list[str]
-        A list of isrcs to fetch.
-
-    Returns
-    -------
-    list[dict]
-        A list of track data dicts. Order is not guaranteed to be the same as the input
-        list.
-    """
-
-    tracks: list[dict] = []
-    included: LookupDict = {}
-    if not isrcs:
-        return []
-
-    for chunk in chunk_list(isrcs, MAX_FILTER_SIZE):
-        params = {"filter[isrc]": chunk}
-        chunk_tracks, chunk_included = await _get_tracks(params)
-        tracks.extend(chunk_tracks)
-        included.update(chunk_included)
-
-    if len(tracks) != len(isrcs):
-        log.debug(
-            f"Expected {len(isrcs)} tracks but received {len(tracks)} "
-            "tracks as result from tidal batch lookup."
-        )
-
-    included_by_track: list[LookupDict] = []
-    for track in tracks:
-        track_lookup = {("tracks", track["id"]): track}
-        for type, rel in track.get("relationships", {}).items():
-            for item in rel.get("data", []):
-                if lookup_data := included.get((type, item["id"])):
-                    track_lookup[(type, item["id"])] = lookup_data
-                else:
-                    log.debug(
-                        f"Related item of type '{type}' with id '{item['id']}' not "
-                        "found in included data of tracks batch lookup."
-                    )
-        included_by_track.append(track_lookup)
-
-    return list(zip(tracks, included_by_track))
 
 
 async def get_playlist(playlist_id: str) -> tuple[dict, LookupDict]:
@@ -504,7 +586,7 @@ async def create_playlist(
         params={"countryCode": country_code},
     )
     dat = res.json()
-    return dat["data"], include_to_lookup_list(dat.get("included", []))
+    return dat["data"], include_to_lookup(dat.get("included", []))
 
 
 @requires_tidal_token
@@ -559,7 +641,7 @@ async def add_tracks_to_playlist(
         )
 
 
-def include_to_lookup_list(included: list[dict]) -> LookupDict:
+def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:
     """Convert a list of included items to a lookup dict.
 
     The key is a tuple of (type, id) and the value is the item dict.
