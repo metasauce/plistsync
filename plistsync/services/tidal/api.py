@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from time import sleep
-from typing import TYPE_CHECKING, Any, ClassVar, Sequence, cast, overload
+from typing import Any, ClassVar, Literal, cast
 
 import requests
 from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import ExpiredAccessToken
-from tqdm.asyncio import tqdm
-from tqdm.contrib.logging import logging_redirect_tqdm
 
 from plistsync.config import Config
+from plistsync.logger import log
 from plistsync.utils import chunk_list
 from plistsync.utils.bearer_token import (
     BearerToken,
@@ -17,22 +16,26 @@ from plistsync.utils.bearer_token import (
     get_bearer_token,
 )
 
-from ...logger import log
-from .token import requires_tidal_token
+from .api_types import (
+    MultiRelationshipDataDocument,
+    MultiResourceDataDocument,
+    PlaylistDocument,
+    PlaylistIncludedResource,
+    PlaylistListDocument,
+    PlaylistResource,
+    RelatinionshipResource,
+    T_Included,
+    TrackDocument,
+    TrackIncludedResource,
+    TrackListDocument,
+    TrackResource,
+    UserDocument,
+    UserResource,
+)
 
-if TYPE_CHECKING:
-    from .api_types import (
-        MultiRelationshipDataDocument,
-        MultiResourceDataDocument,
-        RelatinionshipResource,
-        T_Included,
-        TrackDocument,
-        TrackIncludedResource,
-        TrackListDocument,
-        TrackResource,
-    )
-
-    LookupDict = dict[tuple[str, str], T_Included]
+# It is more performant to have a lookup here instead of a list
+# for included resources (type,id) -> resource
+LookupDict = dict[tuple[str, str], T_Included]
 
 
 # ---------------------------------------------------------------------------- #
@@ -207,8 +210,7 @@ class TidalApiSession(requests.Session):
                 a["included"].append(item)
 
         # Update pagination links (final state wins)
-        if "links" in b:
-            a["links"].update(b["links"])
+        a["links"] = b.get("links", {})
 
         # Merge meta (deep merge if needed)
         if "meta" in b:
@@ -222,8 +224,8 @@ class TidalApiSession(requests.Session):
     def _resolve_nested_pagination(
         self,
         include: list[str],
-        doc: MultiResourceDataDocument[RelatinionshipResource, Any],
-    ) -> MultiResourceDataDocument[RelatinionshipResource, Any]:
+        doc: MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any],
+    ) -> MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any]:
         """
         Recursively resolve pagination for nested relationships.
 
@@ -268,9 +270,7 @@ class TidalApiSession(requests.Session):
         # Resolve layer 2 relationships (on included items)
         for key in layer_2_keys:
             for inc_item in doc["included"]:
-                rel: MultiRelationshipDataDocument = inc_item.get(
-                    "relationships", {}
-                ).get(key, {})
+                rel = inc_item.get("relationships", {}).get(key, {})
                 if next_url := rel.get("links", {}).get("next"):
                     rel_doc = self.get_paginated(next_url, include)
 
@@ -289,10 +289,14 @@ class TidalApiSession(requests.Session):
 class TidalApi:
     session: TidalApiSession
     tracks: TidalTrackApi
+    playlist: TidalPlaylistApi
+    user: TidalUserApi
 
     def __init__(self):
         self.session = TidalApiSession()
         self.tracks = TidalTrackApi(self.session)
+        self.playlist = TidalPlaylistApi(self.session)
+        self.user = TidalUserApi(self.session)
 
 
 class TidalTrackApi:
@@ -342,9 +346,7 @@ class TidalTrackApi:
         """
         # The abstraction here is slightly inconsistent and jank
 
-        params = {}
-        if include:
-            params["include"] = include
+        params: dict[str, str | list[str]] = {}
         if country_code:
             params["countryCode"] = country_code
         if ids:
@@ -446,9 +448,141 @@ class TidalTrackApi:
 
 class TidalPlaylistApi:
     session: TidalApiSession
+    default_include: ClassVar[list[str]] = ["items", "items.albums", "items.artists"]
 
     def __init__(self, session: TidalApiSession):
         self.session = session
+
+    def _get(
+        self,
+        id: str,
+        include: list[str] | None = None,
+    ) -> PlaylistDocument:
+        """Fetch playlist resolving pagination and included items."""
+        if include is None:
+            include = self.default_include
+
+        doc = self._get_many(
+            ids=[id],
+            include=include,
+        )
+
+        if len(doc["data"]) != 1:
+            raise ValueError(f"Playlist with id {id} not found")
+
+        return cast(PlaylistDocument, {**doc, "data": doc["data"][0]})
+
+    def get(
+        self,
+        id: str,
+        include: list[str] | None = None,
+    ) -> tuple[PlaylistResource, LookupDict[PlaylistIncludedResource]]:
+        """Get single track WITHOUT related resources."""
+        track_document = self._get(id, include=include)
+        lookup = include_to_lookup(track_document.get("included", []))
+        return track_document["data"], lookup
+
+    def _get_many(
+        self,
+        ids: list[str] | None = None,
+        owner_ids: list[str] | None = None,
+        include: list[str] | None = None,
+        country_code: str | None = None,
+        sort: str | None = None,
+    ) -> PlaylistListDocument:
+        params: dict[str, str | list[str]] = {}
+        if country_code:
+            params["countryCode"] = country_code
+        if ids:
+            params["filter[id]"] = ids
+        if owner_ids:
+            params["filter[owners.id]"] = owner_ids
+        if sort:
+            params["sort"] = sort
+
+        if include is None:
+            include = self.default_include
+
+        return self.session.get_paginated(
+            "/playlists",
+            include,
+            params=params,
+        )
+
+    def get_many(
+        self,
+        ids: list[str],
+        include: list[str] | None = None,
+        country_code: str | None = None,
+    ) -> tuple[list[PlaylistResource], LookupDict]:
+        """Fetch multiple playlists by their tidal ids.
+
+        Use sparingly! This will take quite a while.
+
+        Parameters
+        ----------
+        ids : list[str]
+            A list of tidal playlist ids to fetch.
+        include : list[str] | None
+            An optional list of related resources to include in the lookupdict,
+            defaults to ["items", "items.albums", "items.artists"].
+        """
+        playlist_list_document = self._get_many(
+            ids=ids,
+            include=include,
+            country_code=country_code,
+        )
+        lookup = include_to_lookup(playlist_list_document.get("included", []))
+        return playlist_list_document["data"], lookup
+
+    def get_many_by_user(
+        self,
+        owner_ids: str | list[str],
+        include: list[str] | None = None,
+        country_code: str | None = None,
+    ) -> tuple[list[PlaylistResource], LookupDict]:
+        """Fetch playlists by owner."""
+        if isinstance(owner_ids, str):
+            owner_ids = [owner_ids]
+        playlist_list_document = self._get_many(
+            owner_ids=owner_ids,
+            include=include,
+            country_code=country_code,
+        )
+        lookup = include_to_lookup(playlist_list_document.get("included", []))
+        return playlist_list_document["data"], lookup
+
+    def _create(
+        self,
+        name: str,
+        description: str | None = None,
+        access_type: Literal["PUBLIC", "UNLISTED"] = "UNLISTED",
+    ) -> PlaylistDocument:
+        """Create a new playlist."""
+        return self.session.request(
+            "POST",
+            "/playlists",
+            json={
+                "data": {
+                    "accessType": access_type,
+                    "description": description,
+                    "name": name,
+                },
+                "type": "playlists",
+            },
+        ).json()
+
+    def create(
+        self,
+        name: str,
+        description: str | None = None,
+        access_type: Literal["PUBLIC", "UNLISTED"] = "UNLISTED",
+    ) -> tuple[PlaylistResource, LookupDict]:
+        doc = self._create(name, description, access_type)
+        return doc["data"], include_to_lookup(doc.get("included", []))
+
+    # TODO: add, remove, move tracks in a playlist
+    # see https://tidal-music.github.io/tidal-api-reference/
 
 
 class TidalUserApi:
@@ -457,188 +591,11 @@ class TidalUserApi:
     def __init__(self, session: TidalApiSession):
         self.session = session
 
+    def _me(self) -> UserDocument:
+        return self.session.request("GET", "/users/me").json()
 
-async def get_playlist(playlist_id: str) -> tuple[dict, LookupDict]:
-    """Get the full playlist data of a playlist by its id.
-
-    Parameters
-    ----------
-    playlist_id : str | None, optional
-        The id of the playlist to fetch.
-    """
-
-    playlists, included, _ = await tidal_get_req_paged(
-        "/playlists",
-        params={
-            "filter[id]": [playlist_id],
-            # Tracks need albums and artists to be useful
-            "include": ["items", "items.albums", "items.artists"],
-        },
-    )
-    if len(playlists) != 1:
-        raise ValueError(f"Playlist with id {playlist_id} not found")
-
-    return playlists[0], included
-
-
-async def get_user_playlists(
-    user_id: str | None = None,
-    include_items: bool = True,
-) -> list[tuple[dict, LookupDict]]:
-    """Get the full playlist data of all playlists of the current user.
-
-    If user_id is None, the current user's playlists are fetched. Use include_items to
-    fetch the items of each playlist as well. Depending on the number of
-    playlist resolving the items can take quite some time.
-
-    Parameters
-    ----------
-    user_id : str | None, optional
-        The user id of the user to fetch the playlists for. If None, the current user's
-        playlists are fetched, by default None.
-    include_items : bool, optional
-        Whether to include the items of each playlist as well, by default True.
-
-    Returns
-    -------
-    tuple[list[dict], list[LookupDict]]
-        A tuple containing:
-        - A list of playlist data dicts.
-        - A list of lookup dicts of included items for each playlist,
-        keyed by (type, id).
-
-    """
-
-    if not user_id:
-        user_data = await tidal_get_req("/users/me")
-        user_id = user_data["data"]["id"]
-
-    _, playlists, _ = await tidal_get_req_paged(
-        f"/userCollections/{user_id}/relationships/playlists",
-        params={"include": ["playlists"]},
-    )
-
-    # Include only supports one layer, so we need to fetch the items of each playlist
-    # separately if we want them. This can take quite some time depending on the number
-    # of playlists.
-    if not include_items:
-        return list((pl, {}) for pl in playlists.values())
-
-    pl_data = []
-    pl_lookup = []
-    with logging_redirect_tqdm():
-        for i, pl in enumerate(
-            tqdm(
-                playlists.values(),
-                desc="Fetching playlist items",
-                unit="playlists",
-                leave=False,
-            )
-        ):
-            dat, inc = await get_playlist(pl["id"])
-            pl_data.append(dat)
-            pl_lookup.append(inc)
-
-    if len(pl_data) != len(playlists):
-        log.warning(
-            f"Expected {len(pl_data)} included playlists but received"
-            f" {len(playlists)} playlists. Strange stuff!"
-        )
-
-    return list(zip(pl_data, pl_lookup))
-
-
-@requires_tidal_token
-async def create_playlist(
-    name: str, token: BearerToken, description: str = ""
-) -> tuple[dict, LookupDict]:
-    """Create a new playlist in the current user's library.
-
-    Parameters
-    ----------
-    name : str
-        The name of the playlist to create.
-    description : str, optional
-        The description of the playlist, by default "".
-
-    Returns
-    -------
-    dict
-        The created playlist data.
-    """
-
-    country_code = Config().tidal.country_code
-
-    # Perform the GET request
-    res = await __tidal_req(
-        method="POST",
-        path="/playlists",
-        token=token,
-        json={
-            "data": {
-                "attributes": {
-                    "name": name,
-                    "description": description,
-                },
-                "type": "playlists",
-            }
-        },
-        params={"countryCode": country_code},
-    )
-    dat = res.json()
-    return dat["data"], include_to_lookup(dat.get("included", []))
-
-
-@requires_tidal_token
-async def add_tracks_to_playlist(
-    playlist_id: str,
-    track_ids: list[str],
-    token: BearerToken,
-    position_before: str | None = None,
-) -> None:
-    """Add tracks to a playlist.
-
-    Parameters
-    ----------
-    playlist_id : str
-        The id of the playlist to add tracks to.
-    track_ids : list[str]
-        A list of track ids to add to the playlist.
-    position_before : str | None, optional
-        The id of the track to insert the new tracks before. If None, the tracks
-        are added to the end of the playlist, by default None.
-
-    Returns
-    -------
-    None
-    """
-
-    country_code = Config().tidal.country_code
-
-    if not track_ids:
-        return
-
-    for chunk in chunk_list(track_ids, MAX_FILTER_SIZE):
-        body: dict = {
-            "data": [
-                {
-                    "id": track_id,
-                    "type": "tracks",
-                }
-                for track_id in chunk
-            ]
-        }
-        if position_before:
-            body["positionBefore"] = position_before
-
-        # Does not return anything useful
-        await __tidal_req(
-            method="POST",
-            path=f"/playlists/{playlist_id}/relationships/items",
-            token=token,
-            json=body,
-            params={"countryCode": country_code},
-        )
+    def me(self) -> UserResource:
+        return self._me()["data"]
 
 
 def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Generic, NotRequired, TypedDict, TypeVar
+from typing import Generic, Literal, NotRequired, TypedDict, TypeVar
 
 T_Attribute = TypeVar("T_Attribute")
 T_Resource = TypeVar("T_Resource")
@@ -29,8 +29,13 @@ class NameAttribute(TypedDict):
 
 
 class UserAttributes(TypedDict):
-    name: NotRequired[str]
-    username: NotRequired[str]
+    country: str
+    email: NotRequired[str]
+    emailVerified: NotRequired[bool]
+    firstName: NotRequired[str]
+    lastName: NotRequired[str]
+    nostrPublicKey: NotRequired[str]
+    username: str
 
 
 class AlbumAttributes(TypedDict):
@@ -47,24 +52,78 @@ class AlbumAttributes(TypedDict):
 
 
 class TrackAttributes(TypedDict):
-    title: str
-    version: NotRequired[str]
+    accessType: NotRequired[str]
+    availability: NotRequired[Literal["STREAM", "DJ", "STEM"]]
+    bpm: NotRequired[float]
+    createdAt: NotRequired[str]  # iso 8601
     duration: int
-    replayGain: NotRequired[float]
-    peak: NotRequired[float]
-    searchable: bool
-    explicit: NotRequired[bool]
-    contentRating: NotRequired[str]
-    year: NotRequired[int]
-    streamStartDate: NotRequired[str]
-    streamEndDate: NotRequired[str]
-    saScore: NotRequired[int]
-    saQuality: NotRequired[str]
-    audioQuality: NotRequired[str]
-    audioModes: NotRequired[list[str]]
-    mediaMetadata: NotRequired[dict[str, Any]]
-    cupEnabled: NotRequired[bool]
-    allowExplicit: NotRequired[bool]
+    explicit: bool
+    externalLinks: list[ExternalLink]
+    isrc: str
+    key: Literal[
+        "UNKNOWN",
+        "C",
+        "CSharp",
+        "D",
+        "Eb",
+        "E",
+        "F",
+        "FSharp",
+        "G",
+        "Ab",
+        "A",
+        "Bb",
+        "B",
+    ]
+    keyScale: Literal[
+        "UNKNOWN",
+        "MAJOR",
+        "MINOR",
+        "AEOLIAN",
+        "BLUES",
+        "DORIAN",
+        "HARMONIC_MINOR",
+        "LOCRIAN",
+        "LYDIAN",
+        "MIXOLYDIAN",
+        "PENTATONIC_MAJOR",
+        "PHRYGIAN",
+        "MELODIC_MINOR",
+        "PENTATONIC_MINOR",
+    ]
+    mediaTags: list[str]
+    popularity: float  # 0-1
+    spotlighted: NotRequired[bool]
+    title: str
+    toneTags: NotRequired[list[str]]
+    version: NotRequired[str]
+
+    # Special fields TODO
+    # copyright
+
+
+class PlaylistAttributes(TypedDict):
+    # REQUIRED fields per schema
+    accessType: str
+    bounded: bool
+    createdAt: str  # ISO date-time
+    lastModifiedAt: str  # ISO date-time
+    name: str
+    numberOfFollowers: int
+    playlistType: str  # enum, but keep as str for now
+
+    # OPTIONAL fields
+    description: NotRequired[str]
+    duration: NotRequired[str]  # ISO 8601 duration (P30M5S)
+    numberOfItems: NotRequired[int]
+
+    externalLinks: list[ExternalLink]
+
+
+# External Link type (from schema snippet)
+class ExternalLink(TypedDict):
+    href: str
+    meta: str
 
 
 # Relationships
@@ -84,6 +143,22 @@ class MultiRelationshipDataDocument(TypedDict):
 class SingleRelationshipDataDocument(TypedDict):
     data: ResourceIdentifier
     links: NotRequired[LinkObject]
+
+
+class PlaylistsItemsResourceIdentifierMeta(TypedDict):
+    addedAt: NotRequired[str]  # When item was added to playlist
+    itemId: NotRequired[str]  # Original item ID
+
+
+class PlaylistsItemsResourceIdentifier(ResourceIdentifier):
+    meta: NotRequired[PlaylistsItemsResourceIdentifierMeta]
+
+
+class PlaylistsItemsMultiRelationshipDataDocument(TypedDict):
+    # e.g. Playlists_Items_Multi_Relationship_Data_Document
+    data: NotRequired[list[PlaylistsItemsResourceIdentifier]]
+    included: NotRequired[list[RelatinionshipResource]]
+    links: LinkObject
 
 
 class TrackRelationships(TypedDict):
@@ -121,6 +196,14 @@ class AlbumRelationships(TypedDict):
     # items
 
 
+class PlaylistRelatinships(TypedDict):
+    # Standard Multi_Relationship_Data_Document
+    coverArt: MultiRelationshipDataDocument
+    ownerProfiles: MultiRelationshipDataDocument
+    owners: MultiRelationshipDataDocument
+    items: PlaylistsItemsMultiRelationshipDataDocument
+
+
 # Resources
 
 
@@ -134,7 +217,7 @@ class RelatinionshipResource(TypedDict, Generic[T_Attribute, T_Relationship]):
     id: str
     type: str
     attributes: T_Attribute
-    relationship: NotRequired[T_Relationship]
+    relationships: NotRequired[T_Relationship]
 
 
 ArtistResource = SimpleResource[NameAttribute]
@@ -142,6 +225,8 @@ GenreResource = SimpleResource[NameAttribute]
 UserResource = SimpleResource[UserAttributes]
 AlbumResource = RelatinionshipResource[AlbumAttributes, AlbumRelationships]
 TrackResource = RelatinionshipResource[TrackAttributes, TrackRelationships]
+PlaylistResource = RelatinionshipResource[PlaylistAttributes, PlaylistRelatinships]
+
 
 # Documents (highest level api response)
 
@@ -169,3 +254,11 @@ AlbumsListDocument = MultiResourceDataDocument[AlbumResource, AlbumIncludedResou
 TrackIncludedResource = AlbumResource | ArtistResource
 TrackDocument = SingleResourceDataDocument[TrackResource, TrackIncludedResource]
 TrackListDocument = MultiResourceDataDocument[TrackResource, TrackIncludedResource]
+PlaylistIncludedResource = AlbumResource | ArtistResource | TrackResource
+PlaylistDocument = SingleResourceDataDocument[
+    PlaylistResource, PlaylistIncludedResource
+]
+PlaylistListDocument = MultiResourceDataDocument[
+    PlaylistResource, PlaylistIncludedResource
+]
+UserDocument = SingleResourceDataDocument[UserResource, UserResource]

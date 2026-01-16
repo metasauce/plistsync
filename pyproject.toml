@@ -13,7 +13,7 @@ dependencies = [
 # Service specific dependencies
 traktor = ["lxml>=6.0.2"]
 spotify = ["requests_oauth2client>=1.8.0"]
-tidal = ["nest-asyncio>=1.6.0", "tqdm>=4.67.1", "requests_oauth2client>=1.8.0"]
+tidal = ["requests_oauth2client>=1.8.0"]
 local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]

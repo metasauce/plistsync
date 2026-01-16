@@ -5,6 +5,7 @@ from datetime import datetime
 
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.services.tidal.api_types import TrackResource
 
 from .api import LookupDict
 
@@ -20,10 +21,10 @@ class TidalTrack(Track):
     the Track class to get the different properties of the track if available.
     """
 
-    data: dict
+    data: TrackResource
     data_lookup: LookupDict
 
-    def __init__(self, data: dict, data_lookup: LookupDict | None = None):
+    def __init__(self, data: TrackResource, data_lookup: LookupDict | None = None):
         self.data = data
         self.data_lookup = data_lookup or {}
 
@@ -102,7 +103,12 @@ class TidalPlaylistTrack(TidalTrack):
     added_at: datetime
     """The date and time the track was added to the playlist."""
 
-    def __init__(self, data: dict, data_lookup: LookupDict, added_at: str | datetime):
+    def __init__(
+        self,
+        data: TrackResource,
+        data_lookup: LookupDict,
+        added_at: str | datetime,
+    ):
         """Initialize a TidalPlaylistTrack with the given data.
 
         Expected data comes from the Tidal API, e.g. from

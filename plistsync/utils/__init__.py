@@ -4,7 +4,8 @@ import os
 import pathlib
 import re
 import urllib.parse
-from typing import Iterable, TypeVar
+from collections.abc import Iterable
+from typing import TypeVar
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):
