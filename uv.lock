@@ -1692,7 +1692,6 @@ dependencies = [
     { name = "eyconf", extra = ["cli"] },
     { name = "levenshtein" },
     { name = "requests" },
-    { name = "sphinx-design" },
     { name = "typer" },
 ]
 
@@ -1780,7 +1779,6 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.5" },
     { name = "requests-oauth2client", marker = "extra == 'spotify'", specifier = ">=1.8.0" },
     { name = "requests-oauth2client", marker = "extra == 'tidal'", specifier = ">=1.8.0" },
-    { name = "sphinx-design", extras = ["docs"], specifier = ">=0.6.1" },
     { name = "sqlalchemy", marker = "extra == 'beets'", specifier = ">=2.0.45" },
     { name = "tinytag", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "typer", specifier = ">=0.21.1" },

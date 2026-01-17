@@ -124,4 +124,4 @@ jobs:
       - name: Build Sphinx docs
         run: |
           cd docs
-          sphinx-build -b html . _build/html -W --keep-going -j auto
+          uv run sphinx-build -b html . _build/html -W --keep-going -j auto
