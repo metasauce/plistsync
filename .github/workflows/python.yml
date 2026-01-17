@@ -109,3 +109,19 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+  docs:
+    name: Build Sphinx docs
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Install docs dependencies
+        run: |
+          uv sync --group docs
+      - name: Build Sphinx docs
+        run: |
+          cd docs
+          sphinx-build -b html . _build/html -W --keep-going -j auto

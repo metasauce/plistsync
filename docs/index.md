@@ -43,7 +43,7 @@ details/matching.md
 :hidden:
 :caption: 🛠️ Services
 
-services/tidal
+services/tidal/index
 services/spotify
 services/plex
 ```

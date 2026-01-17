@@ -56,5 +56,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation setup and first examples.
 - Basic CI/CD workflows.
 
+[0.2.0]: https://github.com/metasauce/plistsync/releases/tag/0.2.0
 [0.1.0]: https://github.com/metasauce/plistsync/releases/tag/0.1.0
-[0.1.0]: https://github.com/metasauce/plistsync/releases/tag/0.2.0
