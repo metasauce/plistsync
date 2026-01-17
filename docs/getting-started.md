@@ -1,37 +1,69 @@
 # Getting started
 
-
-`plistsync` is a versatile Python library crafted for managing and synchronizing music metadata across multiple platforms. It offers a comprehensive framework to handle music tracks, collections, and related metadata.
-
+```{include} ../README.md
+:start-after: <!-- start overview -->
+:end-before: <!-- end overview -->
+```
 
 ## Installation
 
 <!-- start installation -->
 
-To get started with `plistsync`, you can install it via pip:
+You can install `plistsync` from [PyPi](https://pypi.org/project/plistsync/).
+
+::::{tab-set}
+:sync-group: environment
+
+:::{tab-item} pip
+:sync: pip
 
 ```bash
 pip install plistsync
 ```
 
+:::
+
+:::{tab-item} uv
+:sync: uv
+
+```bash
+uv add plistsync
+```
+
+:::
+::::
+
+```{note}
+`plistsync` follows [Semantic Versioning](https://semver.org/). While we strive to maintain backward compatibility within the same major version, **we strongly recommend using a lockfile** (such as `requirements.txt` for pip or `uv.lock` for uv) to prevent unexpected breaking changes when upgrading between major versions.
+```
+
 <!-- end installation -->
 
-## Core Concepts
+## First steps
 
-The `plistsync` library includes a suite of abstract base classes (ABCs) that establish the fundamental functionality and architecture. These classes serve as a foundation, allowing developers to create specific implementations tailored to various music platforms or formats. While the library comes with implementations for several popular platforms, users are encouraged to develop custom solutions by extending these classes.
+To get started with plistsync, you have a few recommended paths:
 
-### Tracks
+:::::{grid} 1 3 3 3
+:gutter: 2
 
-A {py:class}`Track <plistsync.core.track.Track>` is the fundamental unit of music. It represents the metadata of a single piece of music and contains various common attributes. Each track can be identified by one of its {py:class}`unique identifiers <plistsync.core.track.TrackIdentifiers>`, such as ISRC or services specific IDs.
+::::{grid-item-card} Core Concepts
+:link: details/core-concepts
+:link-type: doc
 
-### Collections
+Understand the key abstractions and notation of `plistsync`. Learn about `Tracks`, `Collections`, `Matches`, and `Services`, which form the foundation of the library.
+::::
 
-A {py:class}`Collection <plistsync.core.collection.Collection>` is a data structure that holds multiple `Tracks`. It provides methods to access, filter, and iterate over the tracks. Collections can represent libraries, playlists, or databases of music tracks.
+::::{grid-item-card} Examples
+:link: /examples
+:link-type: doc
 
-### Matches
+Follow step-by-step guides to see `plistsync` in action. Great for hands-on learning and testing common workflows.
+::::
 
-When trying to sync or {py:class}`match <plistsync.core.matching.Matches>` tracks between different platforms, `plistsync` uses a set of matching strategies. Currently we prioritize matching tracks based on their unique identifiers first and then fall back to matching based on metadata attributes like title, artist, and album. This ensures that tracks are matched as accurately as possible across different platforms. For more details, please refer to the [matching documentation](details/matching.md).
+::::{grid-item-card} References
+:link: api/index
+:link-type: doc
 
-### Services
-
-A service within `plistsync` is an implementation targeting a specific music platform or format. Services are tasked with interacting with the platform's API, managing music metadata, and translating between the platform's data structures and those used by other platforms. `plistsync` includes services for several popular platforms, and users can expand this by creating new services using the base service classes provided by the library.
+Find in-depth reference material, API documentation, and additional resources to deepen your understanding of `plistsync`.
+::::
+:::::

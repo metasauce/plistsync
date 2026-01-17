@@ -25,12 +25,12 @@ exclude_patterns: list[str] = []
 extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
-    "sphinx_inline_tabs",
     "sphinxcontrib.typer",
     "sphinx.ext.napoleon",
     "autoapi.extension",
     # "myst_parser",
     "myst_nb",
+    "sphinx_design",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {

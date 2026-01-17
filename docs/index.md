@@ -34,6 +34,7 @@ If this is your first time using `plistsync`, we recommend reading the [getting 
 :caption: 📚 Usage
 
 getting-started.md
+details/core-concepts.md
 details/matching.md
 ```
 
