@@ -30,13 +30,15 @@ The core of plistsync is its abstraction layer that normalizes tracks, collectio
 
 <!-- start features -->
 
-- **Multi-Service Support**: Transfer playlists and collections between:
+- **Unified Abstraction Layer**: Normalizes tracks, collections, and playlists from various services into a common format, enabling seamless synchronization across platforms
+- **Current Service Support**:
   - **Spotify** - Streaming service integration
   - **Tidal** - Hi-Fi music service
   - **Plex** - Personal media server
   - **Traktor** - DJ software collections
   - **Beets** - Music library manager
   - **Local Files** - M3U playlists and file collections
+- **Extensible Service Architecture**: The abstraction layer is designed to support arbitrary music services with consistent APIs
 
 <!-- end features -->
 

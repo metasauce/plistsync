@@ -45,6 +45,7 @@ docs = [
     "sphinx-design>=0.6.1",
     "sphinx-copybutton>=0.5.2",
     "sphinxcontrib-typer[html]>=0.7.2",
+    "sphinxcontrib-mermaid>=2.0.0",
 ]
 typed = [
     "mypy>=1.19.1",

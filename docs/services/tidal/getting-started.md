@@ -43,8 +43,6 @@ To authenticate with Tidal's API, you need to obtain API credentials:
 3. Create a new application
 4. Generate your `client_id` (and optionally `client_secret`)
 
-**Note**: The `client_secret` is optional but recommended for improved authentication reliability.
-
 ## Configuration
 
 Enable Tidal in your `plistsync` configuration file:
