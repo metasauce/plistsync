@@ -201,7 +201,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """The spotify ID of the playlist."""
         return self.data["id"]
 
-    def apply_changes(self, playlist_changes) -> None:
+    def _apply_diff(self, playlist_changes) -> None:
         """Apply the given changes to the playlist.
 
         This method should handle updating the playlist's metadata and tracks
