@@ -35,7 +35,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         """
         return [
             SpotifyPlaylistCollection(playlist)
-            for playlist in self.api.users.get_playlists()
+            for playlist in self.api.user.get_playlists()
         ]
 
     def get_playlist(
@@ -50,7 +50,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
         # We fetch all playlists by the user and check if the name matches
         if allow_name:
-            plists = self.api.users.get_playlists(True)
+            plists = self.api.user.get_playlists(True)
             for plist in plists:
                 if plist["name"] == plist_identifier:
                     plist_identifier = plist["id"]

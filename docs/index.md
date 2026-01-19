@@ -44,7 +44,7 @@ details/advanced/index.md
 :caption: 🛠️ Services
 
 services/tidal/index
-services/spotify
+services/spotify/index
 services/plex
 ```
 
