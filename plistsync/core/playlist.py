@@ -22,17 +22,14 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Hashable, Iterator
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from difflib import SequenceMatcher
-from typing import (
-    Generic,
-    Literal,
-)
+from typing import Generic
 
 from .collection import Collection, TrackStream, TypeVar
+from .diff import Operations, list_diff
 from .track import Track
 
 T = TypeVar("T", bound=Track)
@@ -55,9 +52,6 @@ class Snapshot(Generic[T]):
         )
 
 
-OPCODE = tuple[Literal["replace", "delete", "insert", "equal"], int, int, int, int]
-
-
 @dataclass
 class PlaylistChanges(Generic[T]):
     """Represents changes to be made to a single playlist's metadata."""
@@ -77,17 +71,15 @@ class PlaylistChanges(Generic[T]):
             return self.snapshot_after.description
         return None
 
-    def track_operations(self, eq_function: Callable[[T], str]) -> list[OPCODE]:
+    def track_operations(self, eq_function: Callable[[T], Hashable]) -> Operations:
         """Get the list of operations to transform the original track list.
 
         To apply these operations, use the reverse of the operations to omit
         index shifting issues.
         """
-        sm = SequenceMatcher(
-            a=list(map(eq_function, self.snapshot_before.tracks)),
-            b=list(map(eq_function, self.snapshot_after.tracks)),
+        return list_diff(
+            self.snapshot_before.tracks, self.snapshot_after.tracks, eq_function
         )
-        return sm.get_opcodes()
 
 
 class PlaylistCollection(Collection, TrackStream[T], ABC):
