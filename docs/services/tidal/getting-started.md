@@ -103,7 +103,7 @@ Test that everything is working by getting your user data:
 
 ```python
 from plistsync.services.tidal.api import TidalApi
-print(TidalApi().users.me())
+print(TidalApi().user.me())
 ```
 
 This should return your user's ID and email.

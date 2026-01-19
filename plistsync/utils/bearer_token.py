@@ -73,7 +73,7 @@ class BearerToken:
 
     def update(self, token_data: dict[str, Any]) -> None:
         """Update the token data in place."""
-        self.token = BearerTokenOauth2Client(**token_data)
+        self.token = BearerTokenOauth2Client(**{**self.token.as_dict(), **token_data})
 
     @property
     def is_expired(self) -> bool:
