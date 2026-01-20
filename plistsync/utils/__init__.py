@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import urllib.parse
+from collections.abc import Iterable
 from typing import TypeVar
 
 
@@ -63,19 +64,25 @@ def camel_to_snake(text: str) -> str:
 A = TypeVar("A")
 
 
-def chunk_list(lst: list[A], chunk_size: int):
+def chunk_list(lst: list[A], chunk_size: int) -> Iterable[list[A]]:
     """
     Chunk a list into smaller lists of the specified size.
 
     Parameters
     ----------
-    lst: A
+    lst: list[A]
         List to be chunked
     chunk_size: int
         Maximum size of each chunk
 
+    Yields
+    ------
+    list[A]
+        Chunks of the original list
+
     """
-    return [lst[i : i + chunk_size] for i in range(0, len(lst), chunk_size)]
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i : i + chunk_size]
 
 
 def safe_webbrowser_open(url: str) -> bool:

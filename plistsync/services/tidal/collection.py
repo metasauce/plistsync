@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Self
-
-import nest_asyncio
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -16,29 +13,24 @@ from plistsync.core.collection import (
 )
 from plistsync.logger import log
 
-from .api import (
-    LookupDict,
-    add_tracks_to_playlist,
-    create_playlist,
-    get_playlist,
-    get_tracks,
-    get_tracks_by_isrc,
-    get_user_playlists,
-)
+from .api import LookupDict, TidalApi
+from .api_types import PlaylistResource, PlaylistsItemsResourceIdentifier, TrackResource
 from .track import TidalPlaylistTrack, TidalTrack
-
-nest_asyncio.apply()
 
 
 class TidalLibraryCollection(LibraryCollection, GlobalLookup):
     """A collection of Tidal library items."""
 
+    api: TidalApi
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.api = TidalApi()
+
     @property
     def playlists(self) -> Iterable[TidalPlaylistCollection]:
-        return [
-            TidalPlaylistCollection(pl, lookup)
-            for pl, lookup in asyncio.run(get_user_playlists())
-        ]
+        playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
+        return [TidalPlaylistCollection(pl, lookup) for pl in playlists]
 
     def get_playlist(
         self, name: str | Path, allow_name=True
@@ -56,31 +48,35 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         # We fetch all playlists by the user and check if the name matches
         if allow_name:
-            for pl, lookup in asyncio.run(get_user_playlists(include_items=False)):
+            playlists, _ = self.api.playlist.get_many_by_user(
+                self.api.user.me()["id"], include=[]
+            )
+            for pl in playlists:
                 if pl["attributes"]["name"] == name:
                     plist_identifier = pl["id"]
                     break
 
         try:
-            return asyncio.run(TidalPlaylistCollection.from_id(plist_identifier))
+            return TidalPlaylistCollection(*self.api.playlist.get(plist_identifier))
         except Exception as e:
             log.debug(f"Could not fetch playlist {name}: {e}")
             return None
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""
-        for pl, _ in asyncio.run(get_user_playlists(include_items=False)):
+        for pl in self.api.playlist.get_many_by_user(
+            self.api.user.me()["id"], include=[]
+        )[0]:
             if pl["attributes"]["name"] == name:
                 return True
         return False
 
     def create_playlist(
-        self, name: str, description: str = ""
+        self, name: str, description: str | None = None
     ) -> TidalPlaylistCollection:
         """Create a new playlist in the user's library."""
         try:
-            data, included = asyncio.run(create_playlist(name, description=description))
-            return TidalPlaylistCollection(data, included)
+            return TidalPlaylistCollection(*self.api.playlist.create(name, description))
         except Exception as e:
             log.debug(f"Could not create playlist {name}: {e}")
             raise
@@ -99,57 +95,46 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         Prioritizes isrc lookups over spotify_id lookups.
         """
-        found_tracks: dict[int, tuple[dict, LookupDict]] = {}
         global_ids_list = list(global_ids_list)
+        found_tracks: dict[int, TidalTrack] = {}
 
-        # Get all ids/isrcs for batch lookup
-        idxes: list[int] = []
-        tidal_ids: list[str] = []
+        # Tidal ids lookup (batched)
+        idx_tidal_pairs: dict[int, str] = {}
         for idx, gids in enumerate(global_ids_list):
             if tidal_id := gids.get("tidal_id"):
-                idxes.append(idx)
-                tidal_ids.append(tidal_id)
+                idx_tidal_pairs[idx] = tidal_id
 
-        for track_data, track_lookup in asyncio.run(get_tracks(tidal_ids=tidal_ids)):
-            track_id = str(track_data["id"])
-            try:
-                idx = tidal_ids.index(track_id)
-                found_tracks[idxes[idx]] = (track_data, track_lookup)
-            except ValueError:
-                log.debug(f"Received unknown track id from Tidal API: {track_id}")
+        if idx_tidal_pairs:
+            tracks_data, lookup = self.api.tracks.get_many(
+                list(idx_tidal_pairs.values())
+            )
+            for orig_idx, track_data in zip(idx_tidal_pairs.keys(), tracks_data):
+                if track_data:
+                    found_tracks[orig_idx] = TidalTrack(track_data, lookup)
 
-        # Resolve isrcs if no tidal_id was found
-        idxes = []
-        isrcs: list[str] = []
+        # Isrcs lookup if no tidal_id was found
+        idx_isrc_pairs: dict[int, str] = {}
         for idx, gids in enumerate(global_ids_list):
-            if idx in found_tracks:
-                continue
-            if isrc := gids.get("isrc"):
-                idxes.append(idx)
-                isrcs.append(isrc)
+            if idx not in found_tracks and (isrc := gids.get("isrc")):
+                idx_isrc_pairs[idx] = isrc
 
-        for track_data, track_lookup in asyncio.run(get_tracks_by_isrc(isrcs=isrcs)):
-            if track_isrc := track_data.get("attributes", {}).get("isrc"):
-                try:
-                    idx = isrcs.index(track_isrc)
-                    found_tracks[idxes[idx]] = (track_data, track_lookup)
-                except ValueError:
-                    log.debug(
-                        f"Received unknown track isrc from Tidal API: {track_isrc}"
-                    )
+        if idx_isrc_pairs:
+            tracks_data, lookup = self.api.tracks.get_many_by_isrc(
+                list(idx_isrc_pairs.values())
+            )
+            for idx, track_data in zip(idx_isrc_pairs.keys(), tracks_data):
+                if track_data:
+                    found_tracks[idx] = TidalTrack(track_data, lookup)
 
         for idx in range(len(global_ids_list)):
-            if idx in found_tracks:
-                yield TidalTrack(found_tracks[idx][0], data_lookup=found_tracks[idx][1])
-            else:
-                yield None
+            yield found_tracks.get(idx)
 
 
 class TidalPlaylistCollection(Collection, TrackStream):
-    data: dict
+    data: PlaylistResource
     data_lookup: LookupDict
 
-    def __init__(self, data: dict, data_lookup: LookupDict | None = None):
+    def __init__(self, data: PlaylistResource, data_lookup: LookupDict | None = None):
         """Initialize the TidalPlaylistCollection from a Tidal API playlist object.
 
         Expects data from
@@ -179,40 +164,6 @@ class TidalPlaylistCollection(Collection, TrackStream):
         """The description of the playlist, if available."""
         return self.data["attributes"].get("description")
 
-    def add_tracks(self, tracks: Iterable[TidalTrack]) -> None:
-        """Add tracks to the playlist.
-
-        Note: This does not update the local playlist object. You need to fetch
-        the playlist again to see the changes.
-
-        Parameters
-        ----------
-        tracks : Iterable[TidalTrack]
-            The tracks to add to the playlist.
-        """
-        track_ids = [
-            str(t.global_ids["tidal_id"]) for t in tracks if "tidal_id" in t.global_ids
-        ]
-        if not track_ids:
-            log.warning("No valid Tidal IDs found for tracks to add to playlist.")
-            return
-
-        try:
-            asyncio.run(add_tracks_to_playlist(self.id, track_ids=track_ids))
-            log.info(f"Added {len(track_ids)} tracks to playlist '{self.name}'")
-        except Exception as e:
-            log.debug(f"Could not add tracks to playlist {self.name}: {e}")
-            raise
-        finally:
-            # Update the local data
-            try:
-                self.data, self.data_lookup = asyncio.run(get_playlist(self.id))
-            except Exception as e:
-                log.debug(
-                    f"Could not refresh playlist data after adding tracks to"
-                    f"{self.name}: {e}"
-                )
-
     @classmethod
     async def from_id(cls, playlist_id: str) -> Self:
         """Create a TidalPlaylistCollection from a tidal playlist ID.
@@ -232,15 +183,15 @@ class TidalPlaylistCollection(Collection, TrackStream):
         ValueError
             If the playlist ID is invalid or not found.
         """
-        data, included = await get_playlist(playlist_id)
-        return cls(data, data_lookup=included)
+        plist, lookup = TidalApi().playlist.get(playlist_id)
+        return cls(plist, lookup)
 
     # ---------------------------------------------------------------------------- #
     #                        Helper methods (tidal specific)                       #
     # ---------------------------------------------------------------------------- #
 
     @property
-    def _items_raw(self) -> list[dict]:
+    def _items_raw(self) -> list[PlaylistsItemsResourceIdentifier]:
         return [
             item
             for item in self.data.get("relationships", {})
@@ -248,7 +199,9 @@ class TidalPlaylistCollection(Collection, TrackStream):
             .get("data", [])
         ]
 
-    def _track_data_included(self, track_id: str) -> tuple[dict, LookupDict] | None:
+    def _track_data_included(
+        self, track_id: str
+    ) -> tuple[TrackResource, LookupDict] | None:
         lookup = {}
         if track_data := self.data_lookup.get(("tracks", track_id)):
             for type, rel in track_data.get("relationships", {}).items():
@@ -260,6 +213,7 @@ class TidalPlaylistCollection(Collection, TrackStream):
                             f"Related item of type '{type}' with id '{item['id']}' not"
                             " found in included data of playlist '{self.name}'"
                         )
+                        # TODO: trigger a new tech if not in lookup
             return track_data, lookup
         return None
 
@@ -277,8 +231,7 @@ class TidalPlaylistCollection(Collection, TrackStream):
             # We add a placeholder to keep the order
             if item["type"] != "tracks":
                 log.debug(
-                    "Skipping non-track item in playlist"
-                    f"'{self.name}': {item['track']['type']}"
+                    f"Skipping non-track item in playlist'{self.name}': {item['type']}"
                 )
                 continue
 
@@ -286,7 +239,7 @@ class TidalPlaylistCollection(Collection, TrackStream):
                 yield TidalPlaylistTrack(
                     track_data[0],
                     data_lookup=track_data[1],
-                    added_at=item["meta"]["addedAt"],
+                    added_at=item.get("meta", {}).get("addedAt", ""),
                 )
             else:
                 log.debug(

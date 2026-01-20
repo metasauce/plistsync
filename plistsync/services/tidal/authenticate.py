@@ -30,6 +30,7 @@ SCOPES = " ".join(
         "search.read",
         "collection.read",
         "collection.write",
+        "user.read",
     ]
 )
 
