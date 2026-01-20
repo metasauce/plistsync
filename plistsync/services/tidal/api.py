@@ -683,7 +683,7 @@ class TidalPlaylistApi:
             raise ValueError('item_type must be either "tracks" or "videos"')
 
         # Build the data array - note the structure is different from add/delete
-        data: list[dict[str, str]] = []
+        data: list[dict[str, Any]] = []
         for item_id in item_ids:
             item_data = {
                 "id": item_id[0],
@@ -716,7 +716,7 @@ class TidalPlaylistApi:
         if item_type not in ["tracks", "videos"]:
             raise ValueError('item_type must be either "tracks" or "videos"')
 
-        data: list[dict[str, str]] = []
+        data: list[dict[str, Any]] = []
         for item_id in item_ids:
             item_data = {
                 "id": item_id[0],
