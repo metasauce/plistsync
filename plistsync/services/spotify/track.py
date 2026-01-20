@@ -1,5 +1,10 @@
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.services.spotify.api_types import (
+    AddedBy,
+    SpotifyApiPlaylistTrack,
+    SpotifyApiTrackResponse,
+)
 
 
 class SpotifyTrack(Track):
@@ -8,9 +13,9 @@ class SpotifyTrack(Track):
     Represents a Spotify track object as returned by the Spotify Web API.
     """
 
-    data: dict
+    data: SpotifyApiTrackResponse
 
-    def __init__(self, data: dict):
+    def __init__(self, data: SpotifyApiTrackResponse):
         """Initialize a SpotifyTrack with the given data.
 
         Expected data comes from the spotify API, e.g. from
@@ -68,12 +73,12 @@ class SpotifyPlaylistTrack(SpotifyTrack):
     added_at: str | None
     """The date and time the track was added to the playlist."""
 
-    added_by: dict | None
+    added_by: AddedBy | None
     """The user who added the track to the playlist."""
 
     is_local: bool = False
 
-    def __init__(self, data: dict):
+    def __init__(self, data: SpotifyApiPlaylistTrack):
         """Initialize a SpotifyPlaylistTrack with the given data.
 
         Expected data comes from the spotify API, e.g. from

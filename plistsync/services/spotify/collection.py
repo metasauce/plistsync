@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Self
-
-import nest_asyncio
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -14,21 +11,10 @@ from plistsync.core.collection import (
 )
 from plistsync.core.playlist import PlaylistCollection
 from plistsync.logger import log
+from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponse
 
-from .api import (
-    create_playlist,
-    get_playlist,
-    get_track,
-    get_track_by_isrc,
-    get_tracks,
-    get_user_playlists_full,
-    get_user_playlists_simplified,
-    remove_playlist_tracks,
-    update_playlist_details,
-)
+from .api import SpotifyApi
 from .track import SpotifyPlaylistTrack, SpotifyTrack
-
-nest_asyncio.apply()
 
 
 class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
@@ -38,6 +24,9 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
     is not supported, as the library is basically infinite.
     """
 
+    def __init__(self) -> None:
+        self.api = SpotifyApi()
+
     @property
     def playlists(self) -> Iterable[SpotifyPlaylistCollection]:
         """Get all playlists of the current user.
@@ -46,7 +35,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         """
         return [
             SpotifyPlaylistCollection(playlist)
-            for playlist in asyncio.run(get_user_playlists_full())
+            for playlist in self.api.user.get_playlists()
         ]
 
     def get_playlist(
@@ -61,14 +50,14 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
         # We fetch all playlists by the user and check if the name matches
         if allow_name:
-            plists = asyncio.run(get_user_playlists_simplified())
+            plists = self.api.user.get_playlists(True)
             for plist in plists:
                 if plist["name"] == plist_identifier:
                     plist_identifier = plist["id"]
                     break
 
         try:
-            return asyncio.run(SpotifyPlaylistCollection.from_id(plist_identifier))
+            return SpotifyPlaylistCollection(self.api.playlist.get(plist_identifier))
         except Exception as e:
             log.debug(f"Could not fetch playlist {name}: {e}")
             return None
@@ -82,13 +71,13 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         """
         if spotify_id := global_ids.get("spotify_id"):
             try:
-                return SpotifyTrack(asyncio.run(get_track(spotify_id)))
+                return SpotifyTrack(self.api.track.get(spotify_id))
             except Exception as e:
                 log.debug(f"Could not find track by spotify ID {spotify_id}: {e}")
 
         if isrc := global_ids.get("isrc"):
             try:
-                return SpotifyTrack(data=asyncio.run(get_track_by_isrc(isrc)))
+                return SpotifyTrack(self.api.track.get_by_isrc(isrc))
             except Exception as e:
                 log.debug(f"Could not find track by ISRC {isrc}: {e}")
 
@@ -113,7 +102,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
                 spotify_ids.append(gids["spotify_id"])
 
         if spotify_ids:
-            tracks = asyncio.run(get_tracks(spotify_ids))
+            tracks = self.api.track.get_many(spotify_ids)
 
             if len(spotify_ids) != len(tracks):
                 log.warning(
@@ -135,9 +124,10 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
-    data: dict
+    data: SpotifyApiPlaylistResponse
+    api: SpotifyApi
 
-    def __init__(self, data: dict):
+    def __init__(self, data: SpotifyApiPlaylistResponse):
         """Initialize a SpotifyPlaylistCollection from the given data.
 
         Expected data comes from the spotify API, e.g. from
@@ -152,7 +142,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         self.data = data
 
     @classmethod
-    async def create_new(cls, name: str, description: str | None = None) -> Self:
+    def create_new(cls, name: str, description: str | None = None) -> Self:
         """Create a new empty Spotify playlist with the given name and description.
 
         Parameters
@@ -173,14 +163,15 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             If the playlist could not be created.
         """
 
-        data = await create_playlist(
-            name,
-            description or "Created by 'plistsync'",
+        return cls(
+            SpotifyApi().playlist.create(
+                name,
+                description or "Created by 'plistsync'",
+            )
         )
-        return cls(data)
 
     @classmethod
-    async def from_id(cls, playlist_id: str) -> Self:
+    def from_id(cls, playlist_id: str) -> Self:
         """Create a SpotifyPlaylistCollection from a spotify playlist ID.
 
         Parameters
@@ -198,8 +189,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         ValueError
             If the playlist ID is invalid or not found.
         """
-        data = await get_playlist(playlist_id)
-        return cls(data)
+        return cls(SpotifyApi().playlist.get(playlist_id))
 
     @property
     def name(self) -> str:
@@ -220,12 +210,11 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         Note: This is not implemented yet.
         """
         # If name or description changed, update them
-        asyncio.run(
-            update_playlist_details(
-                self.id,
-                name=playlist_changes.new_name(),
-                description=playlist_changes.new_description(),
-            )
+        api = SpotifyApi()
+        api.playlist.update(
+            self.id,
+            name=playlist_changes.new_name(),
+            description=playlist_changes.new_description(),
         )
 
         # Apply track changes
@@ -233,17 +222,13 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
         for tag, i1, i2, j1, j2 in ops:
             if tag == "delete":
-                asyncio.run(
-                    remove_playlist_tracks(
-                        self.id,
-                        [
-                            t.id
-                            for t in playlist_changes.snapshot_before["tracks"][i1:i2]
-                        ],
-                        list(range(i1, i2)),
-                        self.data.get("snapshot_id"),
-                    )
+                api.playlist.remove_tracks(
+                    self.id,
+                    [t.id for t in playlist_changes.snapshot_before["tracks"][i1:i2]],
+                    list(range(i1, i2)),
+                    self.data.get("snapshot_id"),
                 )
+
             elif tag == "insert":
                 log.warning(
                     "Inserting tracks into spotify playlists is not implemented yet."
