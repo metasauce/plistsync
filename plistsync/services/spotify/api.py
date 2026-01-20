@@ -211,8 +211,10 @@ class PlaylistApi:
     def update(
         self,
         playlist_id: str,
-        new_name: str | None = None,
-        new_description: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        public: bool | None = None,
+        collaborative: bool | None = None,
     ) -> None:
         """Update the details of a playlist.
 
@@ -220,19 +222,27 @@ class PlaylistApi:
         ----------
         playlist_id : str
             The Spotify ID of the playlist.
-        new_name : str | None
+        name : str | None
             The new name of the playlist, by default None (no change).
-        new_description : str | None
+        description : str | None
             The new description of the playlist, by default None (no change).
+        public: bool | None
+            The new public status of the playlist, by default None (no change)
+        collaborative: bool | None
+            If true, the playlist will become collaborative and other users
+            will be able to modify the playlist in their Spotify client.
         """
-        body: dict[str, str] = {}
-        if new_name is not None:
-            body["name"] = new_name
-        if new_description is not None:
-            body["description"] = new_description
-
-        if len(body) == 0:
-            return
+        # Only include not none values
+        body: dict[str, str | bool] = {
+            k: v
+            for k, v in {
+                "name": name,
+                "description": description,
+                "public": public,
+                "collaborative": collaborative,
+            }.items()
+            if v is not None
+        }
 
         self.session.request(
             method="PUT",

@@ -213,8 +213,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         api = SpotifyApi()
         api.playlist.update(
             self.id,
-            new_name=playlist_changes.new_name(),
-            new_description=playlist_changes.new_description(),
+            name=playlist_changes.new_name(),
+            description=playlist_changes.new_description(),
         )
 
         # Apply track changes
