@@ -1,3 +1,4 @@
+from typing import Any
 from plistsync.core.playlist import PlaylistCollection
 
 
@@ -7,7 +8,7 @@ class MockPlaylist(PlaylistCollection):
     def __init__(self, name: str, tracks: None | list = None):
         self._name = name
         self._tracks = tracks or []
-        self.log = []
+        self.log: list[tuple[Any,...]] = []
 
     @property
     def name(self) -> str:
