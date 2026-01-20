@@ -63,7 +63,8 @@ The docs cover:
 
 This project is licensed under the **PolyForm Noncommercial License 1.0.0.**
 
-We chose this license to defend our work in an industry that often exploits artists. It ensures our tools remain focused on empowering creators and communities _not corporations_ without our explicit permission.
+In short, this license allows broad use for personal, educational, research, and non-profit purposes, but forbids commercial use.
+We chose it to defend our work in an industry that often exploits artists, where commercial interests seem more important than an inclusive community.
 
 See the [LICENSE](LICENSE) file for the full terms.
 
