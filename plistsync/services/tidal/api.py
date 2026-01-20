@@ -66,7 +66,8 @@ class TidalApiSession(requests.Session):
         """
         log.debug("Refreshing expired Tidal token...")
         tidal_config = Config().tidal
-        res = self.post(
+        res = super().request(
+            "POST",
             "https://auth.tidal.com/v1/oauth2/token",
             data={
                 "grant_type": "refresh_token",
@@ -118,6 +119,7 @@ class TidalApiSession(requests.Session):
         # we can add some max retry logic if this ever
         # is an issue
         try:
+            log.debug("Request: %s", url)
             res = super().request(
                 method,
                 url,
@@ -421,14 +423,14 @@ class TidalTrackApi:
             defaults to ["albums","artists"].
         """
         # FIXME: It might be possible to dedup this with the function above
-        isrc_to_index = {tid: i for i, tid in enumerate(isrcs)}
+        isrc_to_index = {isrc: i for i, isrc in enumerate(isrcs)}
         tracks: list[TrackResource] = []
         lookup: LookupDict[TrackIncludedResource] = {}
 
         # Tidal does only support 20 filters at onece!
         for chunk in chunk_list(isrcs, MAX_FILTER_SIZE):
             tracks_doc = self._get_many(
-                ids=chunk,
+                isrcs=chunk,
                 include=include or ["albums", "artists"],
                 country_code=country_code,
             )
@@ -436,12 +438,14 @@ class TidalTrackApi:
             lookup.update(include_to_lookup(tracks_doc.get("included", [])))
 
         # Same order for tracks as inserted
-        tracks_sorted = sorted(tracks, key=lambda t: isrc_to_index[t["id"]])
+        tracks_sorted = sorted(
+            tracks, key=lambda track: isrc_to_index[track["attributes"]["isrc"]]
+        )
 
         # Handle missing tracks (Tidal might not return all)
         result: list[TrackResource | None] = [None] * len(isrcs)
         for track in tracks_sorted:
-            result[isrc_to_index[track["id"]]] = track
+            result[isrc_to_index[track["attributes"]["isrc"]]] = track
 
         return result, lookup
 

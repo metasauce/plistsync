@@ -191,7 +191,7 @@ class PlaylistApi:
         collaborative : bool, optional
             Whether the playlist is collaborative, by default False.
         """
-        user_data = self.api.user.get_current_user()
+        user_data = self.api.user.me()
         user_id = user_data["id"]
 
         body = {
@@ -577,7 +577,7 @@ class UserApi:
         else:
             return self._get_playlists_full()
 
-    def get_current_user(self) -> dict:
+    def me(self) -> dict:
         """Get the current user's profile."""
         return self.session.request(
             "GET",

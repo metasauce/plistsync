@@ -62,6 +62,10 @@ If you want to run the same checks that will run in CI:
 uv run pre-commit run --all-files
 ```
 
+## Good First Issues
+
+Looking for a place to start? Search the codebase for `TODO` and `FIXME` comments. These mark areas that need improvement, new features, or bug fixes and are often great entry points for new contributors.
+
 ## Report Bugs
 
 If you encounter any bugs or issues, please report them on the [GitHub Issues page](https://github.com/metasauce/plistsync/issues).

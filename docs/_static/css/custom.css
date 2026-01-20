@@ -19,3 +19,21 @@ table.summarytable {
     margin-top: 1em;
     margin-bottom: 0.5em;
 }
+
+
+
+div.cell_output > div {
+    border: unset !important;
+    border-left:1px solid #852da9 !important;
+}
+div.cell > div.cell_input {
+    border: unset !important;
+    border-left:1px solid #46cbcf !important;
+    border-radius: unset;
+}
+
+* {
+    --mystnb-source-margin-color: #46cbcf;
+    --mystnb-source-bg-color: transparent;
+    --mystnb-stderr-bg-color: transparent;
+}

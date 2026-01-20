@@ -42,3 +42,6 @@ dist-ssr
 # Docs
 docs/build
 docs/api
+docs/_build
+
+htmlcov

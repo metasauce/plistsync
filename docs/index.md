@@ -34,7 +34,8 @@ If this is your first time using `plistsync`, we recommend reading the [getting 
 :caption: 📚 Usage
 
 getting-started.md
-details/matching.md
+details/core-concepts.md
+details/advanced/index.md
 ```
 
 ```{toctree}
@@ -42,9 +43,10 @@ details/matching.md
 :hidden:
 :caption: 🛠️ Services
 
-services/tidal
-services/spotify
-services/plex
+services/local/index
+services/tidal/index
+services/spotify/index
+services/plex/index
 ```
 
 ```{toctree}

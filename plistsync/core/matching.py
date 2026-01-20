@@ -62,7 +62,7 @@ def fuzzy_match(a: TrackInfo, b: TrackInfo) -> Similarity:
 
     Interpreting the results:
     - 1.0: All found metadata is equal. (All does not include undefined metadata,
-      including empty strings and None values.)
+    including empty strings and None values.)
     - 0.0: No metadata is the same.
 
     Return:

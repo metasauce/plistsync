@@ -223,7 +223,7 @@ class Collection(ABC):
 
     Collections act as flexible track containers, accommodating multiple storage formats
     and sources, such as online databases or local files, without dictating a specific
-      storage mechanism.
+    storage mechanism.
 
     This abstract base class is designed to support adaptable implementations for
     accessing and interacting with tracks in diverse ways, see protocols above.

@@ -25,12 +25,13 @@ exclude_patterns: list[str] = []
 extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_copybutton",
-    "sphinx_inline_tabs",
     "sphinxcontrib.typer",
     "sphinx.ext.napoleon",
     "autoapi.extension",
     # "myst_parser",
     "myst_nb",
+    "sphinx_design",
+    "sphinxcontrib.mermaid",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
@@ -67,8 +68,6 @@ suppress_warnings = ["autoapi.python_import_resolution"]
 html_theme = "furo"
 html_static_path = ["_static"]
 html_theme_options = {
-    # "light_logo": "favicon-128x128-light.png",
-    # "dark_logo": "favicon-128x128-dark.png",
     "light_css_variables": {
         "color-brand-primary": "#2f3992",
         "color-brand-content": "#dee2e6",
