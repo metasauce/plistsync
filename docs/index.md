@@ -45,7 +45,7 @@ details/advanced/index.md
 
 services/tidal/index
 services/spotify/index
-services/plex
+services/plex/index
 ```
 
 ```{toctree}
