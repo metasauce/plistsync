@@ -43,6 +43,7 @@ details/advanced/index.md
 :hidden:
 :caption: 🛠️ Services
 
+services/local/index
 services/tidal/index
 services/spotify/index
 services/plex/index
