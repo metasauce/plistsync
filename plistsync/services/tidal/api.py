@@ -581,8 +581,160 @@ class TidalPlaylistApi:
         doc = self._create(name, description, access_type)
         return doc["data"], include_to_lookup(doc.get("included", []))
 
-    # TODO: add, remove, move tracks in a playlist
-    # see https://tidal-music.github.io/tidal-api-reference/
+    def update(
+        self,
+        id: str,
+        name: str | None = None,
+        description: str | None = None,
+        access_type: str | None = None,
+    ) -> requests.Response:
+        """Update a playlists information.
+
+        None values indicate no changes.
+        """
+        params = {}
+        if name:
+            params["name"] = name
+        if description:
+            params["description"] = description
+        if access_type:
+            params["accessType"] = access_type
+
+        return self.session.request(
+            "PATCH",
+            f"/playlists/{id}",
+            json={"data": {"attributes": params, "id": id, "type": "playlists"}},
+        )
+
+    def delete_items(
+        self, playlist_id: str, item_ids: list[str], item_type: str = "tracks"
+    ) -> requests.Response:
+        # Build the data array according to the payload structure
+        data = []
+        for item_id in item_ids:
+            data.append(
+                {
+                    "id": playlist_id,  # The playlist ID
+                    "meta": {
+                        "itemId": item_id  # The individual item ID to remove
+                    },
+                    "type": item_type,
+                }
+            )
+
+        return self.session.request(
+            "DELETE",
+            f"/playlists/{playlist_id}/relationships/{item_type}",
+            json={"data": data},
+        )
+
+    def add_items(
+        self,
+        playlist_id: str,
+        ids: list[str],
+        item_type: str = "tracks",
+        position_before: str | None = None,
+    ) -> requests.Response:
+        """Add items to a playlist.
+
+        If position before is provided, add items before the given
+        item uuid.
+        """
+
+        if item_type not in ["tracks", "videos"]:
+            raise ValueError('item_type must be either "tracks" or "videos"')
+
+        # Build the data array
+        data: list[dict[str, str]] = []
+        for item_id in ids:
+            item_data = {
+                "id": item_id,
+                "type": item_type,
+            }
+            data.append(item_data)
+
+        # Build the payload
+        payload: dict[str, Any] = {"data": data}
+
+        # Add meta if position_before is specified
+        if position_before:
+            payload["meta"] = {"positionBefore": position_before}
+
+        return self.session.request(
+            "POST", f"/playlists/{playlist_id}/relationships/items", json=payload
+        )
+
+    def reorder_items(
+        self,
+        playlist_id: str,
+        item_ids: list[tuple[str, str]],
+        item_type: str = "tracks",
+        position_before: str | None = None,
+    ) -> requests.Response:
+        """Reorder items within a playlist.
+
+        Moves existing items to a new position in the playlist.
+
+        This seems to be broken atm!
+        see https://github.com/orgs/tidal-music/discussions/286
+        """
+
+        if item_type not in ["tracks", "videos"]:
+            raise ValueError('item_type must be either "tracks" or "videos"')
+
+        # Build the data array - note the structure is different from add/delete
+        data: list[dict[str, str]] = []
+        for item_id in item_ids:
+            item_data = {
+                "id": item_id[0],
+                "meta": {
+                    "itemId": item_id[1]  # The specific item to reorder
+                },
+                "type": item_type,
+            }
+            data.append(item_data)
+
+        # Build the payload
+        payload: dict[str, Any] = {"data": data}
+
+        # Add meta if position_before is specified
+        if position_before:
+            payload["meta"] = {"positionBefore": position_before}
+
+        return self.session.request(
+            "PATCH",  # Typically PATCH for reorder operations
+            f"/playlists/{playlist_id}/relationships/items",
+            json=payload,
+        )
+
+    def remove_items(
+        self,
+        playlist_id: str,
+        item_ids: list[tuple[str, str]],
+        item_type: str = "tracks",
+    ):
+        if item_type not in ["tracks", "videos"]:
+            raise ValueError('item_type must be either "tracks" or "videos"')
+
+        data: list[dict[str, str]] = []
+        for item_id in item_ids:
+            item_data = {
+                "id": item_id[0],
+                "meta": {
+                    "itemId": item_id[1]  # The specific item to reorder
+                },
+                "type": item_type,
+            }
+            data.append(item_data)
+
+        # Build the payload
+        payload: dict[str, Any] = {"data": data}
+
+        return self.session.request(
+            "DELETE",
+            f"/playlists/{playlist_id}/relationships/items",
+            json=payload,
+        )
 
 
 class TidalUserApi:
