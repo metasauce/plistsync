@@ -92,7 +92,7 @@ class LoggingConfig:
 
 @dataclass
 class ConfigSchema:
-    logging: LoggingConfig = field(default_factory=LoggingConfig)
+    logging: LoggingConfig = field(default_factory=lambda: LoggingConfig())
 
     services: Annotated[
         ServicesConfig,
@@ -100,7 +100,7 @@ class ConfigSchema:
         "plistsync works without any of the services but using",
         "some of them will improve matching tremendously",
         "See the setup guide for more information!",
-    ] = field(default_factory=ServicesConfig)
+    ] = field(default_factory=lambda: ServicesConfig())
 
     redirect_port: Annotated[
         int,
