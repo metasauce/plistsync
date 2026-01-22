@@ -196,47 +196,14 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """The name of the playlist."""
         return self.data["name"]
 
+    @name.setter
+    def name(self, value: str):
+        raise NotImplementedError("Setter not implemented")
+
     @property
     def id(self) -> str:
         """The spotify ID of the playlist."""
         return self.data["id"]
-
-    def _apply_diff(self, playlist_changes) -> None:
-        """Apply the given changes to the playlist.
-
-        This method should handle updating the playlist's metadata and tracks
-        according to the provided `PlaylistChanges` object.
-
-        Note: This is not implemented yet.
-        """
-        # If name or description changed, update them
-        api = SpotifyApi()
-        api.playlist.update(
-            self.id,
-            name=playlist_changes.new_name(),
-            description=playlist_changes.new_description(),
-        )
-
-        # Apply track changes
-        ops = playlist_changes.track_operations(lambda t: t.id)
-
-        for tag, i1, i2, j1, j2 in ops:
-            if tag == "delete":
-                api.playlist.remove_tracks(
-                    self.id,
-                    [t.id for t in playlist_changes.snapshot_before["tracks"][i1:i2]],
-                    list(range(i1, i2)),
-                    self.data.get("snapshot_id"),
-                )
-
-            elif tag == "insert":
-                log.warning(
-                    "Inserting tracks into spotify playlists is not implemented yet."
-                )
-            elif tag == "replace":
-                log.warning(
-                    "Replacing tracks in spotify playlists is not implemented yet."
-                )
 
     def __iter__(self) -> Iterator[SpotifyPlaylistTrack]:
         """Iterate over all tracks in the playlist.
@@ -267,3 +234,16 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             raise ValueError(
                 f"Item at index {index} is not a track, but {item['track']['type']}"
             )
+
+    def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
+        raise NotImplementedError("Insert not implemented")
+
+    def _remote_delete_track(self, idx: int, track: SpotifyPlaylistTrack):
+        raise NotImplementedError("Delete not implemented")
+
+    def _remote_update_metadata(self, new_name=None, new_description=None):
+        raise NotImplementedError("Update not implemented")
+
+    @staticmethod
+    def _track_key(track):
+        return track.id

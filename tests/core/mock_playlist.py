@@ -8,7 +8,7 @@ class MockPlaylist(PlaylistCollection):
     def __init__(self, name: str, tracks: None | list = None):
         self._name = name
         self._tracks = tracks or []
-        self.log: list[tuple[Any,...]] = []
+        self.log: list[tuple[Any, ...]] = []
 
     @property
     def name(self) -> str:
@@ -30,5 +30,5 @@ class MockPlaylist(PlaylistCollection):
         self.log.append(("update_meta", new_name, new_description))
 
     @staticmethod
-    def _eq_function(track) -> str:
+    def _track_key(track) -> str:
         return track.global_ids["isrc"]  # Fixed to match test expectations

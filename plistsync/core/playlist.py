@@ -176,9 +176,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         if new_name is not None or new_description is not None:
             self._remote_update_metadata(new_name, new_description)
 
-        operations = list_diff(
-            before.tracks, after.tracks, eq_function=self._eq_function
-        )
+        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
         for op in operations:
             if isinstance(op, InsertOp):
                 self._remote_insert_track(op.idx, op.item)
@@ -189,7 +187,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
 
     @staticmethod
     @abstractmethod
-    def _eq_function(track: T) -> Hashable:
+    def _track_key(track: T) -> Hashable:
         """Return stable track identifier for equality comparisons.
 
         Used by list_diff() to match tracks between snapshots. Must be consistent
