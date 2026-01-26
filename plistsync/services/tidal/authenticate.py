@@ -12,7 +12,7 @@ import typer
 from plistsync.config import Config
 from plistsync.logger import log
 from plistsync.utils import build_url
-from plistsync.utils.bearer_token import BearerToken
+from plistsync.utils.auth.bearer_token import BearerToken
 
 tidal_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Tidal.", add_completion=False
