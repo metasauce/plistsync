@@ -1,6 +1,6 @@
 import pytest
 
-from plistsync.core.playlist import PlaylistChanges, Snapshot
+from plistsync.core.playlist import Snapshot
 from .mock_track import MockTrack
 from .mock_playlist import MockPlaylist
 
@@ -42,151 +42,62 @@ class TestPlaylistChanges:
             tracks=sample_tracks,
         )
 
-    def test_no_change(self, sample_snapshot: Snapshot):
-        changes = PlaylistChanges(sample_snapshot, sample_snapshot)
-        assert changes.new_name() is None
-        assert changes.new_description() is None
 
-    def test_name_description_change(self, sample_snapshot: Snapshot):
-        modified_snapshot = sample_snapshot.copy()
-        modified_snapshot.name = "New Playlist Name"
-        modified_snapshot.description = "New description"
-
-        changes = PlaylistChanges(sample_snapshot, modified_snapshot)
-        assert changes.new_name() == "New Playlist Name"
-        assert changes.new_description() == "New description"
-
+class TestPlaylistCollection:
     @pytest.mark.parametrize(
-        "tracks_before, tracks_after, expected_ops",
+        "ids_before, ids_after, expected_log",
         [
+            # No change (different objects, same ISRC)
             (
-                # Same tracks but different objects
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                ],
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                ],
-                [
-                    ("equal", 0, 1, 0, 1),
-                ],
+                [{"isrc": "1"}],
+                [{"isrc": "1"}],
+                [],
             ),
+            # Addition
             (
-                # Addition
-                [
-                    MockTrack(
-                        title="Track 4", artists=["Artist D"], global_ids={"isrc": "4"}
-                    ),
-                ],
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                    MockTrack(
-                        title="Track 4", artists=["Artist D"], global_ids={"isrc": "4"}
-                    ),
-                ],
-                [
-                    ("insert", 0, 0, 0, 1),
-                    ("equal", 0, 1, 1, 2),
-                ],
+                [{"isrc": "4"}],
+                [{"isrc": "1"}, {"isrc": "4"}],
+                [("insert", 0, {"isrc": "1"})],
             ),
+            # Deletion
             (
-                # Removal
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                    MockTrack(
-                        title="Track 4", artists=["Artist D"], global_ids={"isrc": "4"}
-                    ),
-                ],
-                [
-                    MockTrack(
-                        title="Track 4", artists=["Artist D"], global_ids={"isrc": "4"}
-                    ),
-                ],
-                [
-                    ("delete", 0, 1, 0, 0),
-                    ("equal", 1, 2, 0, 1),
-                ],
+                [{"isrc": "1"}, {"isrc": "4"}],
+                [{"isrc": "4"}],
+                [("delete", 0, {"isrc": "1"})],
             ),
+            # Move
             (
-                # Complex reordering
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                    MockTrack(
-                        title="Track 2", artists=["Artist B"], global_ids={"isrc": "2"}
-                    ),
-                    MockTrack(
-                        title="Track 3", artists=["Artist C"], global_ids={"isrc": "3"}
-                    ),
-                ],
-                [
-                    MockTrack(
-                        title="Track 3", artists=["Artist C"], global_ids={"isrc": "3"}
-                    ),
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                    MockTrack(
-                        title="Track 2", artists=["Artist B"], global_ids={"isrc": "2"}
-                    ),
-                ],
-                [
-                    ("insert", 0, 0, 0, 1),
-                    ("equal", 0, 2, 1, 3),
-                    ("delete", 2, 3, 3, 3),
-                ],
-            ),
-            (
-                # Replacement
-                [
-                    MockTrack(
-                        title="Track 1", artists=["Artist A"], global_ids={"isrc": "1"}
-                    ),
-                ],
-                [
-                    MockTrack(
-                        title="Track 2", artists=["Artist B"], global_ids={"isrc": "2"}
-                    ),
-                ],
-                [
-                    ("replace", 0, 1, 0, 1),
-                ],
+                [{"isrc": "1"}, {"isrc": "4"}],
+                [{"isrc": "4"}, {"isrc": "1"}],
+                [("delete", 1, {"isrc": "4"}), ("insert", 0, {"isrc": "4"})],
             ),
         ],
     )
-    def test_track_operations(self, tracks_before, tracks_after, expected_ops):
+    def test_edit_tracks(self, ids_before, ids_after, expected_log):
         """Test track_operations() reflects changes in track lists."""
-        changes = PlaylistChanges(
-            Snapshot(tracks=tracks_before, name="A", description=None),
-            Snapshot(tracks=tracks_after, name="A", description=None),
-        )
+        pl = MockPlaylist("foo", [MockTrack(global_ids=tb) for tb in ids_before])
+        with pl.edit():
+            pl._tracks = [MockTrack(global_ids=ta) for ta in ids_after]
+
+        assert [t.global_ids for t in pl._tracks] == ids_after  # Local state preserved
+        # Check log
         assert (
-            changes.track_operations(lambda track: track.global_ids["isrc"])
-            == expected_ops
-        )
+            list(map(lambda x: (x[0], x[1], x[2].global_ids), pl.log)) == expected_log
+        )  # Log reflects changes
 
+    def test_edit_meta(self):
+        pl = MockPlaylist("foo", [])
+        with pl.edit():
+            pl.name = "bar"
 
-class TestPlaylistCollection:
-    def test_mock_playlist_collection_basic_functionality(self):
-        """Test basic functionality of MockPlaylistCollection."""
-        tracks = [MockTrack("1"), MockTrack("2")]
-        playlist = MockPlaylist("Test Playlist", tracks)
+        assert pl.name == "bar"
 
-        assert playlist.name == "Test Playlist"
-        assert len(playlist) == 2
-        assert list(playlist) == tracks
-        assert playlist.description is None
-
-        # Test context manager
-        with playlist.edit():
-            assert list(playlist) == tracks
-        assert playlist[0] == tracks[0]
+    def test_edit_rollbnack(self):
+        pl = MockPlaylist("foo", [])
+        try:
+            with pl.edit():
+                pl.name = "bar"
+                raise ValueError()
+        except ValueError:
+            pass
+        assert pl.name == "foo"  # Rollback
