@@ -221,7 +221,7 @@ class TidalPlaylistCollection(Collection, TrackStream):
     #                                 ABC methods                                  #
     # ---------------------------------------------------------------------------- #
 
-    def __iter__(self) -> Iterator[TidalPlaylistTrack]:
+    def tracks(self) -> Iterator[TidalPlaylistTrack]:
         """Iterate over all tracks in the playlist.
 
         This does not include non-track items, which are skipped.

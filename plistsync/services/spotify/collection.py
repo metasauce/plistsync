@@ -205,7 +205,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """The spotify ID of the playlist."""
         return self.data["id"]
 
-    def __iter__(self) -> Iterator[SpotifyPlaylistTrack]:
+    def tracks(self) -> Iterator[SpotifyPlaylistTrack]:
         """Iterate over all tracks in the playlist.
 
         This does not include non-track items, which are skipped.

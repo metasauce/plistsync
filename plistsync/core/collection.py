@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import (
@@ -121,8 +121,9 @@ class TrackStream(Protocol[T]):
     a library or processing all items in a playlist.
     """
 
+    @property
     @abstractmethod
-    def __iter__(self) -> Iterator[T]: ...
+    def tracks(self) -> Iterable[T]: ...
 
     def map_threadpool_chunked(
         self,
@@ -174,7 +175,7 @@ class TrackStream(Protocol[T]):
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             offset = 0
             while True:
-                chunk = itertools.islice(self, offset, offset + chunk_size)
+                chunk = itertools.islice(self.tracks, offset, offset + chunk_size)
 
                 futures = {
                     executor.submit(func, track, *args, **kwargs): track

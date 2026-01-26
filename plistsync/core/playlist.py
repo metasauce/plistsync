@@ -22,7 +22,7 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterator
+from collections.abc import Hashable
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
@@ -51,12 +51,11 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
     subclasses. Supports transactional edits through the `edit()` context manager.
     """
 
-    _tracks: list[T]
-
     @property
     @abstractmethod
     def name(self) -> str:
         """The name of the playlist."""
+        ...
 
     @name.setter
     @abstractmethod
@@ -79,6 +78,17 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             New playlist description
         """
         return None
+
+    # To get typing compatible with TrackStream
+    _tracks: list[T]
+
+    @property
+    def tracks(self) -> list[T]:
+        return self._tracks
+
+    @tracks.setter
+    def tracks(self, value: list[T]) -> None:
+        self._tracks = value
 
     @contextmanager
     def edit(self):
@@ -193,12 +203,4 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         Used by list_diff() to match tracks between snapshots. Must be consistent
         across service lifetime (track ID, URI, etc).
         """
-
-    def __len__(self) -> int:
-        return len(self._tracks)
-
-    def __getitem__(self, index: int) -> T:
-        return self._tracks[index]
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._tracks)
+        ...

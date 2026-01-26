@@ -289,7 +289,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
 
     # --------------------------------- Protocols -------------------------------- #
 
-    def __iter__(self) -> Iterator[PlexTrack]:
+    def tracks(self) -> Iterator[PlexTrack]:
         """Iterate over the tracks in the collection.
 
         Returns

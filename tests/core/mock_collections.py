@@ -65,7 +65,7 @@ class MockTrackStreamCollection(Collection, TrackStream):
     def __init__(self, tracks: list[MockTrack] | None = None):
         self.tracks = tracks or []
 
-    def __iter__(self):
+    def tracks(self):
         return iter(self.tracks)
 
 
@@ -104,5 +104,5 @@ class MockFullCapabilityCollection(
             if info.get("title") == track.title:
                 yield track
 
-    def __iter__(self):
+    def tracks(self):
         return iter(self.tracks)

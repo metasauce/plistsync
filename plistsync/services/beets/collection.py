@@ -102,7 +102,7 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
             )
             return tracks[0]
 
-    def __iter__(self) -> Iterator[BeetsTrack]:
+    def tracks(self) -> Iterator[BeetsTrack]:
         table = self.db.get_table("items")
 
         stmt = select(table)
