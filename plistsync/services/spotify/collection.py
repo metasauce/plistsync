@@ -9,7 +9,7 @@ from plistsync.core.collection import (
     GlobalLookup,
     LibraryCollection,
 )
-from plistsync.core.playlist import PlaylistCollection
+from plistsync.core.playlist import PlaylistCollection, Snapshot
 from plistsync.logger import log
 from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponse
 
@@ -217,13 +217,46 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         self._description = value
 
     def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
-        raise NotImplementedError("Insert not implemented")
+        if not self.id:
+            raise ValueError("Id must be set to call remote insert!")
+        self.api.playlist.add_tracks(self.id, [track.uri], idx)
 
     def _remote_delete_track(self, idx: int, track: SpotifyPlaylistTrack):
-        raise NotImplementedError("Delete not implemented")
+        if not self.id:
+            raise ValueError("Id must be set to call remote delete!")
+        self.api.playlist.remove_tracks(self.id, [track.uri], [idx])
+
+    def _remote_move_track(
+        self, old_idx: int, new_idx: int, track: SpotifyPlaylistTrack
+    ) -> None:
+        if not self.id:
+            raise ValueError("Id must be set to call remote move!")
+        self.api.playlist.reorder_tracks(
+            playlist_id=self.id,
+            range_start=old_idx,
+            range_length=1,
+            insert_before=new_idx,
+        )
 
     def _remote_update_metadata(self, new_name=None, new_description=None):
-        raise NotImplementedError("Update not implemented")
+        if not self.id:
+            raise ValueError("Id must be set to call remote update!")
+        self.api.playlist.update(
+            self.id,
+            new_name,
+            new_description,
+        )
+
+    def _apply_diff(
+        self,
+        before: Snapshot[SpotifyPlaylistTrack],
+        after: Snapshot[SpotifyPlaylistTrack],
+    ) -> None:
+        """Wrap apply diff so `edit` also associates the playlist id online."""
+        if not self.id:
+            pl_data = self.api.playlist.create(self.name, self.description or "")
+            self.id = pl_data["id"]
+        return super()._apply_diff(before, after)
 
     @staticmethod
     def _track_key(track: SpotifyPlaylistTrack):

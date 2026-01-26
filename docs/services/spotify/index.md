@@ -6,6 +6,7 @@
 :maxdepth: 2
 
 getting-started
+collections
 ```
 
 % TODO: add guide collections and tracks once implemented
