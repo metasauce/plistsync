@@ -46,6 +46,10 @@ class DependencyError(ImportError):
         super().__init__(msg)
 
 
+class AuthenticationError(Exception):
+    pass
+
+
 def check_imports(
     service: str,
     required_packages: list[str],
