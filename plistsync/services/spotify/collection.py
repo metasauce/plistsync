@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Self
 
@@ -34,7 +34,10 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         This can take quite some time, as it fetches all playlists and their tracks.
         """
         return [
-            SpotifyPlaylistCollection(playlist)
+            SpotifyPlaylistCollection.from_response_data(
+                self,
+                playlist,
+            )
             for playlist in self.api.user.get_playlists()
         ]
 
@@ -57,7 +60,10 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
                     break
 
         try:
-            return SpotifyPlaylistCollection(self.api.playlist.get(plist_identifier))
+            return SpotifyPlaylistCollection.from_response_data(
+                self,
+                self.api.playlist.get(plist_identifier),
+            )
         except Exception as e:
             log.debug(f"Could not fetch playlist {name}: {e}")
             return None
@@ -124,116 +130,91 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
-    data: SpotifyApiPlaylistResponse
-    api: SpotifyApi
+    _name: str
+    _description: str | None
+    _tracks: list[SpotifyPlaylistTrack]
+    library: SpotifyLibraryCollection
 
-    def __init__(self, data: SpotifyApiPlaylistResponse):
-        """Initialize a SpotifyPlaylistCollection from the given data.
+    # convention: when id is None, the playlist has not been created online
+    # (or assoicted with an existing online playlist)
+    id: str | None
 
-        Expected data comes from the spotify API, e.g. from
-        `GET /playlists/{playlist_id}`.
-        """
+    def __init__(
+        self,
+        library: SpotifyLibraryCollection,
+        name: str,
+        description: str | None = None,
+        tracks: list[SpotifyPlaylistTrack] | None = None,
+    ):
+        """Initialize a SpotifyPlaylistCollection."""
 
-        if data.get("type") != "playlist":
-            raise ValueError(
-                f"Data is not a Spotify playlist object, got type {data.get('type')}"
-            )
-
-        self.data = data
-
-    @classmethod
-    def create_new(cls, name: str, description: str | None = None) -> Self:
-        """Create a new empty Spotify playlist with the given name and description.
-
-        Parameters
-        ----------
-        name : str
-            The name of the new playlist.
-        description : str | None
-            The description of the new playlist.
-
-        Returns
-        -------
-        SpotifyPlaylistCollection
-            The created SpotifyPlaylistCollection.
-
-        Raises
-        ------
-        ValueError
-            If the playlist could not be created.
-        """
-
-        return cls(
-            SpotifyApi().playlist.create(
-                name,
-                description or "Created by 'plistsync'",
-            )
-        )
-
-    @classmethod
-    def from_id(cls, playlist_id: str) -> Self:
-        """Create a SpotifyPlaylistCollection from a spotify playlist ID.
-
-        Parameters
-        ----------
-        playlist_id : str
-            The spotify playlist ID.
-
-        Returns
-        -------
-        SpotifyPlaylistCollection
-            The created SpotifyPlaylistCollection.
-
-        Raises
-        ------
-        ValueError
-            If the playlist ID is invalid or not found.
-        """
-        return cls(SpotifyApi().playlist.get(playlist_id))
+        self.library = library
+        self._name = name
+        self._description = description
+        self._tracks = tracks or []
+        self.id = None
 
     @property
-    def name(self) -> str:
-        """The name of the playlist."""
-        return self.data["name"]
+    def api(self):
+        return self.library.api
 
-    @name.setter
-    def name(self, value: str):
-        raise NotImplementedError("Setter not implemented")
+    @classmethod
+    def from_url(cls, library: SpotifyLibraryCollection, url: str):
+        """Get playlist via its url, uri or id.
 
-    @property
-    def id(self) -> str:
-        """The spotify ID of the playlist."""
-        return self.data["id"]
-
-    def tracks(self) -> Iterator[SpotifyPlaylistTrack]:
-        """Iterate over all tracks in the playlist.
-
-        This does not include non-track items, which are skipped.
+        TODO: regex id from url
         """
-        items = self.data.get("tracks", {}).get("items", [])
+        pass
+
+    @classmethod
+    def from_response_data(
+        cls,
+        library: SpotifyLibraryCollection,
+        data: SpotifyApiPlaylistResponse,
+    ) -> Self:
+        """Create a new empty Spotify playlist with the given name and description."""
+        name = data["name"]
+        description = data.get("description")
+
+        tracks: list[SpotifyPlaylistTrack] = []
+        items = data.get("tracks", {}).get("items", [])
         for item in items:
             # It is possible to add episodes or other non-track items to a playlist
             # We add a placeholder to keep the order
             if item["track"]["type"] == "track":
-                yield SpotifyPlaylistTrack(item)
+                tracks.append(SpotifyPlaylistTrack(item))
             else:
                 log.debug(
                     f"Skipping non-track item in playlist "
-                    f"'{self.name}': {item['track']['type']}"
+                    f"'{name}': {item['track']['type']}"
                 )
 
-    def __len__(self) -> int:
-        return len(self.data.get("tracks", {}).get("items", []))
+        pl = cls(
+            library,
+            name,
+            description,
+            tracks,
+        )
+        pl.id = data["id"]
+        return pl
 
-    def __getitem__(self, index: int) -> SpotifyPlaylistTrack:
-        items = self.data.get("tracks", {}).get("items", [])
-        item = items[index]
-        if item["track"]["type"] == "track":
-            return SpotifyPlaylistTrack(item)
-        else:
-            raise ValueError(
-                f"Item at index {index} is not a track, but {item['track']['type']}"
-            )
+    @property
+    def name(self) -> str:
+        """The name of the playlist."""
+        return self._name
+
+    @name.setter
+    def name(self, value: str):
+        self._name = value
+
+    @property
+    def description(self) -> str | None:
+        """The description of the playlist."""
+        return self._description
+
+    @description.setter
+    def description(self, value: str | None):
+        self._description = value
 
     def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
         raise NotImplementedError("Insert not implemented")
@@ -245,5 +226,5 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         raise NotImplementedError("Update not implemented")
 
     @staticmethod
-    def _track_key(track):
+    def _track_key(track: SpotifyPlaylistTrack):
         return track.id
