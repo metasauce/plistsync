@@ -42,28 +42,45 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         ]
 
     def get_playlist(
-        self, name: str | Path, allow_name=True
+        self,
+        name: str | Path | None = None,
+        id: str | None = None,
+        url: str | None = None,
+        uri: str | None = None,
+        allow_name=False,  # TODO: remove
     ) -> SpotifyPlaylistCollection | None:
         """Get a specific playlist by its ID."""
+
+        if sum(arg is not None for arg in [name, id, url, uri]) != 1:
+            raise ValueError("Exactly one of name, id, url, or uri must be provided")
 
         if isinstance(name, Path):
             raise ValueError("Playlist name cannot be a Path")
 
-        plist_identifier: str = name
+        playlist_id = id
 
-        # We fetch all playlists by the user and check if the name matches
-        if allow_name:
+        # TODO: sanitize urls, remove ?&... fluff
+
+        if playlist_id is None:
             plists = self.api.user.get_playlists(True)
+            playlist_id = ""  # only for typing
             for plist in plists:
-                if plist["name"] == plist_identifier:
-                    plist_identifier = plist["id"]
+                if (
+                    (name is not None and plist["name"] == name)
+                    or (uri is not None and plist["uri"] == uri)
+                    or (url is not None and url in plist["external_urls"].values())
+                ):
+                    playlist_id = plist["id"]
                     break
 
         try:
-            return SpotifyPlaylistCollection.from_response_data(
-                self,
-                self.api.playlist.get(plist_identifier),
+            res = self.api.playlist.get(playlist_id)
+            pl = SpotifyPlaylistCollection.from_response_data(self, res)
+            log.debug(
+                f"Got Spotify playlist: id={res['id']} uri={res['uri']} "
+                f"name={res['name']} external_urls={res['external_urls']}"
             )
+            return pl
         except Exception as e:
             log.debug(f"Could not fetch playlist {name}: {e}")
             return None

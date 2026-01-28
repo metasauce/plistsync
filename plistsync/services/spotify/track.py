@@ -82,16 +82,22 @@ class SpotifyPlaylistTrack(SpotifyTrack):
 
     is_local: bool = False
 
-    def __init__(self, data: SpotifyApiPlaylistTrack):
+    def __init__(self, data_or_track: SpotifyApiPlaylistTrack | SpotifyTrack):
         """Initialize a SpotifyPlaylistTrack with the given data.
 
         Expected data comes from the spotify API, e.g. from
         `GET /playlists/{playlist_id}/tracks`.
 
-
         """
-        self.added_at = data.get("added_at", None)
-        self.added_by = data.get("added_by", None)
-        self.is_local = data.get("is_local", False)
+        if isinstance(data_or_track, SpotifyTrack):
+            super().__init__(data_or_track.data)
+            self.added_at = None
+            self.added_by = None
+            self.is_local = False
+            return
 
-        super().__init__(data["track"])
+        self.added_at = data_or_track.get("added_at", None)
+        self.added_by = data_or_track.get("added_by", None)
+        self.is_local = data_or_track.get("is_local", False)
+
+        super().__init__(data_or_track["track"])

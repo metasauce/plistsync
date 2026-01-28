@@ -192,5 +192,30 @@ class Track(ABC):
 
         return diffs
 
+    def __eq__(self, other: object) -> bool:
+        """Check if two tracks are equal based on their data."""
+        if not isinstance(other, Track):
+            return NotImplemented
+
+        return (
+            self.info == other.info
+            and self.global_ids == other.global_ids
+            and self.local_ids == other.local_ids
+        )
+
+    def __hash__(self) -> int:
+        """Generate a hash based on the track's data."""
+        # We need to convert lists to tuples and handle None values
+        info_hash = tuple(
+            sorted(
+                (k, tuple(v) if isinstance(v, list) else v)
+                for k, v in self.info.items()
+            )
+        )
+        global_ids_hash = tuple(sorted(self.global_ids.items()))
+        local_ids_hash = tuple(sorted(self.local_ids.items()))
+
+        return hash((info_hash, global_ids_hash, local_ids_hash))
+
     def __repr__(self) -> str:
-        return f"Track[{self.primary_artist} > {self.title}, {hash(self)}]"
+        return f"Track[{self.primary_artist} > {self.title}, hash: {hash(self)}]"
