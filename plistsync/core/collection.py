@@ -387,6 +387,10 @@ class LibraryCollection(Generic[C], Collection, ABC):
         ...
 
     @abstractmethod
-    def get_playlist(self, name: Path | str) -> C | None:
-        """Get a specific playlist by name or identifier."""
+    def get_playlist(self, *args, **kwargs) -> C | None:
+        """Get a playlist by identifier.
+
+        Implement with kwargs like ``name=``, ``id=``, ``url=``, or ``uri=``.
+        Return ``None`` for name searches that fail.
+        """
         ...

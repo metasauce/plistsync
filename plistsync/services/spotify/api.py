@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
-
+import re
 import requests
 from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import ExpiredAccessToken
@@ -619,3 +619,18 @@ class UserApi:
             playlists_details.append(playlist_data)
 
         return playlists_details
+
+
+def extract_spotify_playlist_id(url_or_uri: str) -> str:
+    """Extract the Spotify ID from a playlist URL or URI."""
+    # Pattern matches:
+    # spotify:playlist:<id>
+    # https?://open.spotify.com/playlist/<id>
+    # open.spotify.com/playlist/<id> (without protocol)
+    pattern = r"(?:spotify:playlist:|(?:https?://)?open\.spotify\.com/playlist/)([a-zA-Z0-9]+)"
+
+    match = re.search(pattern, url_or_uri)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError(f"Invalid Spotify playlist URL or URI: {url_or_uri}")
