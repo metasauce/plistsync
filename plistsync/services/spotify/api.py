@@ -19,8 +19,8 @@ from plistsync.utils.auth.bearer_token import (
 
 if TYPE_CHECKING:
     from .api_types import (
-        SimplifiedPlaylist,
-        SpotifyApiPlaylistResponse,
+        SpotifyApiPlaylistResponseSimplified,
+        SpotifyApiPlaylistResponseFull,
         SpotifyApiTrackResponse,
     )
 
@@ -147,7 +147,7 @@ class PlaylistApi:
         self.session = session
         self.api = api
 
-    def get(self, playlist_id: str) -> SpotifyApiPlaylistResponse:
+    def get(self, playlist_id: str) -> SpotifyApiPlaylistResponseFull:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
             "GET",
@@ -177,7 +177,7 @@ class PlaylistApi:
         description: str,
         public: bool = False,
         collaborative: bool = False,
-    ) -> SpotifyApiPlaylistResponse:
+    ) -> SpotifyApiPlaylistResponseFull:
         """Create a new playlist for the current user.
 
         Parameters
@@ -370,7 +370,7 @@ class PlaylistApi:
         remove_uris: list[str],
         positions: list[int],
         snapshot_id: str | None = None,
-        plist_data: SpotifyApiPlaylistResponse | None = None,
+        plist_data: SpotifyApiPlaylistResponseFull | None = None,
     ) -> str:
         """Remove tracks from a playlist at specific positions.
 
@@ -563,14 +563,19 @@ class UserApi:
         self.api = api
 
     @overload
-    def get_playlists(self, simplified: Literal[True]) -> list[SimplifiedPlaylist]: ...
+    def get_playlists(
+        self, simplified: Literal[True]
+    ) -> list[SpotifyApiPlaylistResponseSimplified]: ...
     @overload
     def get_playlists(
         self, simplified: Literal[False] = ...
-    ) -> list[SpotifyApiPlaylistResponse]: ...
+    ) -> list[SpotifyApiPlaylistResponseFull]: ...
     def get_playlists(
         self, simplified: bool = False
-    ) -> list[SimplifiedPlaylist] | list[SpotifyApiPlaylistResponse]:
+    ) -> (
+        list[SpotifyApiPlaylistResponseSimplified]
+        | list[SpotifyApiPlaylistResponseFull]
+    ):
         # Migrated from get_user_playlists_simplified() and get_user_playlists_full()
         if simplified:
             return self._get_playlists_simplified()
@@ -584,7 +589,7 @@ class UserApi:
             "/me",
         ).json()
 
-    def _get_playlists_simplified(self) -> list[SimplifiedPlaylist]:
+    def _get_playlists_simplified(self) -> list[SpotifyApiPlaylistResponseSimplified]:
         """Get the current user's playlists without resolving all tracks.
 
         Returns
@@ -593,7 +598,7 @@ class UserApi:
             A list of simplified playlist data from the Spotify API.
         """
         next_page = "/me/playlists?limit=50"
-        simplified_playlists: list[SimplifiedPlaylist] = []
+        simplified_playlists: list[SpotifyApiPlaylistResponseSimplified] = []
         while next_page:
             json_res = self.session.request(
                 "GET",
@@ -603,7 +608,7 @@ class UserApi:
             next_page = json_res.get("next", None)
         return simplified_playlists
 
-    def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponse]:
+    def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponseFull]:
         """Get the current user's playlists with full details.
 
         Returns

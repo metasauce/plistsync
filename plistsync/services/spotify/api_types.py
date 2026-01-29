@@ -122,40 +122,33 @@ class Owner(TypedDict):
     display_name: NotRequired[str]
 
 
-class SpotifyApiPlaylistResponse(TypedDict):
+class SpotifyApiPlaylistResponseBase(TypedDict):
+    """Type shared by the full and simplified response."""
+
+    collaborative: bool
+    description: str | None
+    external_urls: ExternalUrls
+    href: str
+    id: str
+    images: list[Image]
+    name: str
+    owner: Owner
+    public: bool
+    snapshot_id: str
+    type: Literal["playlist"]
+    uri: str
+
+
+class SpotifyApiPlaylistResponseFull(SpotifyApiPlaylistResponseBase):
     """Full playlist object."""
 
-    collaborative: bool
-    description: str | None
-    external_urls: ExternalUrls
-    href: str
-    id: str
-    images: list[Image]
-    name: str
-    owner: Owner
-    public: bool
-    snapshot_id: str
     tracks: PlaylistTracks
-    type: Literal["playlist"]
-    uri: str
 
 
-class SimplifiedPlaylist(TypedDict):
+class SpotifyApiPlaylistResponseSimplified(SpotifyApiPlaylistResponseBase):
     """Simplified playlist object (without full tracks)."""
 
-    collaborative: bool
-    description: str | None
-    external_urls: ExternalUrls
-    href: str
-    id: str
-    images: list[Image]
-    name: str
-    owner: Owner
-    public: bool
-    snapshot_id: str
-    tracks: dict[str, Any]  # Simplified tracks info
-    type: Literal["playlist"]
-    uri: str
+    tracks: dict[str, Any]  # TODO: propper types Simplified tracks info
 
 
 class UserProfile(TypedDict):

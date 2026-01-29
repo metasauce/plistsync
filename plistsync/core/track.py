@@ -197,6 +197,8 @@ class Track(ABC):
         if not isinstance(other, Track):
             return NotImplemented
 
+        # TODO: Design choice:
+        # when is a track from another serivce the same track?
         return (
             self.info == other.info
             and self.global_ids == other.global_ids

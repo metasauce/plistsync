@@ -26,11 +26,20 @@ from collections.abc import Hashable
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic
+from typing import Generic, TypedDict
 
 from .collection import Collection, TrackStream, TypeVar
 from .diff import DeleteOp, InsertOp, MoveOp, list_diff
 from .track import Track
+
+
+class PlaylistInfo(TypedDict, total=False):
+    """Unified information a playlist can have, independent of its service."""
+
+    name: str
+    description: str | None
+    # TODO: add more unified fields like owner, date_created etc
+
 
 T = TypeVar("T", bound=Track)
 
@@ -53,38 +62,56 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        """The name of the playlist."""
+    def info(self) -> PlaylistInfo:
+        """
+        Get this playlist's information.
+
+        Subclasses need return a reference, so that the setters for name
+        etc. that are defined here, write back.
+        """
         ...
 
-    @name.setter
+    @info.setter
     @abstractmethod
+    def info(self, value: PlaylistInfo):
+        """Set playlist information."""
+        ...
+
+    @property
+    def name(self) -> str:
+        """The name of the playlist."""
+        name = self.info.get("name")
+        if name is None:
+            raise ValueError("Playlists need a name")
+        return name
+
+    @name.setter
     def name(self, value: str):
         """Set the name of the playlist."""
-        ...
+        info = deepcopy(self.info)
+        info.update({"name": value})
+        self.info = info
 
     @property
     def description(self) -> str | None:
         """The description of the playlist, if available."""
-        return None
+        return self.info.get("description")
 
     @description.setter
     def description(self, value: str | None) -> None:
-        """Set playlist description on remote service.
+        """Set playlist description on remote service."""
+        info = deepcopy(self.info)
+        info.update({"description": value})
+        self.info = info
 
-        Parameters
-        ----------
-        value : str or None
-            New playlist description
-        """
-        return None
+    # -------------------------------- Tracks -------------------------------- #
 
-    # To get typing compatible with TrackStream
-    _tracks: list[T]
+    # Services can decide how to populate this helper
+    _tracks: list[T] | None = None
 
     @property
     def tracks(self) -> list[T]:
-        return self._tracks
+        return self._tracks or []
 
     @tracks.setter
     def tracks(self, value: list[T]) -> None:
@@ -103,7 +130,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             snapshot_after = self.get_snapshot()
             self._apply_diff(snapshot_before, snapshot_after)
         except Exception:
-            self._tracks = snapshot_before.tracks
+            self.tracks = snapshot_before.tracks
             self.name = snapshot_before.name
             self.description = snapshot_before.description
             # TODO: maybe we want a online rollback too
@@ -114,7 +141,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         return Snapshot(
             name=self.name,
             description=self.description,
-            tracks=deepcopy(self._tracks),
+            tracks=deepcopy(self.tracks),
         )
 
     @abstractmethod

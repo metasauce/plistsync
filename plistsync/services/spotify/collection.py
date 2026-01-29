@@ -9,9 +9,12 @@ from plistsync.core.collection import (
     GlobalLookup,
     LibraryCollection,
 )
-from plistsync.core.playlist import PlaylistCollection, Snapshot
+from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
 from plistsync.logger import log
-from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponse
+from plistsync.services.spotify.api_types import (
+    SpotifyApiPlaylistResponseBase,
+    SpotifyApiPlaylistResponseFull,
+)
 
 from .api import SpotifyApi, extract_spotify_playlist_id
 from .track import SpotifyPlaylistTrack, SpotifyTrack
@@ -86,11 +89,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         if name is not None:
             plists = self.api.user.get_playlists(True)
             for plist in plists:
-                if (
-                    (name is not None and plist["name"] == name)
-                    or (uri is not None and plist["uri"] == uri)
-                    or (url is not None and url in plist["external_urls"].values())
-                ):
+                if plist["name"] == name:
                     id = plist["id"]
                     break
 
@@ -170,14 +169,11 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
-    _name: str
-    _description: str | None
-    _tracks: list[SpotifyPlaylistTrack]
     library: SpotifyLibraryCollection
 
-    # convention: when id is None, the playlist has not been created online
-    # (or assoicted with an existing online playlist)
-    id: str | None
+    # When the playlist is associated with an online playlist, we have the repsonse.
+    # Otherwise, we have at least a name via PlaylistInfo.
+    data: SpotifyApiPlaylistResponseBase | PlaylistInfo
 
     def __init__(
         self,
@@ -186,13 +182,11 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         description: str | None = None,
         tracks: list[SpotifyPlaylistTrack] | None = None,
     ):
-        """Initialize a SpotifyPlaylistCollection."""
+        """Initialize a SpotifyPlaylistCollection, without creating it online."""
 
         self.library = library
-        self._name = name
-        self._description = description
         self._tracks = tracks or []
-        self.id = None
+        self.data = PlaylistInfo(name=name, description=description)
 
     @property
     def api(self):
@@ -210,9 +204,14 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     def from_response_data(
         cls,
         library: SpotifyLibraryCollection,
-        data: SpotifyApiPlaylistResponse,
+        data: SpotifyApiPlaylistResponseFull,
     ) -> Self:
-        """Create a new empty Spotify playlist with the given name and description."""
+        """
+        Create a new empty Spotify playlist with the given name and description.
+
+        Uses response from an api, so the resulting instance will have id and
+        is available online.
+        """
         name = data["name"]
         description = data.get("description")
 
@@ -235,26 +234,31 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             description,
             tracks,
         )
-        pl.id = data["id"]
+        pl.data = data
+        del pl.data["tracks"]  # type: ignore
+        # we want to delete tracks for consistency, to not keep them around twice.
+
         return pl
 
     @property
-    def name(self) -> str:
-        """The name of the playlist."""
-        return self._name
+    def info(self) -> PlaylistInfo:
+        info = PlaylistInfo()
+        if name := self.data.get("name"):
+            info["name"] = name
+        if description := self.data.get("description"):
+            info["description"] = description
+        return info
 
-    @name.setter
-    def name(self, value: str):
-        self._name = value
+    @info.setter
+    def info(self, value: PlaylistInfo):
+        for k, v in value:
+            self.data[k] = v
 
     @property
-    def description(self) -> str | None:
-        """The description of the playlist."""
-        return self._description
-
-    @description.setter
-    def description(self, value: str | None):
-        self._description = value
+    def id(self) -> str | None:
+        if self.data:
+            return self.data.get("id", None)
+        return None
 
     def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
         if not self.id:
@@ -295,7 +299,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """Wrap apply diff so `edit` also associates the playlist id online."""
         if not self.id:
             pl_data = self.api.playlist.create(self.name, self.description or "")
-            self.id = pl_data["id"]
+            self.data = pl_data
         return super()._apply_diff(before, after)
 
     @staticmethod
