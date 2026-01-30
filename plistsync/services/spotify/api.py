@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from collections import Counter
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
@@ -667,8 +666,10 @@ def extract_spotify_playlist_id(url_or_uri: str) -> str:
     # spotify:playlist:<id>
     # https?://open.spotify.com/playlist/<id>
     # open.spotify.com/playlist/<id> (without protocol)
-    pattern = r"(?:spotify:playlist:|(?:https?://)?open\.spotify\.com/playlist/)([a-zA-Z0-9]+)"
 
+    import re
+
+    pattern = r"(?:spotify:playlist:|(?:https?://)?open\.spotify\.com/playlist/)([a-zA-Z0-9]+)"
     match = re.search(pattern, url_or_uri)
     if match:
         return match.group(1)

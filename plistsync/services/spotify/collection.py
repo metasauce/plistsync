@@ -82,9 +82,6 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         if sum(arg is not None for arg in [name, id, url, uri]) != 1:
             raise ValueError("Exactly one of name, id, url, or uri must be provided")
 
-        if isinstance(name, Path):
-            raise ValueError("Playlist name cannot be a Path")
-
         if url is not None:
             id = extract_spotify_playlist_id(url)
         if uri is not None:

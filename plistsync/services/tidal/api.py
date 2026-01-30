@@ -23,7 +23,7 @@ from .api_types import (
     PlaylistIncludedResource,
     PlaylistListDocument,
     PlaylistResource,
-    RelatinionshipResource,
+    RelationshipResource,
     T_Included,
     TrackDocument,
     TrackIncludedResource,
@@ -226,8 +226,8 @@ class TidalApiSession(requests.Session):
     def _resolve_nested_pagination(
         self,
         include: list[str],
-        doc: MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any],
-    ) -> MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any]:
+        doc: MultiResourceDataDocument[RelationshipResource[dict, dict], Any],
+    ) -> MultiResourceDataDocument[RelationshipResource[dict, dict], Any]:
         """
         Recursively resolve pagination for nested relationships.
 
@@ -760,3 +760,19 @@ def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:
     The key is a tuple of (type, id) and the value is the item dict.
     """
     return {(item["type"], item["id"]): item for item in included}
+
+
+def extract_tidal_playlist_id(url: str) -> str:
+    """Extract the Tidal playlist ID from a URL."""
+    # Example URL formats:
+    # https://tidal.com/browse/playlist/{playlist_id}
+    # https://tidal.com/playlist/{playlist_id}
+
+    import re
+
+    pattern = r"tidal\.com/(?:browse/)?playlist/([a-zA-Z0-9]+)"
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError(f"Invalid Tidal playlist URL: {url}")

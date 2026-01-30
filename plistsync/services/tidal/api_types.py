@@ -157,7 +157,7 @@ class PlaylistsItemsResourceIdentifier(ResourceIdentifier):
 class PlaylistsItemsMultiRelationshipDataDocument(TypedDict):
     # e.g. Playlists_Items_Multi_Relationship_Data_Document
     data: NotRequired[list[PlaylistsItemsResourceIdentifier]]
-    included: NotRequired[list[RelatinionshipResource]]
+    included: NotRequired[list[RelationshipResource]]
     links: LinkObject
 
 
@@ -196,7 +196,7 @@ class AlbumRelationships(TypedDict):
     # items
 
 
-class PlaylistRelatinships(TypedDict):
+class PlaylistRelationships(TypedDict):
     # Standard Multi_Relationship_Data_Document
     coverArt: MultiRelationshipDataDocument
     ownerProfiles: MultiRelationshipDataDocument
@@ -213,7 +213,7 @@ class SimpleResource(TypedDict, Generic[T_Attribute]):
     attributes: T_Attribute
 
 
-class RelatinionshipResource(TypedDict, Generic[T_Attribute, T_Relationship]):
+class RelationshipResource(TypedDict, Generic[T_Attribute, T_Relationship]):
     id: str
     type: str
     attributes: T_Attribute
@@ -223,9 +223,9 @@ class RelatinionshipResource(TypedDict, Generic[T_Attribute, T_Relationship]):
 ArtistResource = SimpleResource[NameAttribute]
 GenreResource = SimpleResource[NameAttribute]
 UserResource = SimpleResource[UserAttributes]
-AlbumResource = RelatinionshipResource[AlbumAttributes, AlbumRelationships]
-TrackResource = RelatinionshipResource[TrackAttributes, TrackRelationships]
-PlaylistResource = RelatinionshipResource[PlaylistAttributes, PlaylistRelatinships]
+AlbumResource = RelationshipResource[AlbumAttributes, AlbumRelationships]
+TrackResource = RelationshipResource[TrackAttributes, TrackRelationships]
+PlaylistResource = RelationshipResource[PlaylistAttributes, PlaylistRelationships]
 
 
 # Documents (highest level api response)

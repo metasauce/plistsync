@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from pathlib import Path
-from typing import Self
+from typing import Self, overload
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -11,9 +10,10 @@ from plistsync.core.collection import (
     LibraryCollection,
     TrackStream,
 )
+from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
 from plistsync.logger import log
 
-from .api import LookupDict, TidalApi
+from .api import LookupDict, TidalApi, extract_tidal_playlist_id
 from .api_types import PlaylistResource, PlaylistsItemsResourceIdentifier, TrackResource
 from .track import TidalPlaylistTrack, TidalTrack
 
@@ -34,35 +34,53 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
         return [TidalPlaylistCollection(pl, lookup) for pl in playlists]
 
+    @overload
+    def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
+
+    @overload
+    def get_playlist(self, *, id: str) -> TidalPlaylistCollection: ...
+
+    @overload
+    def get_playlist(self, *, url: str) -> TidalPlaylistCollection: ...
+
     def get_playlist(
-        self, name: str | Path, allow_name=True
+        self,
+        name: str | None = None,
+        id: str | None = None,
+        url: str | None = None,
     ) -> TidalPlaylistCollection | None:
-        """Get a specific playlist by its ID.
+        """Get a specific playlist.
 
-        If name is given and allow_name is True, the name will be resolved to an ID
-        by fetching all playlists of the user and checking if the name matches.
+        One of the kwargs must be given. Either search
+        by name or get by id/url.
+
+        Will raise on id/url not found but return None if
+        search by name not found.
         """
+        if sum(arg is not None for arg in [name, id, url]) != 1:
+            raise ValueError("Exactly one of name, id, or url must be provided")
 
-        if isinstance(name, Path):
-            raise ValueError("Playlist name cannot be a Path")
-
-        plist_identifier: str = name
+        if url is not None:
+            id = extract_tidal_playlist_id(url)
 
         # We fetch all playlists by the user and check if the name matches
-        if allow_name:
+        # Resolve name to id
+        if name is not None:
             playlists, _ = self.api.playlist.get_many_by_user(
                 self.api.user.me()["id"], include=[]
             )
-            for pl in playlists:
-                if pl["attributes"]["name"] == name:
-                    plist_identifier = pl["id"]
+            for plist in playlists:
+                if plist["attributes"]["name"] == name:
+                    id = plist["id"]
                     break
 
-        try:
-            return TidalPlaylistCollection(*self.api.playlist.get(plist_identifier))
-        except Exception as e:
-            log.debug(f"Could not fetch playlist {name}: {e}")
-            return None
+            if id is None:
+                log.debug(f"Could not find playlist with name {name}")
+                return None
+
+        # This should never realistically happen -> assert instead of error
+        assert id is not None, "ID must be set after resolving name/url"
+        return TidalPlaylistCollection(*self.api.playlist.get(id))
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""
@@ -73,15 +91,7 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
                 return True
         return False
 
-    def create_playlist(
-        self, name: str, description: str | None = None
-    ) -> TidalPlaylistCollection:
-        """Create a new playlist in the user's library."""
-        try:
-            return TidalPlaylistCollection(*self.api.playlist.create(name, description))
-        except Exception as e:
-            log.debug(f"Could not create playlist {name}: {e}")
-            raise
+    # --------------------------- GlobalLookup protocol -------------------------- #
 
     def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> TidalTrack | None:
         """Find a track by its global IDs.
@@ -97,42 +107,51 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         Prioritizes isrc lookups over spotify_id lookups.
         """
-        global_ids_list = list(global_ids_list)
+
         found_tracks: dict[int, TidalTrack] = {}
 
-        # Tidal ids lookup (batched)
-        idx_tidal_pairs: dict[int, str] = {}
+        # Get all tidal ids for batch lookup
+        idxes = []
+        tidal_ids: list[str] = []
         for idx, gids in enumerate(global_ids_list):
-            if tidal_id := gids.get("tidal_id"):
-                idx_tidal_pairs[idx] = tidal_id
+            if "tidal_id" in gids:
+                idxes.append(idx)
+                tidal_ids.append(gids["tidal_id"])
 
-        if idx_tidal_pairs:
-            tracks_data, lookup = self.api.tracks.get_many(
-                list(idx_tidal_pairs.values())
-            )
-            for orig_idx, track_data in zip(idx_tidal_pairs.keys(), tracks_data):
-                if track_data:
-                    found_tracks[orig_idx] = TidalTrack(track_data, lookup)
+        # Tidal ids batch lookup
+        if tidal_ids:
+            tracks, lookup = self.api.tracks.get_many(tidal_ids)
 
-        # Isrcs lookup if no tidal_id was found
-        idx_isrc_pairs: dict[int, str] = {}
+            for idx, track in zip(idxes, tracks):
+                if not track:
+                    log.debug(f"Track with tidal_id '{tidal_ids[idx]}' not found")
+                else:
+                    found_tracks[idx] = TidalTrack(track, lookup)
+
+        # ISRC batch lookup for remaining ids
+        idxes = []
+        isrcs: list[str] = []
         for idx, gids in enumerate(global_ids_list):
-            if idx not in found_tracks and (isrc := gids.get("isrc")):
-                idx_isrc_pairs[idx] = isrc
+            if idx in found_tracks:
+                continue
+            if "isrc" in gids:
+                idxes.append(idx)
+                isrcs.append(gids["isrc"])
 
-        if idx_isrc_pairs:
-            tracks_data, lookup = self.api.tracks.get_many_by_isrc(
-                list(idx_isrc_pairs.values())
-            )
-            for idx, track_data in zip(idx_isrc_pairs.keys(), tracks_data):
-                if track_data:
-                    found_tracks[idx] = TidalTrack(track_data, lookup)
+        if isrcs:
+            tracks, lookup = self.api.tracks.get_many_by_isrc(isrcs)
 
-        for idx in range(len(global_ids_list)):
-            yield found_tracks.get(idx)
+            for idx, track in zip(idxes, tracks):
+                if not track:
+                    log.debug(f"Track with isrc '{isrcs[idx]}' not found")
+                else:
+                    found_tracks[idx] = TidalTrack(track, lookup)
+
+        for idx, gids in enumerate(global_ids_list):
+            yield found_tracks.get(idx, None)
 
 
-class TidalPlaylistCollection(Collection, TrackStream):
+class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     data: PlaylistResource
     data_lookup: LookupDict
 
@@ -152,19 +171,23 @@ class TidalPlaylistCollection(Collection, TrackStream):
         self.data_lookup = data_lookup or {}
 
     @property
-    def name(self) -> str:
-        """The name of the playlist."""
-        return self.data["attributes"]["name"]
-
-    @property
     def id(self) -> str:
         """The tidal ID of the playlist."""
         return self.data["id"]
 
     @property
-    def description(self) -> str | None:
-        """The description of the playlist, if available."""
-        return self.data["attributes"].get("description")
+    def info(self) -> PlaylistInfo:
+        """Get basic info about the playlist."""
+        return PlaylistInfo(
+            name=self.data["attributes"]["name"],
+            description=self.data["attributes"].get("description", ""),
+        )
+
+    @info.setter
+    def info(self, value: PlaylistInfo) -> None:
+        """Set basic info about the playlist."""
+        self.data["attributes"]["name"] = value.get("name", self.name)
+        self.data["attributes"]["description"] = value.get("description") or ""
 
     @classmethod
     async def from_id(cls, playlist_id: str) -> Self:
