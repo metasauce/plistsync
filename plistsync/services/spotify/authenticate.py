@@ -10,6 +10,7 @@ import requests
 import typer
 
 from plistsync.config import Config
+from plistsync.errors import AuthenticationError
 from plistsync.logger import log
 from plistsync.utils import build_url
 from plistsync.utils.auth.bearer_token import BearerToken
@@ -51,10 +52,11 @@ def auth(
     This will open a browser window to log in to Spotify and obtain an access token.
     """
     from plistsync.utils.auth import (
-        AuthenticationError,
-        OAuthRedirectHandler,
         generate_pkce_codes,
         safe_webbrowser_open,
+    )
+    from plistsync.utils.auth.redirect import (
+        OAuthRedirectHandler,
         start_redirect_server,
     )
 

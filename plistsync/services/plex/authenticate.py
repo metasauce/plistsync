@@ -7,8 +7,9 @@ import requests
 import typer
 
 from plistsync.config import Config
+from plistsync.errors import AuthenticationError
 from plistsync.logger import log
-from plistsync.utils.auth import BaseRedirectHandler
+from plistsync.utils.auth.redirect import BaseRedirectHandler
 
 plex_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Plex.", add_completion=False
@@ -43,8 +44,9 @@ def auth(
     This will open a browser window to log in to Plex and obtain an access token.
     """
     from plistsync.utils.auth import (
-        AuthenticationError,
         safe_webbrowser_open,
+    )
+    from plistsync.utils.auth.redirect import (
         start_redirect_server,
     )
 
