@@ -143,7 +143,7 @@ class CollectionTestBase(ABC):
         """Test collections that implement TrackStream."""
         for collection in self.create_collection():
             if isinstance(collection, TrackStream):
-                tracks = list(collection)
+                tracks = list(collection.tracks)
                 # assumptions on the track returned by track stream
                 assert all(isinstance(t, Track) for t in tracks), (
                     "Track Stream should return iterable over Track instances"

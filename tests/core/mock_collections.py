@@ -63,10 +63,11 @@ class MockTrackStreamCollection(Collection, TrackStream):
     """Mock collection with track streaming capability."""
 
     def __init__(self, tracks: list[MockTrack] | None = None):
-        self.tracks = tracks or []
+        self._tracks = tracks or []
 
-    def tracks(self):
-        return iter(self.tracks)
+    @property
+    def tracks(self) -> Iterable[MockTrack]:
+        yield from self._tracks
 
 
 class MockFullCapabilityCollection(
@@ -75,15 +76,15 @@ class MockFullCapabilityCollection(
     """Mock collection with all capabilities."""
 
     def __init__(self, tracks: list[MockTrack] | None = None):
-        self.tracks = tracks or []
+        self._tracks = tracks or []
         self._tracks_by_global_id = {
             global_id: track
-            for track in self.tracks
+            for track in self._tracks
             for global_id in track.global_ids.values()
         }
         self._tracks_by_local_id = {
             local_id: track
-            for track in self.tracks
+            for track in self._tracks
             for local_id in track.local_ids.values()
         }
 
@@ -100,9 +101,10 @@ class MockFullCapabilityCollection(
         return None
 
     def find_by_info(self, info: TrackInfo) -> Iterator[MockTrack]:
-        for track in self.tracks:
+        for track in self._tracks:
             if info.get("title") == track.title:
                 yield track
 
-    def tracks(self):
-        return iter(self.tracks)
+    @property
+    def tracks(self) -> Iterable[MockTrack]:
+        yield from self._tracks
