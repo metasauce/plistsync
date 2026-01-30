@@ -27,6 +27,8 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
         super().__init__()
         self.api = TidalApi()
 
+    # ------------------------ LibraryCollection protocol ------------------------ #
+
     @property
     def playlists(self) -> Iterable[TidalPlaylistCollection]:
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])

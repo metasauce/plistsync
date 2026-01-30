@@ -29,6 +29,8 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
     is not supported, as the library is basically infinite.
     """
 
+    api: SpotifyApi
+
     def __init__(self) -> None:
         self.api = SpotifyApi()
 
