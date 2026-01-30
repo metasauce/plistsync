@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from typing import Self, overload
+from typing import overload
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -188,28 +188,6 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         """Set basic info about the playlist."""
         self.data["attributes"]["name"] = value.get("name", self.name)
         self.data["attributes"]["description"] = value.get("description") or ""
-
-    @classmethod
-    async def from_id(cls, playlist_id: str) -> Self:
-        """Create a TidalPlaylistCollection from a tidal playlist ID.
-
-        Parameters
-        ----------
-        playlist_id : str
-            The playlist ID.
-
-        Returns
-        -------
-        TidalPlaylistCollection
-            The created TidalPlaylistCollection.
-
-        Raises
-        ------
-        ValueError
-            If the playlist ID is invalid or not found.
-        """
-        plist, lookup = TidalApi().playlist.get(playlist_id)
-        return cls(plist, lookup)
 
     # ---------------------------------------------------------------------------- #
     #                        Helper methods (tidal specific)                       #
