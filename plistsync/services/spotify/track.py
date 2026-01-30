@@ -22,9 +22,6 @@ class SpotifyTrack(Track):
         `GET /tracks/{id}` or `GET /playlists/{playlist_id}/tracks`.
         """
 
-        if data.get("type") != "track":
-            raise ValueError("Data is not a Spotify track object")
-
         self.data = data
 
     @property
@@ -100,4 +97,5 @@ class SpotifyPlaylistTrack(SpotifyTrack):
         self.added_by = data_or_track.get("added_by", None)
         self.is_local = data_or_track.get("is_local", False)
 
+        # TODO: Episode handling?
         super().__init__(data_or_track["track"])

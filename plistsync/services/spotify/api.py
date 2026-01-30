@@ -1,15 +1,21 @@
 from __future__ import annotations
 
+import re
 from collections import Counter
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
-import re
+
 import requests
 from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import ExpiredAccessToken
 
 from plistsync.config import Config
 from plistsync.logger import log
+from plistsync.services.spotify.api_types import (
+    PlaylistTracks,
+    PlaylistTracksSimplified,
+    SpotifyApiPlaylistTrack,
+)
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
     BearerToken,
@@ -19,8 +25,8 @@ from plistsync.utils.auth.bearer_token import (
 
 if TYPE_CHECKING:
     from .api_types import (
-        SpotifyApiPlaylistResponseSimplified,
         SpotifyApiPlaylistResponseFull,
+        SpotifyApiPlaylistResponseSimplified,
         SpotifyApiTrackResponse,
     )
 
@@ -147,29 +153,58 @@ class PlaylistApi:
         self.session = session
         self.api = api
 
-    def get(self, playlist_id: str) -> SpotifyApiPlaylistResponseFull:
+    @overload
+    def get(
+        self,
+        playlist_id: str,
+        preload: Literal[True] = ...,
+    ) -> SpotifyApiPlaylistResponseFull: ...
+    @overload
+    def get(
+        self,
+        playlist_id: str,
+        preload: Literal[False],
+    ) -> SpotifyApiPlaylistResponseSimplified: ...
+
+    def get(
+        self, playlist_id: str, preload: bool = True
+    ) -> SpotifyApiPlaylistResponseFull | SpotifyApiPlaylistResponseSimplified:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
             "GET",
             f"/playlists/{playlist_id}",
         ).json()
 
-        # Resolve tracks (pagination)
-        tracks_obj = plist.get("tracks", {})
-        if next_page := tracks_obj.get("next"):
-            all_items = tracks_obj.get("items", [])
-            while next_page:
-                tracks = self.session.request(
-                    "GET",
-                    next_page,
-                ).json()
-                all_items.extend(tracks.get("items", []))
-                next_page = tracks.get("next")
-            tracks_obj["items"] = all_items
-            tracks_obj["next"] = None
-
-        plist["tracks"] = tracks_obj
+        if preload:
+            plist["tracks"] = {
+                **plist["tracks"],
+                "items": self._load_tracks(plist["tracks"]),
+                "next": None,
+            }
         return plist
+
+    def _load_tracks(
+        self,
+        data: PlaylistTracksSimplified,
+        force: bool = False,
+    ) -> list[SpotifyApiPlaylistTrack]:
+        """Resolve the track pagination."""
+        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])
+
+        next_page = data.get("next")
+        if force:
+            all_items = []
+            next_page = data["href"]
+
+        while next_page:
+            tracks: PlaylistTracks = self.session.request(
+                "GET",
+                next_page,
+            ).json()
+            all_items.extend(tracks.get("items", []))
+            next_page = tracks.get("next")
+
+        return all_items
 
     def create(
         self,
@@ -564,20 +599,20 @@ class UserApi:
 
     @overload
     def get_playlists(
-        self, simplified: Literal[True]
+        self, preload: Literal[True]
     ) -> list[SpotifyApiPlaylistResponseSimplified]: ...
     @overload
     def get_playlists(
-        self, simplified: Literal[False] = ...
+        self, preload: Literal[False] = ...
     ) -> list[SpotifyApiPlaylistResponseFull]: ...
     def get_playlists(
-        self, simplified: bool = False
+        self, preload: bool = False
     ) -> (
         list[SpotifyApiPlaylistResponseSimplified]
         | list[SpotifyApiPlaylistResponseFull]
     ):
         # Migrated from get_user_playlists_simplified() and get_user_playlists_full()
-        if simplified:
+        if not preload:
             return self._get_playlists_simplified()
         else:
             return self._get_playlists_full()
@@ -597,7 +632,7 @@ class UserApi:
         list[dict]
             A list of simplified playlist data from the Spotify API.
         """
-        next_page = "/me/playlists?limit=50"
+        next_page = "/me/playlists?offset=0&limit=50"
         simplified_playlists: list[SpotifyApiPlaylistResponseSimplified] = []
         while next_page:
             json_res = self.session.request(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Self, overload
+from typing import Self, overload, override
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -15,6 +15,7 @@ from plistsync.services.spotify.api_types import (
     SpotifyApiPlaylistResponseBase,
     SpotifyApiPlaylistResponseFull,
     SpotifyApiPlaylistResponseSimplified,
+    SpotifyApiPlaylistTrack,
 )
 
 from .api import SpotifyApi, extract_spotify_playlist_id
@@ -44,7 +45,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
                 self,
                 playlist,
             )
-            for playlist in self.api.user.get_playlists()
+            for playlist in self.api.user.get_playlists(preload=False)
         ]
 
     @overload
@@ -59,6 +60,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
     @overload
     def get_playlist(self, *, uri: str) -> SpotifyPlaylistCollection: ...
 
+    @override
     def get_playlist(
         self,
         name: str | None = None,
@@ -88,7 +90,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
 
         # Resolve name to id
         if name is not None:
-            plists = self.api.user.get_playlists(True)
+            plists = self.api.user.get_playlists(preload=False)
             for plist in plists:
                 if plist["name"] == name:
                     id = plist["id"]
@@ -172,7 +174,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     library: SpotifyLibraryCollection
 
-    # When the playlist is associated with an online playlist, we have the repsonse.
+    # When the playlist is associated with an online playlist, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
     data: SpotifyApiPlaylistResponseBase | PlaylistInfo
 
@@ -192,39 +194,38 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         self.data = PlaylistInfo(name=name, description=description)
 
     @classmethod
-    def from_url(cls, library: SpotifyLibraryCollection, url: str):
-        """Get playlist via its url, uri or id.
-
-        TODO: regex id from url
-        """
-        pass
-
-    @classmethod
     def from_response_data(
         cls,
         library: SpotifyLibraryCollection,
-        data: SpotifyApiPlaylistResponseFull,
+        data: SpotifyApiPlaylistResponseSimplified | SpotifyApiPlaylistResponseFull,
     ) -> Self:
         """
-        Create a new empty Spotify playlist with the given name and description.
+        Create a new empty Spotify playlist with the given a api response from spotify.
 
-        Uses response from an api, so the resulting instance will have id and
-        is available online.
+        The resulting instance will have id and we consider it is available online.
         """
         name = data["name"]
         description = data.get("description")
-        tracks = cls.get_tracks_from_response_date(library, data)
-
         pl = cls(
             library,
             name,
             description,
-            tracks,
         )
-        pl.data = data
-        del pl.data["tracks"]  # type: ignore
-        # we want to delete tracks for consistency, to not keep them around twice.
+        tracks_obj = data.get("tracks", {})
+        tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])
+        if len(tracks_obj_items) == tracks_obj.get("total", 0):
+            pl._tracks = [
+                SpotifyPlaylistTrack(
+                    item,
+                )
+                for item in tracks_obj_items
+            ]
+        else:
+            pl._tracks = None
 
+        if tracks_obj.get("items", None) is not None:
+            del tracks_obj["items"]  # type: ignore
+        pl.data = data
         return pl
 
     # ----------------------- Properties and info logic ---------------------- #
@@ -244,8 +245,14 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     @info.setter
     def info(self, value: PlaylistInfo):
-        for k, v in value:
-            self.data[k] = v
+        self.data["name"] = value.get(
+            "name",
+            self.data.get("name", ""),
+        )
+        self.data["description"] = value.get(
+            "description",
+            self.data.get("description", None),
+        )
 
     @property
     def id(self) -> str | None:
@@ -255,8 +262,10 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         None if playlist is not associated with an online resource.
         """
         if self.data:
-            return self.data.get("id", None)
+            return self.data.get("id", None)  # type: ignore[return-value]
         return None
+
+    # ---------------------------- Track lazy loading ---------------------------- #
 
     @property
     def is_online(self) -> bool:
@@ -270,38 +279,46 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             return True
         return False
 
-    # -------------------------- Tracks and Editing -------------------------- #
+    def _refetch_tracks(self) -> None:
+        """Refetch the tracks from the online playlist.
 
-    @classmethod
-    def get_tracks_from_response_date(
-        cls,
-        library: SpotifyLibraryCollection,
-        data: SpotifyApiPlaylistResponseFull | SpotifyApiPlaylistResponseSimplified,
-    ) -> list[SpotifyPlaylistTrack]:
-        tracks: list[SpotifyPlaylistTrack] = []
+        Only works if the playlist is online.
+        """
+        if not self.is_online:
+            raise ValueError("Cannot refetch tracks for offline playlist")
 
-        if not isinstance(data.get("tracks"), dict):
-            raise ValueError("Provided data does not seem to be a PlaylistResponse.")
+        self._tracks = [
+            SpotifyPlaylistTrack(item)
+            for item in self.api.playlist._load_tracks(
+                self.data["tracks"],  # type: ignore[typeddict-item]
+            )
+        ]
 
-        # items are only present in SpotifyApiPlaylistResponseFull.
-        # otherwise, easiest way to get them is fetching the full playlist
-        items = data["tracks"].get("items", None)
-        if items is None:
-            _data = library.api.playlist.get(data["id"])
-            items = _data["tracks"]["items"]
+    @property
+    def tracks(self) -> list[SpotifyPlaylistTrack]:
+        """Return the tracks in this playlist.
 
-        for item in items:
-            # It is possible to add episodes or other non-track items to a playlist
-            # We should add a placeholder to keep the order
-            if item["track"]["type"] == "track":
-                tracks.append(SpotifyPlaylistTrack(item))
-            else:
-                log.debug(
-                    f"Skipping non-track item in playlist "
-                    f"{data['id']} '{data['name']}': {item['track']['type']}"
-                )
+        Might load them from the API if not already loaded.
+        """
+        if self._tracks is None:
+            self._refetch_tracks()
 
-        return tracks
+        return self._tracks or []
+
+    @tracks.setter
+    def tracks(self, value: list[SpotifyPlaylistTrack]) -> None:
+        self._tracks = value
+
+    def __len__(self) -> int:
+        """Return the number of tracks in this playlist.
+
+        Might load them from the API if not already loaded.
+        """
+        if self._tracks is None:
+            return self.data["tracks"]["total"]  # type: ignore[typeddict-item]
+        return len(self.tracks)
+
+    # ----------------------------- Remote operations ---------------------------- #
 
     def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
         if not self.id:

@@ -95,8 +95,30 @@ class SpotifyApiPlaylistTrack(TypedDict):
     added_by: AddedBy
     is_local: bool
     primary_color: str | None
-    track: SpotifyApiTrackResponse
+    track: SpotifyApiTrackResponse | SpotifyAPIEpisodeResponse
     video_thumbnail: dict[str, Any]  # Usually {"url": None}
+
+
+class SpotifyAPIEpisodeResponse(TypedDict):
+    """Episode item within a playlist."""
+
+    audio_preview_url: str | None
+    description: str
+    html_description: str
+    duration_ms: int
+    explicit: bool
+    external_urls: ExternalUrls
+    href: str
+    id: str
+    images: list[Image]
+    is_externally_hosted: bool
+    is_playable: bool
+    languages: list[str]
+    name: str
+    release_date: str
+    release_date_precision: Literal["year", "month", "day"]
+    type: Literal["episode"]
+    uri: str
 
 
 class PlaylistTracksSimplified(TypedDict):
@@ -104,6 +126,8 @@ class PlaylistTracksSimplified(TypedDict):
 
     href: str
     total: int
+    items: NotRequired[list[SpotifyApiPlaylistTrack]]
+    next: str | None
 
 
 class PlaylistTracks(TypedDict):

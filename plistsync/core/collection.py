@@ -46,7 +46,6 @@ import itertools
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import (
     Concatenate,
     Generic,
