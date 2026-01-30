@@ -14,6 +14,7 @@ from plistsync.logger import log
 from plistsync.services.spotify.api_types import (
     SpotifyApiPlaylistResponseBase,
     SpotifyApiPlaylistResponseFull,
+    SpotifyApiPlaylistResponseSimplified,
 )
 
 from .api import SpotifyApi, extract_spotify_playlist_id
@@ -175,6 +176,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     # Otherwise, we have at least a name via PlaylistInfo.
     data: SpotifyApiPlaylistResponseBase | PlaylistInfo
 
+    # ----------------------------- Constructors ----------------------------- #
+
     def __init__(
         self,
         library: SpotifyLibraryCollection,
@@ -187,10 +190,6 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         self.library = library
         self._tracks = tracks or []
         self.data = PlaylistInfo(name=name, description=description)
-
-    @property
-    def api(self):
-        return self.library.api
 
     @classmethod
     def from_url(cls, library: SpotifyLibraryCollection, url: str):
@@ -214,19 +213,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """
         name = data["name"]
         description = data.get("description")
-
-        tracks: list[SpotifyPlaylistTrack] = []
-        items = data.get("tracks", {}).get("items", [])
-        for item in items:
-            # It is possible to add episodes or other non-track items to a playlist
-            # We add a placeholder to keep the order
-            if item["track"]["type"] == "track":
-                tracks.append(SpotifyPlaylistTrack(item))
-            else:
-                log.debug(
-                    f"Skipping non-track item in playlist "
-                    f"'{name}': {item['track']['type']}"
-                )
+        tracks = cls.get_tracks_from_response_date(library, data)
 
         pl = cls(
             library,
@@ -239,6 +226,12 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         # we want to delete tracks for consistency, to not keep them around twice.
 
         return pl
+
+    # ----------------------- Properties and info logic ---------------------- #
+
+    @property
+    def api(self):
+        return self.library.api
 
     @property
     def info(self) -> PlaylistInfo:
@@ -256,9 +249,59 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     @property
     def id(self) -> str | None:
+        """
+        Playlist id.
+
+        None if playlist is not associated with an online resource.
+        """
         if self.data:
             return self.data.get("id", None)
         return None
+
+    @property
+    def is_online(self) -> bool:
+        """
+        Indicate if this playlist is associated with it's online version.
+
+        False if created with default constructor, but True once we have
+        response data.
+        """
+        if self.data and self.data.get("id", None):
+            return True
+        return False
+
+    # -------------------------- Tracks and Editing -------------------------- #
+
+    @classmethod
+    def get_tracks_from_response_date(
+        cls,
+        library: SpotifyLibraryCollection,
+        data: SpotifyApiPlaylistResponseFull | SpotifyApiPlaylistResponseSimplified,
+    ) -> list[SpotifyPlaylistTrack]:
+        tracks: list[SpotifyPlaylistTrack] = []
+
+        if not isinstance(data.get("tracks"), dict):
+            raise ValueError("Provided data does not seem to be a PlaylistResponse.")
+
+        # items are only present in SpotifyApiPlaylistResponseFull.
+        # otherwise, easiest way to get them is fetching the full playlist
+        items = data["tracks"].get("items", None)
+        if items is None:
+            _data = library.api.playlist.get(data["id"])
+            items = _data["tracks"]["items"]
+
+        for item in items:
+            # It is possible to add episodes or other non-track items to a playlist
+            # We should add a placeholder to keep the order
+            if item["track"]["type"] == "track":
+                tracks.append(SpotifyPlaylistTrack(item))
+            else:
+                log.debug(
+                    f"Skipping non-track item in playlist "
+                    f"{data['id']} '{data['name']}': {item['track']['type']}"
+                )
+
+        return tracks
 
     def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
         if not self.id:
@@ -299,6 +342,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """Wrap apply diff so `edit` also associates the playlist id online."""
         if not self.id:
             pl_data = self.api.playlist.create(self.name, self.description or "")
+            del pl_data["tracks"]  # type: ignore
             self.data = pl_data
         return super()._apply_diff(before, after)
 

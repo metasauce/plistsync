@@ -99,6 +99,13 @@ class SpotifyApiPlaylistTrack(TypedDict):
     video_thumbnail: dict[str, Any]  # Usually {"url": None}
 
 
+class PlaylistTracksSimplified(TypedDict):
+    """Tracks object within a simplified playlist.."""
+
+    href: str
+    total: int
+
+
 class PlaylistTracks(TypedDict):
     """Tracks object within a playlist."""
 
@@ -148,7 +155,7 @@ class SpotifyApiPlaylistResponseFull(SpotifyApiPlaylistResponseBase):
 class SpotifyApiPlaylistResponseSimplified(SpotifyApiPlaylistResponseBase):
     """Simplified playlist object (without full tracks)."""
 
-    tracks: dict[str, Any]  # TODO: propper types Simplified tracks info
+    tracks: PlaylistTracksSimplified
 
 
 class UserProfile(TypedDict):
