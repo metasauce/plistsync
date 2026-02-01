@@ -10,14 +10,15 @@ from plistsync.core.collection import (
 )
 from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
 from plistsync.logger import log
-from plistsync.services.spotify.api_types import (
+
+from .api import SpotifyApi, extract_spotify_playlist_id
+from .api_types import (
+    PlaylistTracksBase,
     SpotifyApiPlaylistResponseBase,
     SpotifyApiPlaylistResponseFull,
     SpotifyApiPlaylistResponseSimplified,
     SpotifyApiPlaylistTrack,
 )
-
-from .api import SpotifyApi, extract_spotify_playlist_id
 from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 
@@ -174,7 +175,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     # When the playlist is associated with an online playlist, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
-    data: SpotifyApiPlaylistResponseBase | PlaylistInfo
+    data: tuple[SpotifyApiPlaylistResponseBase, PlaylistTracksBase] | PlaylistInfo
 
     # ----------------------------- Constructors ----------------------------- #
 
@@ -209,7 +210,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             name,
             description,
         )
-        tracks_obj = data.get("tracks", {})
+        tracks_obj: PlaylistTracksBase = data.get("tracks", {})
         tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])
         if len(tracks_obj_items) == tracks_obj.get("total", 0):
             pl._tracks = [
@@ -223,7 +224,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
         if tracks_obj.get("items", None) is not None:
             del tracks_obj["items"]  # type: ignore
-        pl.data = data
+        pl.data = (data, tracks_obj)
         return pl
 
     # ----------------------- Properties and info logic ---------------------- #
@@ -234,23 +235,30 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     @property
     def info(self) -> PlaylistInfo:
-        info = PlaylistInfo()
-        if name := self.data.get("name"):
-            info["name"] = name
-        if description := self.data.get("description"):
-            info["description"] = description
-        return info
+        if isinstance(self.data, tuple):
+            data = self.data[0]
+            info = PlaylistInfo()
+            info["name"] = data["name"]
+            if description := data.get("description"):
+                info["description"] = description
+            return info
+        else:
+            return self.data
 
     @info.setter
     def info(self, value: PlaylistInfo):
-        self.data["name"] = value.get(
-            "name",
-            self.data.get("name", ""),
-        )
-        self.data["description"] = value.get(
-            "description",
-            self.data.get("description", None),
-        )
+        if isinstance(self.data, tuple):
+            data = self.data[0]
+            data["name"] = value.get(
+                "name",
+                data.get("name", ""),
+            )
+            data["description"] = value.get(
+                "description",
+                data.get("description", None),
+            )
+        else:
+            self.data = value
 
     @property
     def id(self) -> str | None:
@@ -259,37 +267,37 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
         None if playlist is not associated with an online resource.
         """
-        if self.data:
-            return self.data.get("id", None)  # type: ignore[return-value]
+        if data := self.online_data:
+            return data[0]["id"]
         return None
 
     # ---------------------------- Track lazy loading ---------------------------- #
 
     @property
-    def is_online(self) -> bool:
+    def online_data(
+        self,
+    ) -> tuple[SpotifyApiPlaylistResponseBase, PlaylistTracksBase] | None:
         """
         Indicate if this playlist is associated with it's online version.
 
         False if created with default constructor, but True once we have
         response data.
         """
-        if self.data and self.data.get("id", None):
-            return True
-        return False
+        if isinstance(self.data, tuple):
+            return self.data
+        return None
 
     def _refetch_tracks(self) -> None:
         """Refetch the tracks from the online playlist.
 
         Only works if the playlist is online.
         """
-        if not self.is_online:
+        if not self.online_data:
             raise ValueError("Cannot refetch tracks for offline playlist")
 
         self._tracks = [
             SpotifyPlaylistTrack(item)
-            for item in self.api.playlist._load_tracks(
-                self.data["tracks"],  # type: ignore[typeddict-item]
-            )
+            for item in self.api.playlist._load_tracks(self.online_data[1])
         ]
 
     @property
@@ -312,8 +320,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
         Might load them from the API if not already loaded.
         """
-        if self._tracks is None:
-            return self.data["tracks"]["total"]  # type: ignore[typeddict-item]
+        if data := self.online_data:
+            return data[1].get("total", 0)
         return len(self.tracks)
 
     # ----------------------------- Remote operations ---------------------------- #
@@ -357,8 +365,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """Wrap apply diff so `edit` also associates the playlist id online."""
         if not self.id:
             pl_data = self.api.playlist.create(self.name, self.description or "")
-            del pl_data["tracks"]  # type: ignore
-            self.data = pl_data
+            self.data = (pl_data, pl_data["tracks"])
         return super()._apply_diff(before, after)
 
     @staticmethod

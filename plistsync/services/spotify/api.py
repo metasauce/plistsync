@@ -10,16 +10,17 @@ from requests_oauth2client import ExpiredAccessToken
 
 from plistsync.config import Config
 from plistsync.logger import log
-from plistsync.services.spotify.api_types import (
-    PlaylistTracks,
-    PlaylistTracksSimplified,
-    SpotifyApiPlaylistTrack,
-)
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
     BearerToken,
     InvalidTokenError,
     get_bearer_token,
+)
+
+from .api_types import (
+    PlaylistTracks,
+    PlaylistTracksBase,
+    SpotifyApiPlaylistTrack,
 )
 
 if TYPE_CHECKING:
@@ -184,7 +185,7 @@ class PlaylistApi:
 
     def _load_tracks(
         self,
-        data: PlaylistTracksSimplified,
+        data: PlaylistTracksBase,
         force: bool = False,
     ) -> list[SpotifyApiPlaylistTrack]:
         """Resolve the track pagination."""

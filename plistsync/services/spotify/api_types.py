@@ -121,25 +121,27 @@ class SpotifyAPIEpisodeResponse(TypedDict):
     uri: str
 
 
-class PlaylistTracksSimplified(TypedDict):
+class PlaylistTracksBase(TypedDict):
+    """Base type for tracks object within a playlist."""
+
+    href: str
+    total: int
+    next: str | None
+    limit: NotRequired[int]
+    offset: NotRequired[int]
+    previous: NotRequired[str | None]
+
+
+class PlaylistTracksSimplified(PlaylistTracksBase):
     """Tracks object within a simplified playlist.."""
 
-    href: str
-    total: int
     items: NotRequired[list[SpotifyApiPlaylistTrack]]
-    next: str | None
 
 
-class PlaylistTracks(TypedDict):
+class PlaylistTracks(PlaylistTracksBase):
     """Tracks object within a playlist."""
 
-    href: str
     items: list[SpotifyApiPlaylistTrack]
-    limit: int
-    next: str | None
-    offset: int
-    previous: str | None
-    total: int
 
 
 class Owner(TypedDict):
