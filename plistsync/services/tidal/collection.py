@@ -30,7 +30,10 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
     @property
     def playlists(self) -> Iterable[TidalPlaylistCollection]:
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
-        return [TidalPlaylistCollection(pl, lookup) for pl in playlists]
+        return [
+            TidalPlaylistCollection.from_response_data(self, pl, lookup)
+            for pl in playlists
+        ]
 
     @overload
     def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
@@ -78,7 +81,9 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         # This should never realistically happen -> assert instead of error
         assert id is not None, "ID must be set after resolving name/url"
-        return TidalPlaylistCollection(*self.api.playlist.get(id))
+        return TidalPlaylistCollection.from_response_data(
+            self, *self.api.playlist.get(id)
+        )
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""
@@ -169,11 +174,11 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     @classmethod
     def from_response_data(
         cls,
+        library: TidalLibraryCollection,
         data: PlaylistResource,
         data_lookup: LookupDict,
     ) -> TidalPlaylistCollection:
         """Create a TidalPlaylistCollection from a PlaylistResource response."""
-        library = TidalLibraryCollection()
         plist = cls(library, name=data["attributes"]["name"])
 
         tracks: list[TidalPlaylistTrack] = []
@@ -191,9 +196,8 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                     f"Track with id '{item['id']}' not found in cached"
                     " tracks of playlist '{data['attributes']['name']}'"
                 )
-        plist._tracks = tracks or None
         plist.data = (data, data_lookup)
-
+        plist._tracks = tracks
         return plist
 
     # ----------------------- Properties and info logic ---------------------- #
@@ -254,7 +258,24 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         if not self.online_data:
             raise ValueError("Cannot refetch tracks for offline playlist")
 
-        raise NotImplementedError("Refetching tracks not implemented yet")
+        items, items_lookup = self.api.playlist.get_items(self.online_data[0]["id"])
+        tracks = []
+        for item in items:
+            # item is PlaylistsItemsResourceIdentifier
+            if track_resource := items_lookup.get((item["type"], item["id"])):
+                tracks.append(
+                    TidalPlaylistTrack(
+                        track_resource,
+                        data_lookup=items_lookup,
+                        added_at=item.get("meta", {}).get("addedAt", ""),
+                    )
+                )
+            else:
+                log.warning(
+                    f"Track with id '{item['id']}' not found in cached"
+                    " tracks of playlist '{data['attributes']['name']}'"
+                )
+        self._tracks = tracks
 
     @property
     def tracks(self) -> list[TidalPlaylistTrack]:
@@ -273,6 +294,11 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     def __len__(self) -> int:
         """Return the number of tracks in the playlist."""
         if self.online_data:
+            # Use numberOfItems attribute if available
+            attrs = self.online_data[0]["attributes"]
+            if "numberOfItems" in attrs:
+                return attrs["numberOfItems"]
+            # Fallback to relationship data length (always present)
             return len(
                 self.online_data[0]
                 .get("relationships", {})

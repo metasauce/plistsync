@@ -23,6 +23,7 @@ from .api_types import (
     PlaylistIncludedResource,
     PlaylistListDocument,
     PlaylistResource,
+    PlaylistsItemsResourceIdentifier,
     RelationshipResource,
     T_Included,
     TrackDocument,
@@ -452,7 +453,7 @@ class TidalTrackApi:
 
 class TidalPlaylistApi:
     session: TidalApiSession
-    default_include: ClassVar[list[str]] = ["items", "items.albums", "items.artists"]
+    default_include: ClassVar[list[str]] = []
 
     def __init__(self, session: TidalApiSession):
         self.session = session
@@ -556,6 +557,38 @@ class TidalPlaylistApi:
         lookup = include_to_lookup(playlist_list_document.get("included", []))
         return playlist_list_document["data"], lookup
 
+    def get_items(
+        self,
+        playlist_id: str,
+        include: list[str] | None = None,
+    ) -> tuple[list[PlaylistsItemsResourceIdentifier], LookupDict]:
+        """Fetch all items of a playlist.
+
+        Parameters
+        ----------
+        playlist_id : str
+            The playlist ID.
+        include : list[str] | None
+            Include parameters for the items relationship. Defaults to
+            ["items", "items.albums", "items.artists"].
+
+        Returns
+        -------
+        tuple[list[PlaylistsItemsResourceIdentifier], LookupDict]
+            List of item identifiers (with meta) and lookup dict for included
+            track resources.
+        """
+        if include is None:
+            include = ["items", "items.albums", "items.artists"]
+        doc = self.session.get_paginated(
+            f"/playlists/{playlist_id}/relationships/items",
+            include,
+        )
+        data = doc.get("data", [])
+        included = doc.get("included", [])
+        lookup = include_to_lookup(included)
+        return data, lookup
+
     def _create(
         self,
         name: str,
@@ -563,16 +596,27 @@ class TidalPlaylistApi:
         access_type: Literal["PUBLIC", "UNLISTED"] = "UNLISTED",
     ) -> PlaylistDocument:
         """Create a new playlist."""
+        data = {
+            "data": {
+                "accessType": access_type,
+                "description": description,
+                "name": name,
+            },
+            "type": "playlists",
+        }
+        print(data)
         return self.session.request(
             "POST",
             "/playlists",
             json={
                 "data": {
-                    "accessType": access_type,
-                    "description": description,
-                    "name": name,
+                    "attributes": {
+                        "accessType": access_type,
+                        "description": description,
+                        "name": name,
+                    },
+                    "type": "playlists",
                 },
-                "type": "playlists",
             },
         ).json()
 
