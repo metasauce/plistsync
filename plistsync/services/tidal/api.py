@@ -596,15 +596,6 @@ class TidalPlaylistApi:
         access_type: Literal["PUBLIC", "UNLISTED"] = "UNLISTED",
     ) -> PlaylistDocument:
         """Create a new playlist."""
-        data = {
-            "data": {
-                "accessType": access_type,
-                "description": description,
-                "name": name,
-            },
-            "type": "playlists",
-        }
-        print(data)
         return self.session.request(
             "POST",
             "/playlists",
@@ -768,9 +759,7 @@ class TidalPlaylistApi:
         for item_id in item_ids:
             item_data = {
                 "id": item_id[0],
-                "meta": {
-                    "itemId": item_id[1]  # The specific item to reorder
-                },
+                "meta": {"itemId": item_id[1]},
                 "type": item_type,
             }
             data.append(item_data)

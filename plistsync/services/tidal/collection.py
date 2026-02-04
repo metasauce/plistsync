@@ -188,7 +188,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                     TidalPlaylistTrack(
                         track_data[0],
                         data_lookup=track_data[1],
-                        added_at=item.get("meta", {}).get("addedAt", ""),
+                        meta=item.get("meta", {}),
                     )
                 )
             else:
@@ -267,7 +267,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                     TidalPlaylistTrack(
                         track_resource,
                         data_lookup=items_lookup,
-                        added_at=item.get("meta", {}).get("addedAt", ""),
+                        meta=item.get("meta", {}),
                     )
                 )
             else:
@@ -285,7 +285,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         """
         if self._tracks is None:
             self._refetch_tracks()
-        return self._tracks or []
+        return self._tracks  # type: ignore After refetch tracks exist
 
     @tracks.setter
     def tracks(self, value: list[TidalPlaylistTrack]) -> None:
@@ -313,23 +313,53 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         self,
         idx: int,
         track: TidalPlaylistTrack,
+        live_list: list[TidalPlaylistTrack],
     ) -> None:
-        raise NotImplementedError
+        print("insert")
+        if not self.id:
+            raise ValueError("Id must be set to call remote insert!")
+        # Live list includes current operation
+        if idx + 1 >= len(live_list):
+            self.api.playlist.add_items(
+                playlist_id=self.id,
+                ids=[track.id],
+            )
+        else:
+            self.api.playlist.add_items(
+                playlist_id=self.id,
+                ids=[track.id],
+                position_before=live_list[idx + 1].item_id,
+            )
 
     def _remote_delete_track(
         self,
         idx: int,
         track: TidalPlaylistTrack,
+        live_list: list[TidalPlaylistTrack],
     ) -> None:
-        raise NotImplementedError
+        if not self.id:
+            raise ValueError("Id must be set to call remote delete!")
+
+        # Deletion is done via itemId (unique in playlist)
+        self.api.playlist.remove_items(
+            playlist_id=self.id,
+            item_ids=[(track.id, track.item_id)],
+        )
 
     def _remote_update_metadata(
         self,
         new_name: str | None = None,
         new_description: str | None = None,
     ) -> None:
-        raise NotImplementedError
+        if not self.id:
+            raise ValueError("Id must be set to call remote delete!")
+
+        self.api.playlist.update(
+            id=self.id,
+            name=new_name,
+            description=new_description,
+        )
 
     @staticmethod
     def _track_key(track: TidalPlaylistTrack) -> Hashable:
-        raise NotImplementedError
+        return track.id  # Maybe we want item_id here

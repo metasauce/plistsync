@@ -326,18 +326,32 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     # ----------------------------- Remote operations ---------------------------- #
 
-    def _remote_insert_track(self, idx: int, track: SpotifyPlaylistTrack) -> None:
+    def _remote_insert_track(
+        self,
+        idx: int,
+        track: SpotifyPlaylistTrack,
+        live_list: list[SpotifyPlaylistTrack],
+    ) -> None:
         if not self.id:
             raise ValueError("Id must be set to call remote insert!")
         self.api.playlist.add_tracks(self.id, [track.uri], idx)
 
-    def _remote_delete_track(self, idx: int, track: SpotifyPlaylistTrack):
+    def _remote_delete_track(
+        self,
+        idx: int,
+        track: SpotifyPlaylistTrack,
+        live_list: list[SpotifyPlaylistTrack],
+    ):
         if not self.id:
             raise ValueError("Id must be set to call remote delete!")
         self.api.playlist.remove_tracks(self.id, [track.uri], [idx])
 
     def _remote_move_track(
-        self, old_idx: int, new_idx: int, track: SpotifyPlaylistTrack
+        self,
+        old_idx: int,
+        new_idx: int,
+        track: SpotifyPlaylistTrack,
+        live_list: list[SpotifyPlaylistTrack],
     ) -> None:
         if not self.id:
             raise ValueError("Id must be set to call remote move!")

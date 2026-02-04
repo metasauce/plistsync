@@ -145,7 +145,12 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         )
 
     @abstractmethod
-    def _remote_insert_track(self, idx: int, track: T) -> None:
+    def _remote_insert_track(
+        self,
+        idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Insert track at index on remote service.
 
         Parameters
@@ -154,11 +159,18 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Zero-based insertion index (0 <= idx <= current length)
         track : T
             Track object to insert
+        live_list : list[T]
+            Current live list
         """
         ...
 
     @abstractmethod
-    def _remote_delete_track(self, idx: int, track: T) -> None:
+    def _remote_delete_track(
+        self,
+        idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Delete track at index from remote service.
 
         Parameters
@@ -167,10 +179,18 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Zero-based index of track to delete
         track : T
             Track being deleted
+        live_list : list[T]
+            Current live list
         """
         ...
 
-    def _remote_move_track(self, old_idx: int, new_idx: int, track: T) -> None:
+    def _remote_move_track(
+        self,
+        old_idx: int,
+        new_idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Move track from old_idx to new_idx remotely.
 
         Default: delete then insert. Subclasses may optimize.
@@ -183,9 +203,16 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Destination index
         track : T
             Track being moved
+        live_list : list[T]
+            Current live list
         """
-        self._remote_delete_track(old_idx, track)
-        self._remote_insert_track(new_idx, track)
+        # Remove from old position
+        self._remote_delete_track(old_idx, track, live_list)
+        live_list.pop(old_idx)
+        # Insert at new position (note: new_idx may have shifted due to pop)
+        adjusted_new_idx = new_idx if new_idx > old_idx else new_idx
+        self._remote_insert_track(adjusted_new_idx, track, live_list)
+        live_list.insert(adjusted_new_idx, track)
 
     @abstractmethod
     def _remote_update_metadata(
@@ -216,11 +243,13 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
         for op in operations:
             if isinstance(op, InsertOp):
-                self._remote_insert_track(op.idx, op.item)
+                self._remote_insert_track(op.idx, op.item, operations.live_list)
             elif isinstance(op, DeleteOp):
-                self._remote_delete_track(op.idx, op.item)
+                self._remote_delete_track(op.idx, op.item, operations.live_list)
             elif isinstance(op, MoveOp):
-                self._remote_move_track(op.old_idx, op.new_idx, op.item)
+                self._remote_move_track(
+                    op.old_idx, op.new_idx, op.item, operations.live_list
+                )
 
     @staticmethod
     @abstractmethod

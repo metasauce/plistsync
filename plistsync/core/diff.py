@@ -44,7 +44,7 @@ class DeleteOp(Generic[T]):
     """The item to remove from the list."""
 
 
-Ops: TypeAlias = InsertOp | DeleteOp | MoveOp
+Ops: TypeAlias = InsertOp[T] | DeleteOp[T] | MoveOp[T]
 
 
 @dataclass
@@ -56,41 +56,46 @@ class Operations(Generic[T]):
     old_list: list[T]
     """The original list before applying operations."""
 
-    def __iter__(self) -> Iterator[InsertOp | DeleteOp | MoveOp]:
-        """Iterate operations, skipping redundant actions."""
-        live_list = self.old_list[:]
+    def __iter__(self) -> Iterator[InsertOp[T] | DeleteOp[T] | MoveOp[T]]:
+        """Iterate operations with live list snapshots after each step."""
+        self._live_list = self.old_list[:]
 
         for op in self.ops:
             if isinstance(op, MoveOp):
                 # Find the exact object to move
                 try:
                     current_idx = next(
-                        i for i, v in enumerate(live_list) if v is op.item
+                        i for i, v in enumerate(self._live_list) if v is op.item
                     )
                 except StopIteration:
                     continue  # already deleted
                 if current_idx == op.new_idx:
                     continue  # already at target
-                val = live_list.pop(current_idx)
-                live_list.insert(op.new_idx, val)
+                val = self._live_list.pop(current_idx)
+                self._live_list.insert(op.new_idx, val)
                 yield op
 
             elif isinstance(op, InsertOp):
-                if op.idx < len(live_list) and live_list[op.idx] is op.item:
+                if op.idx < len(self._live_list) and self._live_list[op.idx] is op.item:
                     continue  # already inserted
-                live_list.insert(op.idx, op.item)
+                self._live_list.insert(op.idx, op.item)
                 yield op
 
             elif isinstance(op, DeleteOp):
                 # Find the item by identity
                 try:
                     current_idx = next(
-                        i for i, v in enumerate(live_list) if v is op.item
+                        i for i, v in enumerate(self._live_list[:]) if v is op.item
                     )
                 except StopIteration:
                     continue  # already deleted
-                live_list.pop(current_idx)
+                self._live_list.pop(current_idx)
                 yield op
+
+    @property
+    def live_list(self) -> list[T]:
+        """Current state of the list after all applied operations."""
+        return getattr(self, "_live_list", self.old_list[:])
 
 
 def list_diff(

@@ -5,7 +5,10 @@ from datetime import datetime
 
 from plistsync.core import GlobalTrackIDs, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
-from plistsync.services.tidal.api_types import TrackResource
+from plistsync.services.tidal.api_types import (
+    PlaylistsItemsResourceIdentifierMeta,
+    TrackResource,
+)
 
 from .api import LookupDict
 
@@ -100,26 +103,38 @@ class TidalPlaylistTrack(TidalTrack):
     when fetching playlist items.
     """
 
-    added_at: datetime
-    """The date and time the track was added to the playlist."""
+    meta: PlaylistsItemsResourceIdentifierMeta
 
     def __init__(
         self,
         data: TrackResource,
         data_lookup: LookupDict,
-        added_at: str | datetime,
+        meta: PlaylistsItemsResourceIdentifierMeta,
     ):
         """Initialize a TidalPlaylistTrack with the given data.
 
         Expected data comes from the Tidal API, e.g. from
         playlist items endpoint.
         """
+
+        self.meta = meta
+
+        super().__init__(data, data_lookup=data_lookup)
+
+    @property
+    def added_at(self) -> datetime:
         # format: 2021-05-08T10:17:50.932847Z
+        added_at: str | datetime = self.meta.get("addedAt", "")
         if isinstance(added_at, str):
-            self.added_at = datetime.strptime(added_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+            return datetime.strptime(added_at, "%Y-%m-%dT%H:%M:%S.%fZ")
         elif isinstance(added_at, datetime):
-            self.added_at = added_at
+            return added_at
         else:
             raise ValueError(f"Invalid added_at value: {added_at}")
 
-        super().__init__(data, data_lookup=data_lookup)
+    @property
+    def item_id(self) -> str:
+        """Item id of the track within a playlist."""
+        if item_id := self.meta.get("itemId", None):
+            return item_id
+        raise ValueError("Track has no itemId")
