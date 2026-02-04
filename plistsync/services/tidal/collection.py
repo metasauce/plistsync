@@ -8,7 +8,7 @@ from plistsync.core.collection import (
     GlobalLookup,
     LibraryCollection,
 )
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
+from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
 from plistsync.logger import log
 
 from .api import LookupDict, TidalApi, extract_tidal_playlist_id
@@ -315,7 +315,6 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         track: TidalPlaylistTrack,
         live_list: list[TidalPlaylistTrack],
     ) -> None:
-        print("insert")
         if not self.id:
             raise ValueError("Id must be set to call remote insert!")
         # Live list includes current operation
@@ -359,6 +358,19 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
             name=new_name,
             description=new_description,
         )
+
+    def _apply_diff(
+        self,
+        before: Snapshot[TidalPlaylistTrack],
+        after: Snapshot[TidalPlaylistTrack],
+    ) -> None:
+        """Wrap apply diff so `edit` also associates the playlist id online."""
+        if not self.id:
+            self.data = self.api.playlist.create(self.name, self.description or "")
+        super()._apply_diff(before, after)
+        # After edit we refetch all tracks as their is no other
+        # easy way to get the item ids
+        self._refetch_tracks()
 
     @staticmethod
     def _track_key(track: TidalPlaylistTrack) -> Hashable:
