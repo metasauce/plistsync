@@ -6,46 +6,31 @@ from plistsync.core.diff import DeleteOp, InsertOp, MoveOp, Operations, list_dif
 class TestPlaylistDiff:
     """Test suif for the playlist_diff function."""
 
+    # fmt: off
     @pytest.mark.parametrize(
         "old, new, expected",
         [
-            pytest.param([], [], [], id="empty_lists"),
+            # Empty / Identical
+            pytest.param([], [], [], id="empty_to_empty"),
+            pytest.param(["A"], ["A"], [], id="single_identical"),
             pytest.param(["A", "B", "C"], ["A", "B", "C"], [], id="identical_lists"),
-            pytest.param(["A"], [], [DeleteOp(idx=0, item="A")], id="simple_delete"),
-            pytest.param([], ["A"], [InsertOp(idx=0, item="A")], id="simple_insert"),
-            pytest.param(
-                ["A", "B", "C"],
-                ["C", "A", "B"],
-                [MoveOp(old_idx=2, new_idx=0, item="C")],
-                id="move_last_to_front",
-            ),
-            pytest.param(
-                ["A", "B", "C"],
-                ["X", "A", "C"],
-                [
-                    DeleteOp(idx=1, item="B"),
-                    InsertOp(idx=0, item="X"),
-                ],
-                id="delete_middle_insert_front",
-            ),
-            pytest.param(
-                ["A", "B", "C"],
-                ["A", "B", "B", "C"],
-                [InsertOp(idx=2, item="B")],
-                id="duplicate_delete",
-            ),
-            pytest.param(
-                ["A", "A"],
-                ["A"],
-                [DeleteOp(idx=1, item="A")],
-                id="duplicate_delete",
-            ),
-            pytest.param(
-                ["A"],
-                ["A", "A"],
-                [InsertOp(idx=1, item="A")],
-                id="duplicate_insert",
-            ),
+            # Inserts
+            pytest.param([], ["A"], [InsertOp(idx=0, item="A")], id="insert_single"),
+            pytest.param([], ["B", "B"], [InsertOp(idx=0, item="B"), InsertOp(idx=1, item="B")], id="insert_two_duplicates"),
+            pytest.param(["A"], ["A", "A"], [InsertOp(idx=1, item="A")], id="insert_duplicate_after"),
+            pytest.param(["A", "B", "C"], ["A", "B", "B", "C"], [InsertOp(idx=2, item="B")], id="insert_duplicate_in_middle"),
+            # Delets
+            pytest.param(["A"], [], [DeleteOp(idx=0, item="A")], id="delete_single"),
+            pytest.param(["A", "A"], ["A"], [DeleteOp(idx=1, item="A")], id="delete_duplicate"),
+            pytest.param(["A", "B", "C"], ["A", "C"], [DeleteOp(idx=1, item="B")], id="delete_middle"),
+            # Moves
+            pytest.param(["A", "B", "C"], ["C", "A", "B"], [MoveOp(old_idx=2, new_idx=0, item="C")], id="move_last_to_front"),
+            pytest.param(["A", "B", "C"], ["B", "A", "C"], [MoveOp(old_idx=1, new_idx=0, item="B")], id="move_second_to_front"),
+            # Delete + inserts + Move
+            pytest.param(["A", "B", "C"], ["X", "A", "C"], [DeleteOp(idx=1, item="B"), InsertOp(idx=0, item="X")], id="delete_middle_insert_front"),
+            pytest.param(["A", "B", "C"], ["A", "X", "C"], [DeleteOp(idx=1, item="B"), InsertOp(idx=1, item="X")], id="delete_middle_insert_same_idx"),
+            pytest.param(["A", "B", "C"], ["C", "B"], [DeleteOp(idx=0, item="A"),MoveOp(old_idx=1,new_idx=0,item='C')]),
+            # Complex reorder
             pytest.param(
                 ["A", "B", "C", "D"],
                 ["B", "D", "A", "C"],
@@ -55,20 +40,38 @@ class TestPlaylistDiff:
                 ],
                 id="complex_reorder",
             ),
+            # Full mix
             pytest.param(
                 ["A", "B", "C", "D", "E", "F"],
                 ["B", "G", "D", "A", "F", "H", "C"],
                 [
                     DeleteOp(idx=4, item="E"),
+                    MoveOp(old_idx=1, new_idx=0, item="B"),
                     InsertOp(idx=1, item="G"),
-                    InsertOp(idx=5, item="H"),
-                    MoveOp(old_idx=2, new_idx=0, item="B"),
-                    MoveOp(old_idx=2, new_idx=1, item="G"),
                     MoveOp(old_idx=4, new_idx=2, item="D"),
-                    MoveOp(old_idx=6, new_idx=4, item="F"),
-                    MoveOp(old_idx=6, new_idx=5, item="H"),
+                    MoveOp(old_idx=5, new_idx=4, item="F"),
+                    InsertOp(idx=5, item="H"),
                 ],
-                id="complex",
+                id="complex_mixed",
+            ),
+            # Edge case
+            pytest.param(
+                ["A", "A", "A"],
+                ["A"],
+                [DeleteOp(idx=2, item="A"), DeleteOp(idx=1, item="A")],
+                id="delete_two_duplicates",
+            ),
+            pytest.param(
+                ["A"],
+                ["A", "A", "A"],
+                [InsertOp(idx=1, item="A"), InsertOp(idx=2, item="A")],
+                id="insert_two_duplicates",
+            ),
+            pytest.param(
+                ["A", "B"],
+                ["B", "A"],
+                [MoveOp(old_idx=1, new_idx=0, item="B")],
+                id="swap_two",
             ),
         ],
     )
@@ -93,6 +96,8 @@ class TestPlaylistDiff:
             else:
                 raise ValueError(f"Unknown operation: {op}")
         assert playlist == new, f"Failed to reconstruct: {playlist} != {new}"
+
+    # fmt: on
 
     @pytest.mark.parametrize(
         "old, ops_list, expected_applied_ops",
