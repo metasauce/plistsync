@@ -107,34 +107,39 @@ class TidalPlaylistTrack(TidalTrack):
 
     def __init__(
         self,
-        data: TrackResource,
-        data_lookup: LookupDict,
-        meta: PlaylistsItemsResourceIdentifierMeta,
+        data_or_track: TrackResource | TidalTrack,
+        data_lookup: LookupDict | None = None,
+        meta: PlaylistsItemsResourceIdentifierMeta | None = None,
     ):
         """Initialize a TidalPlaylistTrack with the given data.
 
         Expected data comes from the Tidal API, e.g. from
         playlist items endpoint.
         """
-
-        self.meta = meta
-
-        super().__init__(data, data_lookup=data_lookup)
-
-    @property
-    def added_at(self) -> datetime:
-        # format: 2021-05-08T10:17:50.932847Z
-        added_at: str | datetime = self.meta.get("addedAt", "")
-        if isinstance(added_at, str):
-            return datetime.strptime(added_at, "%Y-%m-%dT%H:%M:%S.%fZ")
-        elif isinstance(added_at, datetime):
-            return added_at
+        self.meta = meta or {}
+        if isinstance(data_or_track, TidalTrack):
+            super().__init__(data_or_track.data, data_or_track.data_lookup)
         else:
-            raise ValueError(f"Invalid added_at value: {added_at}")
+            super().__init__(data_or_track, data_lookup=data_lookup)
 
     @property
-    def item_id(self) -> str:
-        """Item id of the track within a playlist."""
-        if item_id := self.meta.get("itemId", None):
-            return item_id
-        raise ValueError("Track has no itemId")
+    def added_at(self) -> datetime | None:
+        """The datetime when the track was added to the playlist.
+
+        Can be None if the track is not yet associated with an
+        online playlist.
+        """
+        added_at: str | datetime | None = self.meta.get("addedAt", None)
+        if isinstance(added_at, str):
+            # format: 2021-05-08T10:17:50.932847Z
+            added_at = datetime.strptime(added_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+        return added_at
+
+    @property
+    def item_id(self) -> str | None:
+        """Item id of the track within a playlist.
+
+        Can be None if the track is not yet associated with an
+        online playlist.
+        """
+        return self.meta.get("itemId", None)
