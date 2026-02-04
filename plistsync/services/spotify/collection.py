@@ -211,7 +211,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             description,
         )
         tracks_obj: PlaylistTracksBase = data.get("tracks", {})
-        tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])
+        tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])  # type: ignore[assignment]
         if len(tracks_obj_items) == tracks_obj.get("total", 0):
             pl._tracks = [
                 SpotifyPlaylistTrack(

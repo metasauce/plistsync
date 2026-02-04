@@ -285,7 +285,8 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         """
         if self._tracks is None:
             self._refetch_tracks()
-        return self._tracks  # type: ignore After refetch tracks exist
+        # After refetch tracks exist
+        return self._tracks  # type: ignore[return-value]
 
     @tracks.setter
     def tracks(self, value: list[TidalPlaylistTrack]) -> None:
@@ -339,6 +340,10 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         if not self.id:
             raise ValueError("Id must be set to call remote delete!")
 
+        # Realistically this should never be unset if we want to remove the track
+        if not track.item_id:
+            raise ValueError("ItemID must be set in track should be removed!")
+
         # Deletion is done via itemId (unique in playlist)
         self.api.playlist.remove_items(
             playlist_id=self.id,
@@ -367,6 +372,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         """Wrap apply diff so `edit` also associates the playlist id online."""
         if not self.id:
             self.data = self.api.playlist.create(self.name, self.description or "")
+
         super()._apply_diff(before, after)
         # After edit we refetch all tracks as their is no other
         # easy way to get the item ids

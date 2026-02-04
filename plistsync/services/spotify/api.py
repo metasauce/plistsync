@@ -189,7 +189,7 @@ class PlaylistApi:
         force: bool = False,
     ) -> list[SpotifyApiPlaylistTrack]:
         """Resolve the track pagination."""
-        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])
+        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore[assignment]
 
         next_page = data.get("next")
         if force:
