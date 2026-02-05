@@ -10,7 +10,7 @@ from requests_oauth2client import ExpiredAccessToken
 from plistsync.config import Config
 from plistsync.logger import log
 from plistsync.utils import chunk_list
-from plistsync.utils.bearer_token import (
+from plistsync.utils.auth.bearer_token import (
     BearerToken,
     InvalidTokenError,
     get_bearer_token,

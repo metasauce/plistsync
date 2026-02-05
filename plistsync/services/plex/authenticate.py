@@ -1,6 +1,4 @@
-import http.server
 import json
-import socketserver
 import time
 from typing import Any, Literal
 from urllib.parse import urlencode
@@ -9,8 +7,9 @@ import requests
 import typer
 
 from plistsync.config import Config
+from plistsync.errors import AuthenticationError
 from plistsync.logger import log
-from plistsync.utils import safe_webbrowser_open
+from plistsync.utils.auth.redirect import BaseRedirectHandler
 
 plex_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Plex.", add_completion=False
@@ -23,8 +22,8 @@ def auth(
         "forward",
         "--mode",
         "-m",
-        help="If set to 'manual', the CLI will not start a local server and instead ask"
-        " you to paste the redirected URL after login. This should be used if you"
+        help="If set to 'polling', the CLI will not start a local server and instead"
+        " ask you to paste the redirected URL after login. This should be used if you"
         " are running the CLI on a remote server without browser access.",
     ),
     port: int | None = typer.Option(
@@ -44,6 +43,13 @@ def auth(
 
     This will open a browser window to log in to Plex and obtain an access token.
     """
+    from plistsync.utils.auth import (
+        safe_webbrowser_open,
+    )
+    from plistsync.utils.auth.redirect import (
+        start_redirect_server,
+    )
+
     config = Config()
     plex_config = config.plex
     redirect_port = port if port is not None else config.redirect_port
@@ -92,6 +98,7 @@ def auth(
     auth_url = "https://app.plex.tv/auth#?" + urlencode(params)
 
     # Try to open the URL in the default browser
+    log.debug(f"Redirecting to Plex login: {auth_url}")
     try:
         safe_webbrowser_open(auth_url)
     except Exception:
@@ -101,24 +108,25 @@ def auth(
         )
         typer.echo(auth_url)
 
-    if mode == "forward":
-        # Start a local server to handle the redirect
-        get_auth_code_server(redirect_port)
-        # Verify the pin
-        success, pin_data = verify_pin(pin["id"])
-    else:
-        # Check for the pin manually every 2 seconds
-        timeout = 300  # 5 minutes
-        start_time = time.time()
-        success = False
-
-        while time.time() - start_time < timeout and not success:
-            time.sleep(2)
+    try:
+        if mode == "forward":
+            start_redirect_server(redirect_port, PlexRedirectHandler, {})
             success, pin_data = verify_pin(pin["id"])
+        else:
+            # Check for the pin manually every 2 seconds
+            timeout = 300  # 5 minutes
+            start_time = time.time()
+            success = False
 
-    if not success:
-        log.error("Failed to authenticate with Plex.")
-        return
+            while time.time() - start_time < timeout and not success:
+                time.sleep(2)
+                success, pin_data = verify_pin(pin["id"])
+
+            if not success:
+                raise AuthenticationError("Failed to authenticate with Plex.")
+    except AuthenticationError as e:
+        typer.echo(f"Authentication failed: {str(e)}")
+        return typer.Exit(code=1)
 
     # Save the token
     token_path = Config.get_dir() / "plex_token.json"
@@ -134,59 +142,15 @@ def auth(
 # Start a local server to handle the redirect after auth
 
 
-class RedirectHandler(http.server.BaseHTTPRequestHandler):
+class PlexRedirectHandler(BaseRedirectHandler):
     """Handles the redirect from Tidal after login."""
 
-    results: dict[str, str | None]
+    def __init__(self, *args, state: dict[str, str | None], **kwargs):
+        super().__init__(*args, state=state, **kwargs)
 
-    def __init__(self, *args, results: dict[str, str | None], **kwargs):
-        self.results = results
-        super().__init__(*args, **kwargs)
-
-    def do_GET(self):
-        """Handle GET requests.
-
-        There are no additional information sent by Plex here this is just to
-        confirm the user has logged in successfully.
-        """
-        url = self.path
-        self.results.update(
-            {
-                "url": url,
-            }
-        )
-
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(
-            b"<html><body><h1>Authentication Successful</h1>"
-            b"<p>You can close this window.</p></body></html>"
-        )
-
-    def log_message(self, format, *args):
-        """Override to disable logging."""
-        pass
-
-
-def get_auth_code_server(port):
-    """Start the local HTTP server to listen for redirect."""
-    results: dict[str, str | None] = {}
-    httpd = None
-
-    class ReusableTCPServer(socketserver.TCPServer):
-        allow_reuse_address = True
-
-    try:
-        with ReusableTCPServer(
-            ("", port),
-            lambda *args, **kwargs: RedirectHandler(*args, results=results, **kwargs),
-        ) as httpd:
-            httpd.handle_request()  # Handle a single request; adjust as needed
-    finally:
-        if httpd:
-            httpd.server_close()
-    return results
+    @staticmethod
+    def parse_redirect_parameters(url: str) -> dict[str, str | None]:
+        return {"url": url}
 
 
 # -------------------------------- Pin verify -------------------------------- #

@@ -5,19 +5,15 @@ This is used to obtain the initial authentication token for Spotify.
 
 import secrets
 from typing import Literal
-from urllib.parse import parse_qs, urlparse
 
 import requests
 import typer
 
 from plistsync.config import Config
+from plistsync.errors import AuthenticationError
 from plistsync.logger import log
-from plistsync.services.tidal.authenticate import (
-    generate_pkce_codes,
-    get_auth_code_server,
-)
-from plistsync.utils import build_url, safe_webbrowser_open
-from plistsync.utils.bearer_token import BearerToken
+from plistsync.utils import build_url
+from plistsync.utils.auth.bearer_token import BearerToken
 
 spotify_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Spotify.", add_completion=False
@@ -55,6 +51,15 @@ def auth(
 
     This will open a browser window to log in to Spotify and obtain an access token.
     """
+    from plistsync.utils.auth import (
+        generate_pkce_codes,
+        safe_webbrowser_open,
+    )
+    from plistsync.utils.auth.redirect import (
+        OAuthRedirectHandler,
+        start_redirect_server,
+    )
+
     config = Config()
     spotify_config = config.spotify
     redirect_port = port if port is not None else config.redirect_port
@@ -76,9 +81,6 @@ def auth(
     )
 
     log.debug(f"Redirecting to Spotify login: {url}")
-    typer.echo("Paste the URL if your browser does not open automatically.")
-    typer.echo(url)
-
     try:
         safe_webbrowser_open(url)
     except Exception:
@@ -86,13 +88,20 @@ def auth(
             "Failed to open the url in the default browser automatically. "
             "Please open the URL manually."
         )
+        typer.echo(url)
 
     # Start a local server to handle the redirect
-    if mode == "manual":
-        pasted_url = typer.prompt("Paste the redirected URL after logging into Spotify")
-        results = _handle_pasted_url(pasted_url)
-    else:
-        results = get_auth_code_server(redirect_port)
+    try:
+        if mode == "manual":
+            pasted_url = typer.prompt(
+                "Paste the redirected URL after logging into Tidal"
+            )
+            results = OAuthRedirectHandler.parse_redirect_parameters(pasted_url)
+        else:
+            results = start_redirect_server(redirect_port, OAuthRedirectHandler, {})
+    except AuthenticationError as e:
+        typer.echo(f"Authentication failed: {str(e)}")
+        return typer.Exit(code=1)
 
     # Send request to get spotify token
     token_url = "https://accounts.spotify.com/api/token"
@@ -115,15 +124,3 @@ def auth(
     f_path = Config.get_dir() / "spotify_token.json"
     token.save(f_path)
     typer.echo(f"Authentication successful! Spotify token saved to {f_path}.")
-
-
-def _handle_pasted_url(url):
-    """Handle the URL provided by the user by extracting the code from the URL."""
-    parsed_url = urlparse(url)
-    query_components = parse_qs(parsed_url.query)
-    return {
-        "code": query_components.get("code", [None])[0],
-        "state": query_components.get("state", [None])[0],
-        "error": query_components.get("error", [None])[0],
-        "error_description": query_components.get("error_description", [None])[0],
-    }

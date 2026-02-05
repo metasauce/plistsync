@@ -3,21 +3,17 @@
 This is used to obtain the initial authentication token for Tidal.
 """
 
-import base64
-import hashlib
-import http.server
 import secrets
-import socketserver
 from typing import Literal
-from urllib.parse import parse_qs, urlparse
 
 import requests
 import typer
 
 from plistsync.config import Config
+from plistsync.errors import AuthenticationError
 from plistsync.logger import log
-from plistsync.utils import build_url, safe_webbrowser_open
-from plistsync.utils.bearer_token import BearerToken
+from plistsync.utils import build_url
+from plistsync.utils.auth.bearer_token import BearerToken
 
 tidal_cli = typer.Typer(
     rich_markup_mode="rich", help="Interact with Tidal.", add_completion=False
@@ -56,6 +52,15 @@ def auth(
 
     This will open a browser window to log in to Tidal and obtain an access token.
     """
+    from plistsync.utils.auth import (
+        generate_pkce_codes,
+        safe_webbrowser_open,
+    )
+    from plistsync.utils.auth.redirect import (
+        OAuthRedirectHandler,
+        start_redirect_server,
+    )
+
     config = Config()
     tidal_config = config.tidal
     redirect_port = port if port is not None else config.redirect_port
@@ -89,11 +94,17 @@ def auth(
         typer.echo(url)
 
     # Start a local server to handle the redirect
-    if mode == "manual":
-        pasted_url = typer.prompt("Paste the redirected URL after logging into Tidal")
-        results = handle_pasted_url(pasted_url)
-    else:
-        results = get_auth_code_server(redirect_port)
+    try:
+        if mode == "manual":
+            pasted_url = typer.prompt(
+                "Paste the redirected URL after logging into Tidal"
+            )
+            results = OAuthRedirectHandler.parse_redirect_parameters(pasted_url)
+        else:
+            results = start_redirect_server(redirect_port, OAuthRedirectHandler, {})
+    except AuthenticationError as e:
+        typer.echo(f"Authentication failed: {str(e)}")
+        return typer.Exit(code=1)
 
     # Send request to get tidal token
     token_url = "https://auth.tidal.com/v1/oauth2/token"
@@ -113,104 +124,3 @@ def auth(
     f_path = Config.get_dir() / "tidal_token.json"
     token.save(f_path)
     typer.echo(f"Authentication successful! Tidal token saved to {f_path}.")
-
-
-def generate_pkce_codes():
-    """Generate PKCE code verifier and code challenge.
-
-    Used for OAuth2 authentication with PKCE (S256).
-    """
-    code_verifier = secrets.token_urlsafe(32)
-    code_challenge = (
-        base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest())
-        .rstrip(b"=")
-        .decode()
-    )
-    return code_verifier, code_challenge
-
-
-# ----------------------------- Redirect handler ----------------------------- #
-# Starts a simple HTTP server to handle the redirect from Tidal/user after login.
-
-
-class RedirectHandler(http.server.BaseHTTPRequestHandler):
-    """Handles the redirect from Tidal after login."""
-
-    results: dict[str, str | None]
-
-    def __init__(self, *args, results: dict[str, str | None], **kwargs):
-        self.results = results
-        super().__init__(*args, **kwargs)
-
-    def do_GET(self):
-        """Handle GET requests."""
-        query_components = parse_qs(urlparse(self.path).query)
-
-        code = query_components.get("code", [None])[0]
-        state = query_components.get("state", [None])[0]
-        error = query_components.get("error", [None])[0]
-        error_description = query_components.get("error_description", [None])[0]
-
-        self.results["code"] = code
-        self.results["state"] = state
-        self.results["error"] = error
-        self.results["error_description"] = error_description
-
-        # Error for testing
-        if error:
-            # log.error(f"Tidal authentication error: {error} - {error_description}")
-            # Stop the server after handling the error
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(f"Error: {error} - {error_description}".encode())
-            return
-
-        self.send_response(200)
-        self.send_header("Content-type", "text/html")
-        self.end_headers()
-        self.wfile.write(
-            b"<html><body><h1>Authentication Successful</h1>"
-            b"<p>You can close this window.</p></body></html>"
-        )
-
-    def log_message(self, format, *args):
-        """Override to disable logging."""
-        pass
-
-
-def get_auth_code_server(port):
-    """Start the local HTTP server to listen for redirect."""
-    results: dict[str, str | None] = {}
-    httpd = None
-
-    class ReusableTCPServer(socketserver.TCPServer):
-        allow_reuse_address = True
-
-    try:
-        with ReusableTCPServer(
-            ("", port),
-            lambda *args, **kwargs: RedirectHandler(*args, results=results, **kwargs),
-        ) as httpd:
-            httpd.handle_request()  # Handle a single request; adjust as needed
-    finally:
-        if httpd:
-            httpd.server_close()
-    if results.get("error"):
-        typer.echo(
-            f"Authentication failed: {results['error']} {results['error_description']}"
-        )
-        typer.Exit(code=1)
-
-    return results
-
-
-def handle_pasted_url(url):
-    """Handle the URL provided by the user by extracting the code from the URL."""
-    parsed_url = urlparse(url)
-    query_components = parse_qs(parsed_url.query)
-    return {
-        "code": query_components.get("code", [None])[0],
-        "state": query_components.get("state", [None])[0],
-        "error": query_components.get("error", [None])[0],
-        "error_description": query_components.get("error_description", [None])[0],
-    }

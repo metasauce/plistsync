@@ -6,7 +6,6 @@ expected behaviors of various collection types, as well as utilities for track h
 and path rewriting.
 """
 
-from . import matching
 from .collection import Collection, LibraryCollection
 from .rewrite import PathRewrite
 from .track import GlobalTrackIDs, Track
@@ -17,5 +16,4 @@ __all__ = [
     "PathRewrite",
     "Track",
     "GlobalTrackIDs",
-    "matching",
 ]
