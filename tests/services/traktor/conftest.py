@@ -15,7 +15,7 @@ import lxml.etree as ET  # noqa: N812
 @pytest.fixture
 def collection():
     """Fixture to create a NMLCollection for testing."""
-    t_path = Path(__file__).parent.parent / "data" / "traktor_playlist.nml"
+    t_path = Path(__file__).parent.parent.parent / "data" / "traktor_playlist.nml"
     return NMLCollection(t_path)
 
 

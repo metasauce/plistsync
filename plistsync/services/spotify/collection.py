@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Self, overload, override
+from typing import Self, overload
+
+from typing_extensions import override
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (

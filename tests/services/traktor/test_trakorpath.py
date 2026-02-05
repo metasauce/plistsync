@@ -85,7 +85,7 @@ class TestTraktorPath:
 
     def test_from_nml_location(self, collection):
         # Get a track from the collection
-        for track in collection:
+        for track in collection.tracks:
             loc = track.entry.find("LOCATION")
             TraktorPath.from_nml_location(loc)
 

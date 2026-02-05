@@ -6,7 +6,7 @@ json.
 
 import json
 from collections.abc import AsyncGenerator, Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
 from typing import (
@@ -83,8 +83,8 @@ class BearerToken:
             return False
         # Convert expires_at to datetime if it's a timestamp
         if isinstance(expires_at, (int, float)):
-            expires_at = datetime.fromtimestamp(expires_at, tz=timezone.utc)
-        return datetime.now(tz=timezone.utc) >= expires_at
+            expires_at = datetime.fromtimestamp(expires_at, tz=UTC)
+        return datetime.now(tz=UTC) >= expires_at
 
 
 class InvalidTokenError(Exception):
