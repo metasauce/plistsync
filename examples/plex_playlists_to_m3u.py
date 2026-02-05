@@ -1,4 +1,3 @@
-import os
 import re
 from pathlib import Path
 
@@ -7,7 +6,6 @@ from plistsync.services.plex.collection import (
     PlexLibrarySectionCollection,
     PlexPlaylistCollection,
 )
-from plistsync.services.plex.track import PathRewrite
 
 # ---------------------------------- Options --------------------------------- #
 playlists = [
@@ -16,7 +14,7 @@ playlists = [
     "playlist3",
 ]
 plex_section_name = "Music"
-output_dir = Path(os.getcwd()).resolve()
+output_dir = Path.cwd().resolve()
 
 path_rewrite = "/media/music/clean:/Volumes/music/clean"
 
@@ -46,7 +44,8 @@ def main(
         for track in pl:
             if not str(track.path).startswith(old):
                 raise Warning(
-                    f"Track {track.path} does not start with the specified rewrite ({old})."
+                    f"Track {track.path} does not start with"
+                    f" the specified rewrite ({old})."
                 )
             m3u += (
                 str(track.path).replace(

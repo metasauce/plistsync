@@ -1,18 +1,16 @@
-import os
-import re
 import shutil
 from pathlib import Path
 
 from plistsync.logger import log
-from plistsync.services.plex.collection import PlexPlaylistCollection
-from plistsync.services.plex.track import PathRewrite
 
 m3u_file = Path("playlist.m3u")
 
 
 def collect_m3u_files(m3u_file: Path):
-    """Takes a path to an m3u, reads the file paths in there, and copies all files
-    into a directory next to the m3u file.
+    """Collect m3u file.
+
+    Takes a path to an m3u, reads the file paths in there,
+    and copies all files into a directory next to the m3u file.
     """
     # Create collection directory next to the M3U file
     collection_dir = m3u_file.parent / f"{m3u_file.stem}_tracks"
@@ -25,7 +23,7 @@ def collect_m3u_files(m3u_file: Path):
     skipped_count = 0
 
     try:
-        with open(m3u_file, "r", encoding="utf-8") as f:
+        with open(m3u_file, encoding="utf-8") as f:
             for line_num, line in enumerate(f, 1):
                 line = line.strip()
 
@@ -66,7 +64,5 @@ def collect_m3u_files(m3u_file: Path):
     except Exception as e:
         ValueError(f"Error reading M3U file: {e}")
 
-    log.info(
-        f"Collection complete: {copied_count} files copied, {skipped_count} files skipped"
-    )
+    log.info(f"Completed: {copied_count} files copied, {skipped_count} files skipped")
     log.info(f"Files collected in: {collection_dir}")

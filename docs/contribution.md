@@ -54,13 +54,16 @@ git add .
 git commit -m "Add feature X"
 ```
 
-### 6. Run pre-commit hooks (optional but recommended)
+6. Run pre-commit hooks (optional but recommended)
 
-If you want to run the same checks that will run in CI:
+We use pre-commit hooks to automatically enforce code quality standards before each commit. This helps maintain consistency and catch issues early.
 
 ```bash
-uv run pre-commit run --all-files
+# Install the git hook
+pre-commit install
 ```
+
+Once installed, every `git commit` will trigger automatic formatting with ruff, type checking with mypy, and linting. If you need to skip these checks (e.g., for a work-in-progress commit), use `git commit --no-verify`.
 
 ## Good First Issues
 

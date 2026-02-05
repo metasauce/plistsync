@@ -51,7 +51,7 @@ def main(
         for track in pl_plex:
             try:
                 p = track.path
-            except Exception as e:
+            except Exception:
                 log.error(f"Track {track} does not have a valid path.")
                 continue
             path_to_upsert = str(p).replace(

@@ -137,6 +137,8 @@ exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true
+# We should enable these at some point
+# disallow_incomplete_defs = true
 
 [[tool.mypy.overrides]]
 module = ["nest_asyncio.*"]
