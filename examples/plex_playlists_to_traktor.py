@@ -48,7 +48,7 @@ def main(
         else:
             old = new = ""
 
-        for track in pl_plex:
+        for track in pl_plex.tracks:
             try:
                 p = track.path
             except Exception:
@@ -63,7 +63,7 @@ def main(
         pl_nml.commit()
 
         print(f"Tracks in playlist {pl_plex.name}:")
-        for t in pl_nml:
+        for t in pl_nml.tracks:
             print(t)
 
 

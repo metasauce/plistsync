@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterator, Sequence
+from collections.abc import Generator, Iterable, Iterator, Sequence
 from functools import cached_property
 from pathlib import Path, PurePath
 from typing import Any
@@ -289,7 +289,8 @@ class PlexPlaylistCollection(Collection, TrackStream):
 
     # --------------------------------- Protocols -------------------------------- #
 
-    def tracks(self) -> Iterator[PlexTrack]:
+    @property
+    def tracks(self) -> Iterable[PlexTrack]:
         """Iterate over the tracks in the collection.
 
         Returns

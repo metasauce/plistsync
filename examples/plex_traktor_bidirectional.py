@@ -60,9 +60,9 @@ def main():
     # --- Add missing tracks from Plex to Traktor --- #
     # Rewrite paths from plex to match traktor paths
     plex_paths = set(
-        path_rewrite.apply(track.path) for track in plex_playlist if track.path
+        path_rewrite.apply(track.path) for track in plex_playlist.tracks if track.path
     )
-    traktor_paths = set(track.path for track in traktor_playlist)
+    traktor_paths = set(track.path for track in traktor_playlist.tracks)
 
     missing_in_traktor = plex_paths - traktor_paths
     log.info(

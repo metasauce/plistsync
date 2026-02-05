@@ -1,4 +1,4 @@
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 from pathlib import Path, PurePath
 from typing import Any
 
@@ -102,7 +102,8 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
             )
             return tracks[0]
 
-    def tracks(self) -> Iterator[BeetsTrack]:
+    @property
+    def tracks(self) -> Iterable[BeetsTrack]:
         table = self.db.get_table("items")
 
         stmt = select(table)

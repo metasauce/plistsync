@@ -36,14 +36,14 @@ class TestPlexPlaylistCollection(CollectionTestBase):
         collection!
         """
         for collection in self.create_collection():
-            for track in collection:
+            for track in collection.tracks:
                 return track
         raise RuntimeError("No track found in created collection")
 
     def test_insert_track_by_path(self, audio_files: Path):
         """Test inserting a track into a playlist by path."""
         for collection in self.create_collection():
-            tracks = list(collection)
+            tracks = list(collection.tracks)
             track = tracks[0]
             len_before = len(tracks)
             assert track.path is not None, (
@@ -56,7 +56,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
             )
 
             # Playlist should now contain an added track
-            tracks_after = list(collection)
+            tracks_after = list(collection.tracks)
             assert len(tracks_after) == len_before + 1, (
                 "Playlist should have one more track after insertion by path"
             )
@@ -64,7 +64,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
     def test_insert_track_by_id(self, audio_files: Path):
         """Test inserting a track into a playlist by Plex ID."""
         for collection in self.create_collection():
-            tracks = list(collection)
+            tracks = list(collection.tracks)
             track = tracks[0]
             len_before = len(tracks)
 
@@ -72,7 +72,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
             collection.insert_by_id(item_id=track.plex_id)
 
             # Playlist should now contain an added track
-            tracks_after = list(collection)
+            tracks_after = list(collection.tracks)
             assert len(tracks_after) == len_before + 1, (
                 "Playlist should have one more track after insertion by ID"
             )
@@ -84,7 +84,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
             collection._items_data = []
 
             collection.refresh()
-            assert len(list(collection)) != 0, (
+            assert len(list(collection.tracks)) != 0, (
                 "Playlist should have no tracks after refreshing empty data"
             )
 

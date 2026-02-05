@@ -98,4 +98,4 @@ class SpotifyPlaylistTrack(SpotifyTrack):
         self.is_local = data_or_track.get("is_local", False)
 
         # TODO: Episode handling?
-        super().__init__(data_or_track["track"])
+        super().__init__(data_or_track["track"])  # type: ignore[arg-type]
