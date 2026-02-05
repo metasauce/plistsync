@@ -3,7 +3,7 @@ name = "plistsync"
 version = "0.3.0"
 requires-python = ">=3.11"
 dependencies = [
-    "eyconf[cli]>=0.5.2",
+    "eyconf[cli]>=0.6.2",
     "requests>=2.32.5",
     "levenshtein>=0.27.3",
     "typer>=0.21.1",

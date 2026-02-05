@@ -563,16 +563,16 @@ wheels = [
 
 [[package]]
 name = "eyconf"
-version = "0.5.2"
+version = "0.6.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jsonschema" },
     { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d6/f4/8eef3777ece74b70a7666e88b13a46feff612b344148d85b96973e34d3bf/eyconf-0.5.2.tar.gz", hash = "sha256:5d860d51f7f3bf59ec8500735e0fc87b40ab63c2ba7480663cba23bcad4d8a69", size = 45018, upload-time = "2026-01-11T18:28:55.802Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/ad/45c640e42c51e32d3e2d5ec5b2ca308800b7672b6b9213230070ea745eeb/eyconf-0.6.2.tar.gz", hash = "sha256:c071bce0251baf811fd4864f7b8cd477ba2bd641845608305517f898c4ef5cf1", size = 46642, upload-time = "2026-02-05T16:28:35.912Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/a3/6f8f519bf62ec80b938b1eeca994f4fa68a1b36077a43a1154926118e178/eyconf-0.5.2-py3-none-any.whl", hash = "sha256:64cdd734479bdcb3d062c5f3de9b2d7666b4c668c6e90707c4e6714aeaf8af1e", size = 39083, upload-time = "2026-01-11T18:28:54.45Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/7b/216d35cbd3e6a39a18812fb42653722687ec2c727e7397efbdadab9dbf14/eyconf-0.6.2-py3-none-any.whl", hash = "sha256:72ef0fe8aad32debbdb08744943a392be45f562da38294a3ab1ed1583acd1437", size = 40022, upload-time = "2026-02-05T16:28:34.443Z" },
 ]
 
 [package.optional-dependencies]
@@ -1787,7 +1787,7 @@ typed = [
 
 [package.metadata]
 requires-dist = [
-    { name = "eyconf", extras = ["cli"], specifier = ">=0.5.2" },
+    { name = "eyconf", extras = ["cli"], specifier = ">=0.6.2" },
     { name = "levenshtein", specifier = ">=0.27.3" },
     { name = "lxml", marker = "extra == 'traktor'", specifier = ">=6.0.2" },
     { name = "nest-asyncio", marker = "extra == 'plex'", specifier = ">=1.6.0" },
