@@ -31,33 +31,21 @@ The core of plistsync is its abstraction layer that normalizes tracks, collectio
 <!-- start features -->
 
 - **Unified Abstraction Layer**: Normalizes tracks, collections, and playlists from various services into a common format, enabling seamless synchronization across platforms
-- **Current Service Support**:
-  - **Spotify** - Streaming service integration
-  - **Tidal** - Hi-Fi music service
-  - **Plex** - Personal media server
-  - **Traktor** - DJ software collections
-  - **Beets** - Music library manager
-  - **Local Files** - M3U playlists and file collections
 - **Extensible Service Architecture**: The abstraction layer is designed to support arbitrary music services with consistent APIs
+  - Currently supports Spotify, Tidal, Plex, Traktor and local files
+- **Collection Management**: Sync entire music libraries or specific playlists between services
+- **Developer-Friendly**: Built with type hints, comprehensive error handling, and pytest for testing
+- **Flexible Configuration**: Manage service credentials and preferences through config files
 
 <!-- end features -->
 
 ## Getting started
 
-If you're new to **plistsync**, start with the documentation:
+For detailed usage guides, API reference, and examples, see the [full documentation](https://docs.plistsync.com).
 
-**Full documentation:** https://docs.plistsync.com
+## Is this for you?
 
-The docs cover:
-
-- Installation and setup
-- Service authentication (Spotify, Tidal, Plex, etc.)
-- Core concepts (tracks, collections, playlists)
-- Usage examples and workflows
-
-## Is This For You?
-
-**plistsync** is intended for users who are comfortable with Python and scripting. It is **not** a point-and-click app — it’s a developer-oriented toolbox for automating music library and playlist workflows.
+**plistsync** is intended for users who are comfortable with Python and scripting. It is **not** a point-and-click app, it’s a _developer-oriented_ toolbox for automating music library and playlist workflows.
 
 ## License
 
@@ -68,15 +56,15 @@ We chose it to defend our work in an industry that often exploits artists, where
 
 See the [LICENSE](LICENSE) file for the full terms.
 
-## Support the Project
+## Support the project
 
 If you enjoy this project, there are a few ways you can support us:
 
 - Contribute code: Pull requests, bug reports, and feature suggestions are always welcome!
 - Spread the word: Share the project with friends or on social media.
 - Donate: Every contribution helps fuel more coffee-powered coding sessions!
-  - Donate ETH: 0x81927e76f2f0fAA9e7fD92176a473955DB20Ce55
-  - Donate BTC: bc1qw5e0deust6uq94e5s58au82wrakcjmlemw3cy4
+  - Donate ETH: <a href="etherium:0x81927e76f2f0fAA9e7fD92176a473955DB20Ce55" target="_blank">0x81927e76f2f0fAA9e7fD92176a473955DB20Ce55</a>
+  - Donate BTC: <a href="bitcoin:bc1qw5e0deust6uq94e5s58au82wrakcjmlemw3cy4" target="_blank">bc1qw5e0deust6uq94e5s58au82wrakcjmlemw3cy4</a>
 
 ---
 
