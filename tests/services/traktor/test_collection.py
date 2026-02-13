@@ -1,9 +1,9 @@
 from pathlib import Path
 import sys
 import pytest
-from plistsync.services.local import LocalTrack
 from plistsync.services.traktor import NMLCollection
 from plistsync.services.traktor.collection import NMLPlaylistCollection, TraktorPath
+from plistsync.services.traktor.track import NMLPlaylistTrack
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
 
@@ -27,15 +27,18 @@ class TestNMLCollection(LibraryCollectionTestBase):
         return self.track
 
     @property
-    def known_playlist_names(self):
+    def known_playlists(self):
         return [
-            "Silvester Full Playthrough",  # By name
-            "6868ecd66b354d37a33b965dae7a82e7",  # By UUID
+            ("name", "Silvester Full Playthrough"),  # By name
+            ("uuid", "6868ecd66b354d37a33b965dae7a82e7"),  # By UUID
         ]
 
     @property
-    def unknown_playlist_names(self):
-        return ["unknown playlist"]
+    def unknown_playlists(self):
+        return [
+            ("name", "unknown playlist", True),
+            ("uuid", "asdasdas", True),
+        ]
 
     def test_len(self):
         """Test the length of the collection."""
@@ -68,7 +71,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
     collection_class = NMLPlaylistCollection
 
     @pytest.fixture(autouse=True)
-    def setup(self, collection, sample_track):
+    def setup(self, collection: NMLCollection, sample_track):
         self.collection = collection
         self.track = sample_track
 
@@ -84,7 +87,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
     def test_set_uuid(self):
         """Test setting the UUID of a playlist."""
-        p1 = self.collection.get_playlist(self.name)
+        p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
 
         p1.uuid = "new-uuid"
@@ -96,7 +99,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
     def test_set_name(self):
         """Test setting the name of a playlist."""
-        p1 = self.collection.get_playlist(self.name)
+        p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
 
         p1.name = "New Playlist Name"
@@ -107,16 +110,17 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1.name == self.name
 
     @pytest.mark.parametrize(
-        "track",
+        "track_path",
         [Path("/Volumes/Macintosh HD/foo/bar.mp3")],
     )
-    def test_insert_track(self, track):
+    def test_insert_track(self, track_path):
         """Test adding a track to a playlist."""
-        p1 = self.collection.get_playlist(self.name)
+        p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
 
         l_before = len(p1)
-        p1.insert(track)
+        with p1.edit():
+            p1.tracks.append(NMLPlaylistTrack.from_path(track_path))
         assert len(p1) == l_before + 1
 
     @pytest.mark.skipif(
@@ -127,18 +131,19 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         """,
     )
     def test_insert_track_real_file(self, audio_files: Path):
-        p1 = self.collection.get_playlist(self.name)
+        p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
 
         l_before = len(p1)
-        for audio_file in audio_files.iterdir():
-            p1.insert(LocalTrack(audio_file))
-            break
+        with p1.edit():
+            for audio_file in audio_files.iterdir():
+                p1.tracks.append(NMLPlaylistTrack.from_path(audio_file))
+                break
         assert len(p1) == l_before + 1
 
     def test_find_by_path(self, collection: NMLCollection, audio_files: Path):
         """Test finding a track by its file path in a playlist."""
-        p1 = collection.get_playlist(self.name)
+        p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 
         # Test with a valid traktor path
