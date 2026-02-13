@@ -383,7 +383,7 @@ class TrackApi:
         Parameters
         ----------
         section_id : str | int
-            The name or id of the Plex library (section).
+            The id of the Plex library (section).
         page_size : int
             Number of tracks to fetch per request (default: 1000).
 

@@ -6,7 +6,9 @@ This module provides utilities for rewriting file paths in a consistent manner.
 from __future__ import annotations
 
 from pathlib import Path, PurePath
-from typing import NamedTuple
+from typing import NamedTuple, TypeVar, cast
+
+T = TypeVar("T", bound=PurePath | Path)
 
 
 class PathRewrite(NamedTuple):
@@ -26,9 +28,9 @@ class PathRewrite(NamedTuple):
         new : str
             The new path prefix to replace with.
         """
-        return cls(Path(old), Path(new))
+        return cls(PurePath(old), PurePath(new))
 
-    def apply(self, path: PurePath) -> PurePath:
+    def apply(self, path: T) -> T:
         """Apply the rewrite rule to a given path.
 
         Parameters
@@ -36,12 +38,20 @@ class PathRewrite(NamedTuple):
         path : PurePath
             The path to be rewritten.
         """
-        if path == self.old:
-            return self.new
 
-        if self.old in path.parents:
-            return self.new / path.relative_to(self.old)
-        return path
+        old = self.old
+        new = self.new
+        if isinstance(path, Path):
+            old = Path(self.old)
+            new = Path(self.new)
+
+        res = path
+        if path == old:
+            res = new
+        elif old in path.parents:
+            res = new / path.relative_to(old)
+
+        return cast(T, res)
 
     @property
     def invert(self) -> PathRewrite:

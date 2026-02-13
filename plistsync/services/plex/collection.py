@@ -3,10 +3,13 @@ from __future__ import annotations
 from collections.abc import Generator, Iterable, Iterator, Sequence
 from functools import cached_property
 from pathlib import Path, PurePath
-from typing import Any
+from plistsync.services.local.track import FileCache
+from plistsync.services.plex.track import PlexTrack
+from typing import Any, Generator
 
-from plistsync.core import Collection, LibraryCollection
-from plistsync.core.collection import TrackStream
+from plistsync.core import Collection, GlobalTrackIDs, LibraryCollection, PathRewrite
+from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
+from plistsync.core.track import LocalTrackIDs
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiTrackResponse,
@@ -16,7 +19,9 @@ from .api import PlexApi
 from .track import PlexTrack
 
 
-class PlexLibrarySectionCollection(LibraryCollection):
+class PlexLibrarySectionCollection(
+    LibraryCollection, LocalLookup, GlobalLookup, TrackStream[PlexTrack]
+):
     """A collection of all tracks in a Plex library section.
 
     `section` is the term plex use in the backend, this aligns in the plex frontend
@@ -34,7 +39,7 @@ class PlexLibrarySectionCollection(LibraryCollection):
 
     def __init__(
         self,
-        section_id: str | int,
+        section_name_or_id: str | int,
         server_url: str | None = None,
         server_name: str | None = None,
     ):
@@ -42,21 +47,25 @@ class PlexLibrarySectionCollection(LibraryCollection):
 
         Parameters
         ----------
-        section_id : str | int
+        section_name_or_id : str | int
             The Name or ID of the Plex library section to fetch.
         server_url : str, optional
             The server for this collection. If not specified, loaded from config.
         """
         self.api = PlexApi(server_url=server_url, server_name=server_name)
-        self.section_id = self.api.converts.section_name_to_id(section_id)
+        self.section_id = self.api.converts.section_name_to_id(section_name_or_id)
 
-    def preload(self) -> None:
+    def preload(self, force_reload=False) -> None:
         """Preload the collection data.
 
-        This ensures that the collection is fully loaded locally in memory
+        This ensures that, for each track in the collection, all plex data is in memory
         and can be iterated over without additional API calls.
+
+        Note: This does not include file-based metadata.
         """
-        _ = list(self)
+        if force_reload:
+            self._fetched = False
+        _ = list(self.tracks)
 
     @property
     def playlists(self) -> Iterator[PlexPlaylistCollection]:
@@ -98,13 +107,14 @@ class PlexLibrarySectionCollection(LibraryCollection):
 
         return paths
 
-    # ------------------------------- Protocols ------------------------------ #
+    # -------------------------- TrackStream Protocl ------------------------- #
 
     _tracks: Sequence[PlexTrack] | None = None
     _page_size: int = 5000
     _fetched: bool = False
 
-    def __iter__(self) -> Generator[PlexTrack, None, None]:
+    @property
+    def tracks(self) -> Generator[PlexTrack, Any, None]:
         """Iterate over the tracks in the collection."""
 
         if self._tracks is None or not self._fetched:
@@ -124,6 +134,77 @@ class PlexLibrarySectionCollection(LibraryCollection):
                 yield track
 
         self._fetched = True
+
+    # --------------------------- Lookup Protocols --------------------------- #
+
+    def find_by_global_ids(
+        self,
+        global_ids: GlobalTrackIDs,
+        path_rewrite: PathRewrite | None = None,
+        file_cache: FileCache | None = None,
+    ):
+        """Find a plex track via isrc.
+
+        Note: Since isrc is not part of Plex's internal metadata, we have to do file
+        lookups. This will be slow, and requires you to mount the volume that holds
+        the actual tracks on your server.
+
+        Parameters
+        ----------
+        global_ids : GlobalTrackIDs
+            Needs to hold "isrc", otherwise no search is performed.
+        path_rewrite: PathRewrite
+            Rewrite rule to apply on the tracks, before metadata is looked up.
+            Set this if you run plistsync from another machine than your Plex server.
+            In the PathRewrite, "old" would be the Plex server, "new" the local mount.
+        file_cache: FileCache
+            Store the results of costly metadata lookups.
+        """
+        isrc = global_ids.get("isrc")
+        if isrc is None:
+            return None
+
+        for track in self.tracks:
+            local_track = track.get_local_track(
+                path_rewrite=path_rewrite,
+                file_cache=file_cache,
+            )
+            if local_track.global_ids.get("isrc") == isrc:
+                # TODO: PS 2026-02-13 this needs better abstraction.
+                # -> we want the isrc in the PlexTrack, too.
+                # We should have a library level cache.
+                # It can be auto-generated, preloaded, or gets filled as we fetch here.
+                track.global_ids["isrc"] = isrc
+                return track
+
+    def find_by_local_ids(
+        self, local_ids: LocalTrackIDs, path_rewrite: PathRewrite | None = None
+    ):
+        """Find a track by its plex ID (rating key) or file path.
+
+        Plex id is prioritized.
+
+        Parameters
+        ----------
+        local_ids : LocalTrackIDs
+            may contain plex_id and/pr file_path
+        path_rewrite: PathRewrite
+            Rewrite rule to apply on the tracks, before they are compared to local_ids.
+            Set this if you run plistsync from another machine than your Plex server.
+            In the PathRewrite, "old" would be the Plex server, "new" the local mount.
+        """
+
+        plex_id = local_ids.get("plex_id")
+        file_path = local_ids.get("file_path")
+
+        if path_rewrite is not None and file_path is not None:
+            file_path = path_rewrite.invert.apply(file_path)
+
+        for track in self.tracks:
+            if plex_id and track.plex_id == plex_id:
+                return track
+            if file_path and track.path and file_path == track.path:
+                return track
 
 
 class PlexPlaylistCollection(Collection, TrackStream):
@@ -258,7 +339,7 @@ class PlexPlaylistCollection(Collection, TrackStream):
         path = Path(path)
 
         # Find the track in the library collection
-        track = next((t for t in library_collection if t.path == path), None)
+        track = next((t for t in library_collection.tracks if t.path == path), None)
         if track is None:
             raise ValueError(f"Track with path {path} not found in library collection.")
 

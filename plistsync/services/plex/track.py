@@ -14,6 +14,16 @@ from ..local.track import FileCache, LocalTrack
 
 
 class PlexTrack(Track):
+    """
+    Track on a plex media server.
+
+    Ids are specific to one secdion (library) of one server instance.
+    (No global lookups)
+
+    For the Plex Service, we currently do not distinguish between
+    Tracks and PlaylistTracks.
+    """
+
     # TODO: Update plan: remove LocalTrack inheritance, and use
     # LocalTrack(PathRewrite(my_plex_track.path, ...)) instead.
     # maybe we have `.get_offline_info(path_rewrite)` property that does this for us.
@@ -40,29 +50,18 @@ class PlexTrack(Track):
         """
         return self.data["ratingKey"]
 
-    def get_info_from_file_metadata(
+    def get_local_track(
         self,
         path_rewrite: PathRewrite | None = None,
         file_cache: FileCache | None = None,
-    ) -> TrackInfo:
-        """Get track info from the associated files metadata.
-
-        Convenience method, equivalent to sth like
-        `LocalTrack(PathRewrite(my_plex_track.path, ...)).info`.
-
-        TODO: PS 2025-08-23: not sure if this gives a lot of value - most likely we also
-        want to get global_ids esp isrc, which requires the full LocalTrack object.
+    ) -> LocalTrack:
+        """Get the file-based version of this Track, for metadata not found in Plex.
 
         Parameters
         ----------
         - path_rewrite (PathRewrite | None): e.g. if you have local copy of the
         remote files
         - file_cache (FileCache | None): A file cache to use. See LocalTrack
-
-        Returns
-        -------
-            TrackInfo: A TrackInfo object with the track information from the
-            file metadata.
 
         Raises
         ------
@@ -81,7 +80,7 @@ class PlexTrack(Track):
             path = path_rewrite.apply(path)
 
         local_track = LocalTrack(path, cache=file_cache)
-        return local_track.info
+        return local_track
 
     # --------------------------------- Contracts -------------------------------- #
 

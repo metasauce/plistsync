@@ -5,12 +5,11 @@ check_imports(
     required_packages=["nest_asyncio"],
 )
 
-from . import api, collection, track
+from .collection import PlexLibrarySectionCollection, PlexPlaylistCollection
 from .track import PlexTrack
 
 __all__ = [
-    "api",
-    "collection",
-    "track",
+    "PlexLibrarySectionCollection",
+    "PlexPlaylistCollection",
     "PlexTrack",
 ]
