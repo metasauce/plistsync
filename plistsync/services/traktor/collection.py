@@ -295,8 +295,37 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         return int(entries) if entries.isdigit() else 0
 
     # ----------------------------- Remote operations ---------------------------- #
-    # TODO
-    def insert(self, track: PurePath | Track) -> NMLPlaylistTrack:
+    # Remote methods are not really needed as we just replace the playlist
+    # node in the library
+
+    def _remote_insert_track(self, *args, **kwargs) -> None:
+        return None
+
+    def _remote_delete_track(self, *args, **kwargs) -> None:
+        return None
+
+    def _remote_update_metadata(self, *args, **kwargs) -> None:
+        return None
+
+    def _apply_diff(
+        self,
+        before: Snapshot[NMLPlaylistTrack],
+        after: Snapshot[NMLPlaylistTrack],
+    ) -> None:
+        """Wrap apply diff so `edit` also associates the playlist id online."""
+        super()._apply_diff(before, after)
+        # TODO: Attach or replace the entry in the library collection!
+        # - find playlist (by uuid)
+        #   - if exist overwrite
+        #   - else append
+        # - commit changes to disk
+
+    @staticmethod
+    def _track_key(track: NMLPlaylistTrack):
+        # TODO: Not sure if this is applicable here (needs some testing)
+        return hash(track)
+
+    def old_insert_track(self, track: PurePath | Track) -> NMLPlaylistTrack:
         """Insert a track into the playlist.
 
         ATM it skips duplicate
