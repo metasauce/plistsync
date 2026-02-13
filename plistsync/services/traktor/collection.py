@@ -56,6 +56,53 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
 
+    # ------------------------ LibraryCollection protocol ------------------------ #
+
+    def _playlist_nodes(self) -> Iterable[_Element]:
+        """Get all playlists in the NML file."""
+        nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
+        return nodes
+
+    @property
+    def playlists(self) -> Iterable[NMLPlaylistCollection]:
+        """Get all playlists in the NML file as NMLPlaylistCollection objects."""
+        for node in self._playlist_nodes():
+            pl = NMLPlaylistCollection(self, node)
+            if pl.name.startswith("_"):
+                continue
+            yield pl
+
+    def _get_playlist_root_node(self, playlist: str) -> _Element | None:
+        """Get a playlist by name or uuid."""
+
+        node = self.tree.xpath(
+            f".//NODE[@TYPE='PLAYLIST']/*[@UUID={xpath_string_escape(playlist)}]/.."
+        )
+        if len(node) > 0:
+            return node[0]
+
+        node = self.tree.xpath(
+            f".//NODE[@TYPE='PLAYLIST'][@NAME={xpath_string_escape(playlist)}]"
+        )
+        return node[0] if len(node) > 0 else None
+
+    def get_playlist(self, name: Path | str) -> NMLPlaylistCollection | None:
+        try:
+            return NMLPlaylistCollection(self, self._get_playlist_root_node(str(name)))
+        except ValueError:
+            return None
+
+    # --------------------------- LocalLookup protocol --------------------------- #
+
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
+        """Find a track by its local IDs.
+
+        We only support lookup by path here.
+        """
+        if file_path := local_ids.get("file_path"):
+            return self.find_by_traktor_path(TraktorPath.from_path(file_path))
+        return None
+
     def __len__(self) -> int:
         e = self.tree.find("COLLECTION")
         if e is None:
@@ -94,16 +141,7 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
 
         return NMLTrack(entry[0])
 
-    # ------------------------------- Protocols ------------------------------ #
-
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
-        """Find a track by its local IDs.
-
-        We only support lookup by path here.
-        """
-        if file_path := local_ids.get("file_path"):
-            return self.find_by_traktor_path(TraktorPath.from_path(file_path))
-        return None
+    # --------------------------- TrackStream protocol --------------------------- #
 
     @property
     def tracks(self) -> Iterable[NMLTrack]:
@@ -115,41 +153,10 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         for entry in entries:
             yield NMLTrack(entry)
 
-    # --------------------------------- playlists -------------------------------- #
 
-    @property
-    def playlists(self) -> Iterable[NMLPlaylistCollection]:
-        """Get all playlists in the NML file as NMLPlaylistCollection objects."""
-        for node in self._playlist_nodes():
-            pl = NMLPlaylistCollection(self, node)
-            if pl.name.startswith("_"):
-                continue
-            yield pl
-
-    def get_playlist(self, name: Path | str) -> NMLPlaylistCollection | None:
-        try:
-            return NMLPlaylistCollection(self, self._get_playlist_root_node(str(name)))
-        except ValueError:
-            return None
-
-    def _playlist_nodes(self) -> Iterable[_Element]:
-        """Get all playlists in the NML file."""
-        nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
-        return nodes
-
-    def _get_playlist_root_node(self, playlist: str) -> _Element | None:
-        """Get a playlist by name or uuid."""
-
-        node = self.tree.xpath(
-            f".//NODE[@TYPE='PLAYLIST']/*[@UUID={xpath_string_escape(playlist)}]/.."
-        )
-        if len(node) > 0:
-            return node[0]
-
-        node = self.tree.xpath(
-            f".//NODE[@TYPE='PLAYLIST'][@NAME={xpath_string_escape(playlist)}]"
-        )
-        return node[0] if len(node) > 0 else None
+def sanitize_name(input_str: str) -> str:
+    """Sanitize the playlist name, traktor is picky with special characters."""
+    return input_str.replace("$", "*").replace("\\", "|").lstrip("_")
 
 
 class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
