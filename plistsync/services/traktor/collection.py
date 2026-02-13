@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import TYPE_CHECKING, overload
 from uuid import uuid4
 
 from lxml import etree
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core import Track
 from plistsync.core.collection import LibraryCollection, LocalLookup, TrackStream
 from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
 from plistsync.core.track import LocalTrackIDs
@@ -59,7 +58,12 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
 
     def write(self):
         """Write the changes back to the NML file."""
-        self.tree.write(self.path, encoding="utf-8", xml_declaration=True)
+        self.tree.write(
+            self.path,
+            encoding="utf-8",
+            xml_declaration=True,
+            standalone=False,
+        )
         log.debug(f"Written collection changes to '{self.path}'")
 
     # ------------------------ LibraryCollection protocol ------------------------ #
@@ -131,6 +135,60 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         else:
             raise ValueError(f"Playlist '{name}' not found!")
 
+    def upsert_playlist(self, playlist: NMLPlaylistCollection) -> None:
+        """Insert or replace a playlist node in this NML library.
+
+        - Prefer matching by UUID (stable identity)
+        - Otherwise append under $ROOT/SUBNODES
+
+        This updates the in-memory XML tree only. Call .write() to persist.
+        """
+        # Ensure playlist is associated with this library instance
+        playlist.library = self
+
+        def _detach(node: _Element) -> None:
+            parent = node.getparent()
+            if parent is not None:
+                parent.remove(node)
+
+        try:
+            matching_node = self._get_playlist_root_node_by_uuid(playlist.uuid)
+        except ValueError:
+            matching_node = None
+
+        if matching_node is not None:
+            parent = matching_node.getparent()
+            if parent is None:
+                raise ValueError("Existing playlist node has no parent; cannot replace")
+
+            # Remove the existing node
+            # and replace with new playlist root node
+            pos = parent.index(matching_node)
+            _detach(playlist.root_node)
+            if playlist.root_node != matching_node:
+                parent.remove(matching_node)
+            parent.insert(pos, playlist.root_node)
+            return
+
+        # Insert under root
+        subnodes = self.tree.xpath(
+            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
+        )
+        if len(subnodes) == 0:
+            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
+
+        _detach(playlist.root_node)
+        subnodes_el = subnodes[0]
+        subnodes_el.append(playlist.root_node)
+
+        count_raw = subnodes_el.get("COUNT", "0")
+        try:
+            count = int(count_raw)
+        except ValueError:
+            log.warning(f"Invalid SUBNODES COUNT value: {count_raw!r}, treating as 0")
+            count = 0
+        subnodes_el.set("COUNT", str(count + 1))
+
     # --------------------------- LocalLookup protocol --------------------------- #
 
     def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
@@ -201,7 +259,7 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
     Allows to parse and interact with a Traktor NML file that contains playlists.
     """
 
-    library_collection: NMLCollection
+    library: NMLCollection
 
     # Root node to the playlist (not necessarly attached to the library)
     root_node: _Element  # <Node TYPE="PLAYLIST">
@@ -223,9 +281,9 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         """
 
         if isinstance(library, (str, Path)):
-            self.library_collection = NMLCollection(library)
+            self.library = NMLCollection(library)
         else:
-            self.library_collection = library
+            self.library = library
 
         if isinstance(name, str):
             s_name = sanitize_name(name)
@@ -257,7 +315,7 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
     def _attach_to_library(self, force=False):
         """Attach the playlist element into the nml library."""
         # Playlists lifes in a SUBNODES node of the $ROOT folder
-        subnodes = self.library_collection.tree.xpath(
+        subnodes = self.library.tree.xpath(
             ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
         )
         if len(subnodes) == 0:
@@ -285,7 +343,7 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
 
     @info.setter
     def info(self, value: PlaylistInfo):
-        self.root_node.set("NAME", value.get("NAME", ""))
+        self.root_node.set("NAME", value.get("name", ""))
 
     @property
     def uuid(self) -> str:
@@ -303,19 +361,37 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
 
     # ------------------------------ Tracks Loading ------------------------------ #
 
+    def _fetch_tracks(self):
+        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
+        self._tracks = [NMLPlaylistTrack(entry) for entry in entries]
+
+    def _overwrite_track_entries(self, tracks: list[NMLPlaylistTrack]) -> None:
+        """Rewrite the <ENTRY> list in the underlying XML to match `tracks`."""
+        # Remove existing entries
+        for entry in list(self.playlist_node.findall("ENTRY")):
+            self.playlist_node.remove(entry)
+
+        # Append new entries (avoid reusing Elements that may already have parents)
+        for track in tracks:
+            self.playlist_node.append(
+                NMLPlaylistTrack.from_traktor_path(track.traktor_path).entry
+            )
+
+        self.playlist_node.set("ENTRIES", str(len(tracks)))
+
     @property
     def tracks(self) -> list[NMLPlaylistTrack]:
         """Return the tracks in this playlist.
 
         Might load them from the API if not already loaded.
         """
-        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
-        return [NMLPlaylistTrack(entry) for entry in entries]
+        if self._tracks is None:
+            self._fetch_tracks()
+        return self._tracks  # type: ignore[return-value]
 
     @tracks.setter
     def tracks(self, value: list[NMLPlaylistTrack]):
-        # TODO set entries
-        raise NotImplementedError
+        self._tracks = value
 
     def __len__(self) -> int:
         """Get the number of tracks in the playlist."""
@@ -340,52 +416,16 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         before: Snapshot[NMLPlaylistTrack],
         after: Snapshot[NMLPlaylistTrack],
     ) -> None:
-        """Wrap apply diff so `edit` also associates the playlist id online."""
+        """Wrap apply diff so `edit`."""
         super()._apply_diff(before, after)
-        # TODO: Attach or replace the entry in the library collection!
-        # - find playlist (by uuid)
-        #   - if exist overwrite
-        #   - else append
-        # - commit changes to disk
+        # Instead of an incremental update we just rewrite everything
+        # here as this is easier and performance isnt really an issue
+        self._overwrite_track_entries(after.tracks)
+        self.library.upsert_playlist(self)
 
     @staticmethod
     def _track_key(track: NMLPlaylistTrack):
-        # TODO: Not sure if this is applicable here (needs some testing)
-        return hash(track)
-
-    def old_insert_track(self, track: PurePath | Track) -> NMLPlaylistTrack:
-        """Insert a track into the playlist.
-
-        ATM it skips duplicate
-        """
-        path: PurePath
-        if isinstance(track, Track):
-            if track.path is None:
-                raise ValueError("Tracks need to have a path to be inserted.")
-            path = track.path
-        else:
-            path = track
-
-        # Check if existing track is already in the playlist
-        if ptrack := self.find_by_traktor_path(TraktorPath.from_path(path)):
-            return ptrack
-
-        # update playlist entries number
-        ptrack = NMLPlaylistTrack.from_path(path)
-        self.playlist_node.append(ptrack.entry)
-
-        # Update the number of entries in the playlist
-        entries_raw = self.playlist_node.get("ENTRIES", "0")
-        try:
-            entries = int(entries_raw)
-        except ValueError:
-            # If the entries are not a valid integer, we assume it's 0
-            log.warning(f"Invalid number of entries in playlist: {entries_raw}")
-            entries = 0
-        entries += 1
-        self.playlist_node.set("ENTRIES", str(entries))
-
-        return ptrack
+        return track.path
 
     # --------------------------- LocalLookup protocol --------------------------- #
 
