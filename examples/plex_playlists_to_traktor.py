@@ -55,7 +55,7 @@ def main(
                 old,
                 new,
             )
-            pl_nml.insert(Path(path_to_upsert))
+            pl_nml.old_insert_track(Path(path_to_upsert))
 
         pl_nml.commit()
 

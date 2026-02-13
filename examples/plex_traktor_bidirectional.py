@@ -66,7 +66,7 @@ def main():
         f"Adding {len(missing_in_traktor)} tracks from Plex to Traktor playlist..."
     )
     for path in missing_in_traktor:
-        traktor_playlist.insert(path)
+        traktor_playlist.old_insert_track(path)
 
     # --- Add missing tracks from Traktor to Plex --- #
     missing_in_plex = traktor_paths - plex_paths
