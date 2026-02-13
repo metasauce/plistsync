@@ -5,7 +5,12 @@ check_imports(
     required_packages=["lxml"],
 )
 
-from .collection import NMLCollection
+from .collection import NMLCollection, NMLPlaylistCollection
 from .track import NMLPlaylistTrack, NMLTrack
 
-__all__ = ["NMLCollection", "NMLPlaylistTrack", "NMLTrack"]
+__all__ = [
+    "NMLCollection",
+    "NMLPlaylistCollection",
+    "NMLPlaylistTrack",
+    "NMLTrack",
+]

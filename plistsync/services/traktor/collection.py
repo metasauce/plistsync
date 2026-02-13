@@ -101,7 +101,7 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         if name is not None:
             root_node = self._get_playlist_root_node_by_name(name)
 
-        if not root_node:
+        if root_node is None:
             raise ValueError("Playlist not found")
 
         return NMLPlaylistCollection(self, root_node)
@@ -272,7 +272,8 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
 
     @property
     def playlist_node(self) -> _Element:
-        if node := self.root_node.find("PLAYLIST"):
+        node = self.root_node.find("PLAYLIST")
+        if node is not None:
             return node
         raise ValueError("Root node has no 'PLAYLIST' node")
 
