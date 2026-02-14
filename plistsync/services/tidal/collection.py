@@ -99,7 +99,7 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
     def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> TidalTrack | None:
         """Find a track by its global IDs.
 
-        Prioritizes isrc lookups over spotify_id lookups.
+        Prioritizes isrc lookups over tidal_id lookups.
         """
         return list(self.find_many_by_global_ids([global_ids]))[0]
 
@@ -108,7 +108,7 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
     ) -> Iterable[TidalTrack | None]:
         """Find many tracks by their global IDs.
 
-        Prioritizes isrc lookups over spotify_id lookups.
+        Prioritizes isrc lookups over tidal_id lookups.
         """
 
         found_tracks: dict[int, TidalTrack] = {}

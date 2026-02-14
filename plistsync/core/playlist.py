@@ -104,6 +104,11 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         info.update({"description": value})
         self.info = info
 
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__} {hex(id(self))} ["{self.name}", {len(self)} tracks]'
+        )
+
     # -------------------------------- Tracks -------------------------------- #
 
     # Services can decide how to populate this helper
@@ -116,6 +121,10 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
     @tracks.setter
     def tracks(self, value: list[T]) -> None:
         self._tracks = value
+
+    def __len__(self) -> int:
+        """Use .tracks, but instances may override to use lookup data."""
+        return len(self.tracks)
 
     @contextmanager
     def edit(self):

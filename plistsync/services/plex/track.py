@@ -41,7 +41,7 @@ class PlexTrack(Track):
         self.data = data
 
     @property
-    def plex_id(self) -> str:
+    def id(self) -> str:
         """
         Unique Identifier within the _same_ library.
 
@@ -105,7 +105,7 @@ class PlexTrack(Track):
             )
 
         # plex_id
-        lids["plex_id"] = self.plex_id
+        lids["plex_id"] = self.id
 
         return lids
 

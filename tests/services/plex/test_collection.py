@@ -52,7 +52,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
             # Insert the track into the playlist
             collection.insert_by_path(
                 path=track.path,
-                library_collection=self.library_collection,
+                library=self.library_collection,
             )
 
             # Playlist should now contain an added track
@@ -69,7 +69,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
             len_before = len(tracks)
 
             # Insert the track into the playlist
-            collection.insert_by_id(item_id=track.plex_id)
+            collection.insert_by_id(item_id=track.id)
 
             # Playlist should now contain an added track
             tracks_after = list(collection.tracks)

@@ -102,7 +102,7 @@ class TestPlexTrack(TrackTestBase):
     def test_plex_id(self):
         # Test valid plex identifier
         for track in self.create_track():
-            assert track.plex_id == "58516", "Plex ID should be correct"
+            assert track.id == "58516", "Plex ID should be correct"
 
     def test_info(self):
         # Test valid info
@@ -130,7 +130,7 @@ class TestPlexTrack(TrackTestBase):
             assert lids["file_path"] == track.path, "file_path should be correct"
 
             assert "plex_id" in lids, "local_ids should contain plex_id"
-            assert lids["plex_id"] == track.plex_id, "plex_id should be correct"
+            assert lids["plex_id"] == track.id, "plex_id should be correct"
 
     def test_global_ids_via_local_track(self):
         # plex has very little real metadata in its track-level api respones,

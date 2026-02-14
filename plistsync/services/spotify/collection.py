@@ -133,7 +133,7 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         return None
 
     def find_many_by_global_ids(
-        self, global_ids_list: list[GlobalTrackIDs]
+        self, global_ids_list: Iterable[GlobalTrackIDs]
     ) -> Iterable[SpotifyTrack | None]:
         """Find many tracks by their global IDs.
 
@@ -177,6 +177,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     # When the playlist is associated with an online playlist, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
+    # SpotifyApiPlaylistResponseBase does not contain tracks, we keep them
+    # separate in PlaylistTracksBase to simplify type checking.
     data: tuple[SpotifyApiPlaylistResponseBase, PlaylistTracksBase] | PlaylistInfo
 
     # ----------------------------- Constructors ----------------------------- #
@@ -201,19 +203,17 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         data: SpotifyApiPlaylistResponseSimplified | SpotifyApiPlaylistResponseFull,
     ) -> Self:
         """
-        Create a new empty Spotify playlist with the given a api response from spotify.
+        Create a new instance of Spotify playlist from a given api response.
 
         The resulting instance will have id and we consider it is available online.
         """
-        name = data["name"]
-        description = data.get("description")
         pl = cls(
             library,
-            name,
-            description,
+            name=data["name"],
+            description=data.get("description"),
         )
         tracks_obj: PlaylistTracksBase = data.get("tracks", {})
-        tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])  # type: ignore[assignment]
+        tracks_obj_items: list[SpotifyApiPlaylistTrack] = tracks_obj.get("items", [])
         if len(tracks_obj_items) == tracks_obj.get("total", 0):
             pl._tracks = [
                 SpotifyPlaylistTrack(
@@ -222,6 +222,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
                 for item in tracks_obj_items
             ]
         else:
+            # will be fetched on access
             pl._tracks = None
 
         if tracks_obj.get("items", None) is not None:
@@ -230,6 +231,31 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         return pl
 
     # ----------------------- Properties and info logic ---------------------- #
+
+    @property
+    def online_data(
+        self,
+    ) -> tuple[SpotifyApiPlaylistResponseBase, PlaylistTracksBase] | None:
+        """
+        Indicate if this playlist is associated with it's online version.
+
+        None if created with default constructor, but tuple once we have
+        response data.
+        """
+        if isinstance(self.data, tuple):
+            return self.data
+        return None
+
+    @property
+    def id(self) -> str | None:
+        """
+        Playlist id.
+
+        None if playlist is not associated with an online resource.
+        """
+        if data := self.online_data:
+            return data[0]["id"]
+        return None
 
     @property
     def api(self):
@@ -262,32 +288,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         else:
             self.data = value
 
-    @property
-    def id(self) -> str | None:
-        """
-        Playlist id.
-
-        None if playlist is not associated with an online resource.
-        """
-        if data := self.online_data:
-            return data[0]["id"]
-        return None
-
     # ---------------------------- Track lazy loading ---------------------------- #
-
-    @property
-    def online_data(
-        self,
-    ) -> tuple[SpotifyApiPlaylistResponseBase, PlaylistTracksBase] | None:
-        """
-        Indicate if this playlist is associated with it's online version.
-
-        False if created with default constructor, but True once we have
-        response data.
-        """
-        if isinstance(self.data, tuple):
-            return self.data
-        return None
 
     def _refetch_tracks(self) -> None:
         """Refetch the tracks from the online playlist.

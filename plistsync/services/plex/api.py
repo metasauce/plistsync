@@ -288,13 +288,13 @@ class PlaylistApi:
     def __init__(self, session: PlexApiSession) -> None:
         self.session = session
 
-    def fetch_playlists(self) -> list[PlexApiPlaylistResponse]:
+    def all(self) -> list[PlexApiPlaylistResponse]:
         """Get all playlists."""
         response = self.session.request("GET", f"{self.session.server_url}/playlists")
         response.raise_for_status()
         return response.json()["MediaContainer"]["Metadata"]
 
-    def fetch_playlist(self, playlist_id: str | int) -> PlexApiPlaylistResponse:
+    def get(self, playlist_id: int) -> PlexApiPlaylistResponse:
         """Get a specific playlist by ID."""
 
         response = self.session.request(
@@ -319,9 +319,7 @@ class PlaylistApi:
 
         return playlist_data[0]
 
-    def fetch_playlist_items(
-        self, playlist_id: str | int
-    ) -> list[PlexApiTrackResponse]:
+    def get_items(self, playlist_id: str | int) -> list[PlexApiTrackResponse]:
         """Get items in a specific playlist by ID."""
 
         response = self.session.request(
@@ -330,20 +328,75 @@ class PlaylistApi:
         response.raise_for_status()
         return response.json()["MediaContainer"].get("Metadata", [])
 
-    def create_playlist(self, title: str, items: list[str]) -> Any:
+    def create(
+        self,
+        name: str,
+        machine_id: str,
+        library_id: int | str = "library",
+        item_ids: list[str | int] | None = None,
+    ) -> PlexApiPlaylistResponse:
         """Create a new playlist."""
-        data = {"title": title, "items": items}
+
+        # this is not the place to do this, but we should on a higher level.
+        all_names = [pl["title"] for pl in self.all()]
+        if name in all_names:
+            raise ValueError(f"Playlist with name '{name}' already exists.")
+
+        params: dict[str, Any] = {
+            "title": name,
+            "type": "audio",
+            "smart": 0,
+            "uri": f"server://{machine_id}/com.plexapp.plugins.library/{library_id}",
+        }
+
+        if item_ids:
+            params["uri"] += "/metadata/" + ",".join([str(i) for i in item_ids])
+
         response = self.session.request(
-            "POST", f"{self.session.server_url}/playlists", json=data
+            "POST",
+            f"{self.session.server_url}/playlists",
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()["MediaContainer"]["Metadata"][0]
+
+    def update(
+        self,
+        playlist_id: str | int,
+        name: str | None = None,
+        description: str | None = None,
+    ):
+        """Update the details of a playlist.
+
+        Parameters
+        ----------
+        playlist_id : str
+            The Spotify ID of the playlist.
+        name : str | None
+            The new name of the playlist, by default None (no change).
+        description : str | None
+            The new description of the playlist, by default None (no change).
+        """
+        params: dict[str, Any] = {}
+        if name is not None:
+            params["title"] = name
+        if description is not None:
+            params["summary"] = description
+
+        response = self.session.request(
+            "PUT",
+            f"{self.session.server_url}/playlists/{playlist_id}",
+            params=params,
         )
         response.raise_for_status()
         return response.json()
 
-    def insert_item_into_playlist(
+    def add_tracks(
         self,
-        playlist_id: str | int,
-        item_id: str | int,
+        playlist_id: int,
         machine_id: str,
+        item_ids: list[str | int],
+        library_id: int | str = "library",
     ) -> Any:
         """Insert items into a playlist by their IDs.
 
@@ -356,15 +409,34 @@ class PlaylistApi:
         item_ids : list[str | int]
             The IDs of the items to insert into the playlist.
         """
-        uri = f"server://{machine_id}/com.plexapp.plugins.library/library/metadata/{item_id}"
-        data = {"uri": uri}
+        if len(item_ids) == 0:
+            return self.get(playlist_id)
+
+        params: dict[str, Any] = {
+            "uri": f"server://{machine_id}/com.plexapp.plugins.library/{library_id}/metadata/"
+            + ",".join([str(i) for i in item_ids])
+        }
+
         response = self.session.request(
             "PUT",
             f"{self.session.server_url}/playlists/{playlist_id}/items",
-            json=data,
+            params=params,
         )
         response.raise_for_status()
         return response.json()
+
+    def remove_tracks(
+        self,
+        playlist_id: int,
+        machine_id: str,
+        item_ids: list[str | int],
+        positions: list[int],
+        library_id: int | str = "library",
+    ):
+        if len(item_ids) != len(positions):
+            raise ValueError("item_ids and positions must have the same length")
+
+        raise NotImplementedError()
 
 
 class TrackApi:
@@ -533,7 +605,7 @@ class ConvertsApi:
             )
             response.raise_for_status()
         except ValueError:
-            for playlist in self.api.playlist.fetch_playlists():
+            for playlist in self.api.playlist.all():
                 if playlist.get("title") == playlist_name_or_id and (
                     playlist.get("type") == "playlist"
                 ):
