@@ -3,7 +3,11 @@ from pathlib import Path
 import sys
 import pytest
 from plistsync.services.traktor import NMLCollection
-from plistsync.services.traktor.collection import NMLPlaylistCollection, TraktorPath
+from plistsync.services.traktor.collection import (
+    NMLPlaylistCollection,
+    TraktorPath,
+    xpath_string_escape,
+)
 from plistsync.services.traktor.track import NMLPlaylistTrack
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
@@ -84,6 +88,17 @@ class TestNMLCollection(LibraryCollectionTestBase):
         reloaded = NMLCollection(collection.path)
         p2 = reloaded.get_playlist(uuid="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
+
+    def test_find_by_local_ids(self, collection: NMLCollection):
+        # Test with a valid path
+        example_path = Path(
+            "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
+        )
+        track = collection.find_by_local_ids({"file_path": example_path})
+        assert track is not None
+
+        track = collection.find_by_local_ids({})
+        assert track is None
 
 
 class TestNMLPlaylistUpsert:
@@ -259,6 +274,18 @@ class TestNMLPlaylistCollection(CollectionTestBase):
             p1.tracks.append(NMLPlaylistTrack.from_path(track_path))
         assert len(p1) == l_before + 1
 
+    @pytest.mark.parametrize(
+        "track_path",
+        [Path("/Volumes/Macintosh HD/foo/bar.mp3")],
+    )
+    def test_overwrite_tracks(self, track_path):
+        """Test adding a track to a playlist."""
+        p1 = self.collection.get_playlist(name=self.name)
+        assert p1 is not None
+        with p1.edit():
+            p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
+        assert len(p1) == 1
+
     @pytest.mark.skipif(
         sys.platform == "linux",
         reason="""
@@ -277,7 +304,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
                 break
         assert len(p1) == l_before + 1
 
-    def test_find_by_path(self, collection: NMLCollection, audio_files: Path):
+    def test_find_by_traktor_path(self, collection: NMLCollection, caplog):
         """Test finding a track by its file path in a playlist."""
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
@@ -287,6 +314,19 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_traktor_path(TraktorPath(example_path))
         assert track is not None
 
+        # Test valid but not in collection
+        track = p1.find_by_traktor_path(TraktorPath("D:/:Not/:existing.flac"))
+        assert track is None
+
+        with p1.edit():
+            p1.tracks.append(p1.tracks[-1])
+        track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
+        assert "duplicate" in caplog.text
+
+    def test_find_by_local_ids(self, collection: NMLCollection):
+        p1 = collection.get_playlist(name=self.name)
+        assert p1 is not None
+
         # Test with a valid path
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
@@ -294,6 +334,20 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_local_ids({"file_path": example_path})
         assert track is not None
 
-        # Test valid but not in collection
-        track = p1.find_by_traktor_path(TraktorPath("D:/:Not/:existing.flac"))
+        track = p1.find_by_local_ids({})
         assert track is None
+
+
+@pytest.mark.parametrize(
+    ("input_str", "expected"),
+    [
+        ("", "''"),
+        ("abc", "'abc'"),
+        ("a'b", "concat('a', \"'\" , 'b', '')"),
+        ("'abc", "concat('', \"'\" , 'abc', '')"),
+        ("abc'", "concat('abc', \"'\" , '', '')"),
+        ("a'b'c", "concat('a', \"'\" , 'b', \"'\" , 'c', '')"),
+    ],
+)
+def test_xpath_string_escape_format(input_str: str, expected: str) -> None:
+    assert xpath_string_escape(input_str) == expected

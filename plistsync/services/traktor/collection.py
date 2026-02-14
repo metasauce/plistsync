@@ -196,6 +196,7 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
         """
         if file_path := local_ids.get("file_path"):
             return self.find_by_traktor_path(TraktorPath.from_path(file_path))
+
         return None
 
     def find_by_traktor_path(self, traktor_path: TraktorPath) -> NMLTrack | None:
