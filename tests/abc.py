@@ -13,6 +13,7 @@ from plistsync.core.collection import (
     TrackStream,
 )
 from plistsync.core.matching import Matches
+from plistsync.core.playlist import PlaylistCollection
 
 
 class TrackTestBase(ABC):
@@ -198,6 +199,8 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
             playlists = library_collection.playlists
             assert isinstance(playlists, Iterable), "Playlists should be iterable"
             # Optionally: further assertions based on expected behavior, e.g., length, types
+            for pl in playlists:
+                assert isinstance(pl, PlaylistCollection)
 
     def test_get_playlist_known(self):
         """Test retrieval of playlists by name or identifier."""

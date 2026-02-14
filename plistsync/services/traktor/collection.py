@@ -100,13 +100,11 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
             raise ValueError("Exactly one of name or uuid must be provided")
 
         root_node: _Element | None = None
+
         if uuid is not None:
             root_node = self._get_playlist_root_node_by_uuid(uuid)
-        if name is not None:
-            root_node = self._get_playlist_root_node_by_name(name)
-
-        if root_node is None:
-            raise ValueError("Playlist not found")
+        else:
+            root_node = self._get_playlist_root_node_by_name(name)  # type: ignore[arg-type]
 
         return NMLPlaylistCollection(self, root_node)
 
@@ -311,20 +309,6 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         node.set("ENTRIES", "0 ")
         root_node.append(node)
         return root_node
-
-    def _attach_to_library(self, force=False):
-        """Attach the playlist element into the nml library."""
-        # Playlists lifes in a SUBNODES node of the $ROOT folder
-        subnodes = self.library.tree.xpath(
-            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
-        )
-        if len(subnodes) == 0:
-            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
-
-        # Check if already exists
-        if force or self.root_node not in subnodes[0]:
-            subnodes[0].append(self.root_node)
-            subnodes[0].set("COUNT", str(int(subnodes[0].get("COUNT", "0")) + 1))
 
     # ----------------------- Properties and info logic ---------------------- #
 
