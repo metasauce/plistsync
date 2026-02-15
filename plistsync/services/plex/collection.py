@@ -254,11 +254,9 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
     Notes
     -----
-    - Plex Playlist Collections are loaded once during initialization.
-    - To refresh the state from the server, you need to recreate
-    - the collection instance.
-    - Plex Playlists do not seem to be linked to a particular section_id
-    - they can contain tracks from multiple libraries.
+    - Plex playlists DO NOT allow the same track multiple times.
+    - Plex playlists are not hard-linked to a particular section_id.
+      they can contain tracks from multiple libraries.
     """
 
     # parent library for adding tracks
@@ -410,6 +408,23 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
     # ----------------------------- Remote operations ---------------------------- #
 
+    @property
+    def remote_associated(self) -> bool:
+        if self.online_data is not None:
+            return True
+        return False
+
+    def _remote_create(self):
+        pl_data = self.api.playlist.create(name=self.name)
+        pl_id = int(pl_data["ratingKey"])
+        if self.description is not None and self.description != "":
+            self.api.playlist.update(pl_id, description=self.description)
+
+        self.data = PlexPlaylistOnlineData(pl_data, [])
+        if self._tracks:
+            self.api.playlist.add_tracks(pl_id, [t.id for t in self._tracks])
+        self._refetch_tracks()
+
     def _remote_insert_track(
         self,
         idx: int,
@@ -419,9 +434,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         if self.id is None:
             raise ValueError("Playlist must be online to call remote insert!")
 
-        self.api.playlist.add_tracks(
-            playlist_id=self.id, machine_id=self.api.machine_id, item_ids=[track.id]
-        )
+        self.api.playlist.add_tracks(playlist_id=self.id, item_ids=[track.id])
 
         # TODO: reordering needs its own api call.
 
@@ -431,9 +444,15 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         track: PlexTrack,
         live_list: list[PlexTrack],
     ):
+        """
+        Delete Track from playlists.
+
+        Plex does not allow duplicate items in playlists.
+        Therefore, idx is ignored.
+        """
         if self.id is None:
             raise ValueError("Playlist must be online to call remote delete!")
-        self.api.playlist.remove_tracks(self.id, [track.uri], [idx])
+        self.api.playlist.remove_track(self.id, track.id)
 
     def _remote_move_track(
         self,
@@ -442,14 +461,20 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         track: PlexTrack,
         live_list: list[PlexTrack],
     ) -> None:
+        """
+        Move track in a playlist.
+
+        Plex does not allow duplicate items in playlists.
+        Therefore, old_idx is ignored.
+        """
         if self.id is None:
             raise ValueError("Playlist must be online to call remote move!")
-        self.api.playlist.reorder_tracks(
-            playlist_id=self.id,
-            range_start=old_idx,
-            range_length=1,
-            insert_before=new_idx,
-        )
+
+        if new_idx == 0 or len(self) == 1:
+            after_id = None
+        else:
+            after_id = self.tracks[new_idx - 1].id
+        self.api.playlist.move_track(self.id, track.id, after_id)
 
     def _remote_update_metadata(self, new_name=None, new_description=None):
         if self.id is None:
@@ -459,23 +484,6 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
             new_name,
             new_description,
         )
-
-    def _apply_diff(
-        self,
-        before: Snapshot[PlexTrack],
-        after: Snapshot[PlexTrack],
-    ) -> None:
-        """Wrap apply diff so `edit` also associates the playlist id online."""
-        if not self.id:
-            pl_data = self.api.playlist.create(
-                name=self.name,
-                machine_id=self.api.machine_id,
-            )
-            pl_data = self.api.playlist.update(
-                playlist_id=pl_data["ratingKey"], description=self.description
-            )
-            self.data = PlexPlaylistOnlineData(pl_data, [])
-        return super()._apply_diff(before, after)
 
     @staticmethod
     def _track_key(track: PlexTrack):

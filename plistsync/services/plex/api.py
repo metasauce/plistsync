@@ -1,3 +1,10 @@
+"""
+Plex API, this is a thin wrapper around the endpoints.
+
+Advanced logic to work around endpoint shortcomings (like fixing track indices)
+happens on in the playlist.
+"""
+
 from __future__ import annotations
 
 import json
@@ -157,7 +164,7 @@ class PlexApi:
             _read_token(self.plex_config.token_path),
             server_url,
         )
-        self.playlist = PlaylistApi(self.session)
+        self.playlist = PlaylistApi(self)
         self.track = TrackApi(self.session)
         self.converts = ConvertsApi(self.session, self)
 
@@ -285,8 +292,14 @@ class PlexApi:
 class PlaylistApi:
     """Playlist-specific Plex API client."""
 
-    def __init__(self, session: PlexApiSession) -> None:
-        self.session = session
+    api: PlexApi
+
+    def __init__(self, api: PlexApi) -> None:
+        self.api = api
+
+    @property
+    def session(self):
+        return self.api.session
 
     def all(self) -> list[PlexApiPlaylistResponse]:
         """Get all playlists."""
@@ -331,22 +344,16 @@ class PlaylistApi:
     def create(
         self,
         name: str,
-        machine_id: str,
         library_id: int | str = "library",
         item_ids: list[str | int] | None = None,
     ) -> PlexApiPlaylistResponse:
         """Create a new playlist."""
 
-        # this is not the place to do this, but we should on a higher level.
-        all_names = [pl["title"] for pl in self.all()]
-        if name in all_names:
-            raise ValueError(f"Playlist with name '{name}' already exists.")
-
         params: dict[str, Any] = {
             "title": name,
             "type": "audio",
             "smart": 0,
-            "uri": f"server://{machine_id}/com.plexapp.plugins.library/{library_id}",
+            "uri": f"server://{self.api.machine_id}/com.plexapp.plugins.library/{library_id}",
         }
 
         if item_ids:
@@ -389,21 +396,32 @@ class PlaylistApi:
             params=params,
         )
         response.raise_for_status()
-        return response.json()
+        return response
+
+    def delete(
+        self,
+        playlist_id: str | int,
+    ):
+        """Remove the playlist from the server."""
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}",
+        )
+        response.raise_for_status()
+        return response
 
     def add_tracks(
         self,
         playlist_id: int,
-        machine_id: str,
         item_ids: list[str | int],
         library_id: int | str = "library",
     ) -> Any:
         """Insert items into a playlist by their IDs.
 
+        Does NOT support inserting at desired positions.
+
         Parameters
         ----------
-        machine_id : str
-            The Plex machine ID of the server where to find the item.
         playlist_id : str | int
             The ID of the playlist to insert items into.
         item_ids : list[str | int]
@@ -413,7 +431,7 @@ class PlaylistApi:
             return self.get(playlist_id)
 
         params: dict[str, Any] = {
-            "uri": f"server://{machine_id}/com.plexapp.plugins.library/{library_id}/metadata/"
+            "uri": f"server://{self.api.machine_id}/com.plexapp.plugins.library/{library_id}/metadata/"
             + ",".join([str(i) for i in item_ids])
         }
 
@@ -425,18 +443,49 @@ class PlaylistApi:
         response.raise_for_status()
         return response.json()
 
-    def remove_tracks(
+    def remove_track(
         self,
         playlist_id: int,
-        machine_id: str,
-        item_ids: list[str | int],
-        positions: list[int],
-        library_id: int | str = "library",
+        item_id: str | int,
     ):
-        if len(item_ids) != len(positions):
-            raise ValueError("item_ids and positions must have the same length")
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}",
+        )
+        response.raise_for_status()
+        return response
 
-        raise NotImplementedError()
+    def move_track(
+        self,
+        playlist_id: int,
+        item_id: str | int,
+        after_id: str | int | None = None,
+    ) -> PlexApiPlaylistResponse:
+        """
+        Move the item after the provided `after_id`.
+
+        If no after_id is provided, moves the item to the front.
+        """
+
+        params: dict[str, Any] = {}
+        if after_id is not None:
+            params["after"] = after_id
+
+        response = self.session.request(
+            "PUT",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}/move",
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()["MediaContainer"]["Metadata"][0]
+
+    def clear(self, playlist_id: int) -> PlexApiPlaylistResponse:
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}/items",
+        )
+        response.raise_for_status()
+        return response.json()["MediaContainer"]["Metadata"][0]
 
 
 class TrackApi:
