@@ -126,13 +126,25 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         """Use .tracks, but instances may override to use lookup data."""
         return len(self.tracks)
 
+    # --------------------------- Remote Operations -------------------------- #
+
     @contextmanager
-    def edit(self):
+    def remote_edit(self):
         """Transactional playlist editor with automatic rollback.
+
+        Only callable if the playlist is already linked.
+        (.remote_associated == True)
 
         Captures snapshot before entering block. Applies diff to remote service
         on successful exit. Resets local state on error.
         """
+        if not self.remote_associated:
+            raise ValueError(
+                "remote_edit() is only supported for playlists that have "
+                "already been linked to a remote. Call remote_create() first or "
+                "use remote_upsert()."
+            )
+
         snapshot_before = self.get_snapshot()
         try:
             yield
@@ -152,6 +164,62 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             description=self.description,
             tracks=deepcopy(self.tracks),
         )
+
+    def remote_create(self):
+        """
+        Create the playlist online.
+
+        - if self.id: raise "is already associated online"
+        - Depending on config (TODO config option DEBUG | INFO | WARN | Raise )
+          Warn or Raise here if another playlist exists with the same name.
+        """
+        if self.remote_associated:
+            raise ValueError("This playlist is already associated online.")
+
+        return self._remote_create()
+
+    def remote_upsert(self):
+        """
+        Alternate usage pattern, besides playlist.remote_edit().
+
+        - if does not exist, create_online()
+        - if exists, then invoke remote_edit() wrapper.
+        """
+        raise NotImplementedError()
+
+    def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Apply minimal remote operations to match after state from before."""
+        new_name = after.name if before.name != after.name else None
+        new_description = (
+            after.description if before.description != after.description else None
+        )
+
+        if new_name is not None or new_description is not None:
+            self._remote_update_metadata(new_name, new_description)
+
+        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
+        for op in operations:
+            if isinstance(op, InsertOp):
+                self._remote_insert_track(op.idx, op.item, operations.live_list)
+            elif isinstance(op, DeleteOp):
+                self._remote_delete_track(op.idx, op.item, operations.live_list)
+            elif isinstance(op, MoveOp):
+                self._remote_move_track(
+                    op.old_idx, op.new_idx, op.item, operations.live_list
+                )
+
+    # ---------------------- Abstract remote operations ---------------------- #
+
+    @property
+    @abstractmethod
+    def remote_associated(self) -> bool:
+        """Indicate if the playlist is already linked to a remote (online) playlist."""
+        ...
+
+    @abstractmethod
+    def _remote_create(self):
+        """Create the playlist online. Checks are handled in the public version."""
+        ...
 
     @abstractmethod
     def _remote_insert_track(
@@ -238,27 +306,6 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         new_description : str, optional
             New description
         """
-
-    def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Apply minimal remote operations to match after state from before."""
-        new_name = after.name if before.name != after.name else None
-        new_description = (
-            after.description if before.description != after.description else None
-        )
-
-        if new_name is not None or new_description is not None:
-            self._remote_update_metadata(new_name, new_description)
-
-        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
-        for op in operations:
-            if isinstance(op, InsertOp):
-                self._remote_insert_track(op.idx, op.item, operations.live_list)
-            elif isinstance(op, DeleteOp):
-                self._remote_delete_track(op.idx, op.item, operations.live_list)
-            elif isinstance(op, MoveOp):
-                self._remote_move_track(
-                    op.old_idx, op.new_idx, op.item, operations.live_list
-                )
 
     @staticmethod
     @abstractmethod
