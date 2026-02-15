@@ -113,6 +113,9 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
 
         found_tracks: dict[int, TidalTrack] = {}
 
+        # avoid consuming this, we iterate twice.
+        global_ids_list = list(global_ids_list)
+
         # Tidal ids batch lookup
         idxes = []
         tidal_ids: list[str] = []
@@ -168,7 +171,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         tracks: list[TidalPlaylistTrack] | None = None,
     ) -> None:
         self.library = library
-        self._tracks = tracks or []
+        self._tracks = tracks or []  # do not set to None, we do not want to fetch!
         self.data = PlaylistInfo(name=name, description=description or "")
 
     @classmethod
@@ -180,7 +183,9 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     ) -> TidalPlaylistCollection:
         """Create a TidalPlaylistCollection from a PlaylistResource response."""
         plist = cls(library, name=data["attributes"]["name"])
+        plist.data = (data, data_lookup)  # now self.online_data and len is available
 
+        # we might have track data provided
         tracks: list[TidalPlaylistTrack] = []
         for item in data.get("relationships", {}).get("items", {}).get("data", []):
             if track_data := data_lookup.get((item["type"], item["id"])):
@@ -196,8 +201,12 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                     f"Track with id '{item['id']}' not found in cached"
                     " tracks of playlist '{data['attributes']['name']}'"
                 )
-        plist.data = (data, data_lookup)
-        plist._tracks = tracks
+
+        if len(tracks) == len(plist):
+            plist._tracks = tracks  # consistent, use provided track data.
+        else:
+            plist._tracks = None  # will fetch on first access to .tracks
+
         return plist
 
     # ----------------------- Properties and info logic ---------------------- #

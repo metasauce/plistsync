@@ -141,6 +141,8 @@ class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
         Performs batch lookup for all tracks with spotify_id if possible.
         """
         found_tracks: dict[int, SpotifyTrack] = {}
+        # avoid consuming this, we iterate twice.
+        global_ids_list = list(global_ids_list)
 
         # Get all with spotify id for batch lookup
         idxes = []
@@ -193,7 +195,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         """Initialize a SpotifyPlaylistCollection, without creating it online."""
 
         self.library = library
-        self._tracks = tracks or []
+        self._tracks = tracks or []  # do not set to None, we do not want to fetch!
         self.data = PlaylistInfo(name=name, description=description)
 
     @classmethod
@@ -222,8 +224,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
                 for item in tracks_obj_items
             ]
         else:
-            # will be fetched on access
-            pl._tracks = None
+            pl._tracks = None  # set to None to fetch on access
 
         if tracks_obj.get("items", None) is not None:
             del tracks_obj["items"]  # type: ignore
