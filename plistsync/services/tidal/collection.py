@@ -319,6 +319,19 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
 
     # ----------------------------- Remote operations ---------------------------- #
 
+    @property
+    def remote_associated(self):
+        return self.online_data is not None
+
+    def _remote_create(self):
+        self.data = self.api.playlist.create(self.name, self.description or "")
+        if self._tracks:
+            self.api.playlist.add_items(
+                self.data[0]["id"],
+                ids=[t.id for t in self._tracks],
+            )
+        self._refetch_tracks()
+
     def _remote_insert_track(
         self,
         idx: int,
@@ -378,13 +391,9 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         before: Snapshot[TidalPlaylistTrack],
         after: Snapshot[TidalPlaylistTrack],
     ) -> None:
-        """Wrap apply diff so `edit` also associates the playlist id online."""
-        if not self.id:
-            self.data = self.api.playlist.create(self.name, self.description or "")
-
         super()._apply_diff(before, after)
         # After edit we refetch all tracks as their is no other
-        # easy way to get the item ids
+        # easy way to get the new item ids
         self._refetch_tracks()
 
     @staticmethod
