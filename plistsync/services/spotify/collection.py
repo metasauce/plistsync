@@ -10,7 +10,7 @@ from plistsync.core.collection import (
     GlobalLookup,
     LibraryCollection,
 )
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
+from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
 from plistsync.logger import log
 
 from .api import SpotifyApi, extract_spotify_playlist_id
@@ -330,6 +330,22 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     # ----------------------------- Remote operations ---------------------------- #
 
+    @property
+    def remote_associated(self) -> bool:
+        """Indicate if the playlist is already linked to a remote (online) playlist."""
+        return self.online_data is not None
+
+    def _remote_create(self):
+        """Create the playlist on the remote service."""
+        pl_data = self.api.playlist.create(self.name, self.description or "")
+        self.data = (pl_data, pl_data.get("tracks", {}))
+        if self._tracks:
+            self.api.playlist.add_tracks(
+                pl_data["id"],
+                track_uris=[t.uri for t in self._tracks],
+            )
+        self._refetch_tracks()  # Force refetch tracks
+
     def _remote_insert_track(
         self,
         idx: int,
@@ -374,17 +390,6 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             new_name,
             new_description,
         )
-
-    def _apply_diff(
-        self,
-        before: Snapshot[SpotifyPlaylistTrack],
-        after: Snapshot[SpotifyPlaylistTrack],
-    ) -> None:
-        """Wrap apply diff so `edit` also associates the playlist id online."""
-        if not self.id:
-            pl_data = self.api.playlist.create(self.name, self.description or "")
-            self.data = (pl_data, pl_data["tracks"])
-        return super()._apply_diff(before, after)
 
     @staticmethod
     def _track_key(track: SpotifyPlaylistTrack):
