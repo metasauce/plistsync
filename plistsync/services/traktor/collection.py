@@ -408,6 +408,13 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         self._overwrite_track_entries(after.tracks)
         self.library.upsert_playlist(self)
 
+    def _remote_create(self):
+        raise NotImplementedError
+
+    @property
+    def remote_associated(self) -> bool:
+        raise NotImplementedError
+
     @staticmethod
     def _track_key(track: NMLPlaylistTrack):
         return track.path

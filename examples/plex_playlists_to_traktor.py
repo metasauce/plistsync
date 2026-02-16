@@ -54,7 +54,7 @@ def main(
             )
             traktor_library.upsert_playlist(traktor_playlist)
 
-        with traktor_playlist.edit():
+        with traktor_playlist.remote_edit():
             for track in pl_plex.tracks:
                 try:
                     p = track.path

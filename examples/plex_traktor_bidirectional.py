@@ -10,7 +10,7 @@ Bidirectional sync between Plex and Traktor playlists.
 Only adds missing tracks, does not remove or reorder.
 Matching takes place via file paths.
 
-TODO: 
+TODO:
 - Rewrite
 - Commiting: I like the Traktor way of doing things first, and then committing.
 But in Plex, inserts are currently one http request per track.
@@ -71,7 +71,7 @@ def main():
     log.info(
         f"Adding {len(missing_in_traktor)} tracks from Plex to Traktor playlist..."
     )
-    with traktor_playlist.edit():
+    with traktor_playlist.remote_edit():
         for path in missing_in_traktor:
             traktor_playlist.tracks.append(NMLPlaylistTrack.from_path(path))
 
