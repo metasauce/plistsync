@@ -5,10 +5,10 @@ This module provides utilities for rewriting file paths in a consistent manner.
 
 from __future__ import annotations
 
-from pathlib import Path, PurePath
+from pathlib import PurePath
 from typing import NamedTuple, TypeVar, cast
 
-T = TypeVar("T", bound=PurePath | Path)
+T = TypeVar("T", bound=PurePath)
 
 
 class PathRewrite(NamedTuple):
@@ -30,6 +30,11 @@ class PathRewrite(NamedTuple):
         """
         return cls(PurePath(old), PurePath(new))
 
+    def _coerce_like(self, template: T, p: PurePath) -> T:
+        """Coerce `p` into the same concrete path class as `template`."""
+        path_cls = cast(type[T], template.__class__)
+        return path_cls(str(p))
+
     def apply(self, path: T) -> T:
         """Apply the rewrite rule to a given path.
 
@@ -38,20 +43,14 @@ class PathRewrite(NamedTuple):
         path : PurePath
             The path to be rewritten.
         """
+        old = self._coerce_like(path, self.old)
+        new = self._coerce_like(path, self.new)
 
-        old = self.old
-        new = self.new
-        if isinstance(path, Path):
-            old = Path(self.old)
-            new = Path(self.new)
-
-        res = path
         if path == old:
-            res = new
-        elif old in path.parents:
-            res = new / path.relative_to(old)
-
-        return cast(T, res)
+            return new
+        if old in path.parents:
+            return new / path.relative_to(old)
+        return path
 
     @property
     def invert(self) -> PathRewrite:
