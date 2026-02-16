@@ -3,12 +3,14 @@ from __future__ import annotations
 from collections.abc import Generator, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path, PurePath
-from typing import Any, Self, overload, override
+from pathlib import Path
+from typing import Any, Self, overload
+
+from typing_extensions import override
 
 from plistsync.core import GlobalTrackIDs, LibraryCollection, PathRewrite
 from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
+from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 from plistsync.services.local.track import FileCache
@@ -348,12 +350,12 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
             data = self.data.playlist_data
             data["title"] = value.get(
                 "name",
-                data.get("name", ""),
+                data.get("name", ""),  # type: ignore[typeddict-item]
             )
             data["summary"] = (
                 value.get(
                     "description",
-                    data.get("description", ""),
+                    data.get("description", ""),  # type: ignore[typeddict-item]
                 )
                 or ""
             )

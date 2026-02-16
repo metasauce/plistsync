@@ -29,6 +29,13 @@ class MockPlaylist(PlaylistCollection):
     ):
         self.log.append(("update_meta", new_name, new_description))
 
+    def _remote_create(self):
+        self.log.append(("remote_create",))
+
+    @property
+    def remote_associated(self):
+        return True
+
     @staticmethod
     def _track_key(track) -> str:
         return track.global_ids["isrc"]  # Fixed to match test expectations

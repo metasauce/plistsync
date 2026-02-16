@@ -5,7 +5,6 @@ from pathlib import Path
 from plistsync.logger import log
 from plistsync.services.plex.collection import (
     PlexLibrarySectionCollection,
-    PlexPlaylistCollection,
 )
 from plistsync.services.traktor.collection import NMLPlaylistCollection
 
@@ -28,12 +27,10 @@ def main(
     plex_library = PlexLibrarySectionCollection(
         plex_section_name,
     )
-    for playlist_id_or_name in playlists:
-        log.info(f"\nProcessing playlist: {playlist_id_or_name}")
-        pl_plex = PlexPlaylistCollection(
-            library_collection=plex_library,
-            playlist_name_id_or_data=playlist_id_or_name,
-        )
+    for pl_name in playlists:
+        log.info(f"\nProcessing playlist: {pl_name}")
+        pl_plex = plex_library.get_playlist(name=pl_name)
+        assert pl_plex is not None, "Playlist not found"
 
         # make a backup of the nml file
         nml_backup = nml_path.with_suffix(

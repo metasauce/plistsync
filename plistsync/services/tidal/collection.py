@@ -327,7 +327,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         self.data = self.api.playlist.create(self.name, self.description or "")
         if self._tracks:
             self.api.playlist.add_items(
-                self.data[0]["id"],
+                self.data[0]["id"],  # type: ignore[literal-required]
                 ids=[t.id for t in self._tracks],
             )
         self._refetch_tracks()
