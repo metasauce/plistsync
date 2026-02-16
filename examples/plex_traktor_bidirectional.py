@@ -10,7 +10,7 @@ Bidirectional sync between Plex and Traktor playlists.
 Only adds missing tracks, does not remove or reorder.
 Matching takes place via file paths.
 
-TODO:
+TODO: Rewrite
 - Library collections should have a .playlists property.
 - Commiting: I like the Traktor way of doing things first, and then committing.
 But in Plex, inserts are currently one http request per track.
@@ -27,7 +27,6 @@ from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
 from plistsync.services.plex.collection import (
     PlexLibrarySectionCollection,
-    PlexPlaylistCollection,
 )
 from plistsync.services.traktor.collection import NMLCollection, NMLPlaylistCollection
 
@@ -44,10 +43,8 @@ def main():
     plex_library = PlexLibrarySectionCollection(
         plex_section_name,
     )
-    plex_playlist = PlexPlaylistCollection(
-        library_collection=plex_library,
-        playlist_name_id_or_data=playlist_name,
-    )
+    plex_playlist = plex_library.get_playlist(name=playlist_name)
+    assert plex_playlist is not None, "Playlist not found"
 
     # Load Traktor collection and playlist
     traktor_collection = NMLCollection(traktor_nml_path)
@@ -60,9 +57,9 @@ def main():
     # --- Add missing tracks from Plex to Traktor --- #
     # Rewrite paths from plex to match traktor paths
     plex_paths = set(
-        path_rewrite.apply(track.path) for track in plex_playlist if track.path
+        path_rewrite.apply(track.path) for track in plex_playlist.tracks if track.path
     )
-    traktor_paths = set(track.path for track in traktor_playlist)
+    traktor_paths = set(track.path for track in traktor_playlist.tracks)
 
     missing_in_traktor = plex_paths - traktor_paths
     log.info(
@@ -74,11 +71,13 @@ def main():
     # --- Add missing tracks from Traktor to Plex --- #
     missing_in_plex = traktor_paths - plex_paths
     log.info(f"Adding {len(missing_in_plex)} tracks from Traktor to Plex playlist...")
-    for path in missing_in_plex:
-        try:
-            plex_playlist.insert_by_path(path_rewrite.invert.apply(path))
-        except Exception as e:
-            log.warning(f"Could not add {path} to Plex playlist: {e}")
+    with plex_playlist.remote_edit():
+        for path in missing_in_plex:
+            try:
+                # FIXME!
+                plex_playlist.tracks.append(path_rewrite.invert.apply(path))  # type:ignore
+            except Exception as e:
+                log.warning(f"Could not add {path} to Plex playlist: {e}")
 
     # Commit changes to Traktor NML file
     traktor_playlist.commit()

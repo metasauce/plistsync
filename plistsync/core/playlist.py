@@ -22,15 +22,24 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Iterator
+from collections.abc import Hashable
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic
+from typing import Generic, TypedDict
 
 from .collection import Collection, TrackStream, TypeVar
 from .diff import DeleteOp, InsertOp, MoveOp, list_diff
 from .track import Track
+
+
+class PlaylistInfo(TypedDict, total=False):
+    """Unified information a playlist can have, independent of its service."""
+
+    name: str
+    description: str | None
+    # TODO: add more unified fields like owner, date_created etc
+
 
 T = TypeVar("T", bound=Track)
 
@@ -51,49 +60,98 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
     subclasses. Supports transactional edits through the `edit()` context manager.
     """
 
-    _tracks: list[T]
-
     @property
     @abstractmethod
+    def info(self) -> PlaylistInfo:
+        """
+        Get this playlist's information.
+
+        Subclasses need return a reference, so that the setters for name
+        etc. that are defined here, write back.
+        """
+        ...
+
+    @info.setter
+    @abstractmethod
+    def info(self, value: PlaylistInfo):
+        """Set playlist information."""
+        ...
+
+    @property
     def name(self) -> str:
         """The name of the playlist."""
+        name = self.info.get("name")
+        if name is None:
+            raise ValueError("Playlists need a name")
+        return name
 
     @name.setter
-    @abstractmethod
     def name(self, value: str):
         """Set the name of the playlist."""
-        ...
+        info = deepcopy(self.info)
+        info.update({"name": value})
+        self.info = info
 
     @property
     def description(self) -> str | None:
         """The description of the playlist, if available."""
-        return None
+        return self.info.get("description")
 
     @description.setter
     def description(self, value: str | None) -> None:
-        """Set playlist description on remote service.
+        """Set playlist description on remote service."""
+        info = deepcopy(self.info)
+        info.update({"description": value})
+        self.info = info
 
-        Parameters
-        ----------
-        value : str or None
-            New playlist description
-        """
-        return None
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__} {hex(id(self))} ["{self.name}", {len(self)} tracks]'
+        )
+
+    # -------------------------------- Tracks -------------------------------- #
+
+    # Services can decide how to populate this helper
+    _tracks: list[T] | None = None
+
+    @property
+    def tracks(self) -> list[T]:
+        return self._tracks or []
+
+    @tracks.setter
+    def tracks(self, value: list[T]) -> None:
+        self._tracks = value
+
+    def __len__(self) -> int:
+        """Use .tracks, but instances may override to use lookup data."""
+        return len(self.tracks)
+
+    # --------------------------- Remote Operations -------------------------- #
 
     @contextmanager
-    def edit(self):
+    def remote_edit(self):
         """Transactional playlist editor with automatic rollback.
+
+        Only callable if the playlist is already linked.
+        (.remote_associated == True)
 
         Captures snapshot before entering block. Applies diff to remote service
         on successful exit. Resets local state on error.
         """
+        if not self.remote_associated:
+            raise ValueError(
+                "remote_edit() is only supported for playlists that have "
+                "already been linked to a remote. Call remote_create() first or "
+                "use remote_upsert()."
+            )
+
         snapshot_before = self.get_snapshot()
         try:
             yield
             snapshot_after = self.get_snapshot()
             self._apply_diff(snapshot_before, snapshot_after)
         except Exception:
-            self._tracks = snapshot_before.tracks
+            self.tracks = snapshot_before.tracks
             self.name = snapshot_before.name
             self.description = snapshot_before.description
             # TODO: maybe we want a online rollback too
@@ -104,11 +162,72 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         return Snapshot(
             name=self.name,
             description=self.description,
-            tracks=deepcopy(self._tracks),
+            tracks=deepcopy(self.tracks),
         )
 
+    def remote_create(self):
+        """
+        Create the playlist online.
+
+        - if self.id: raise "is already associated online"
+        - Depending on config (TODO config option DEBUG | INFO | WARN | Raise )
+          Warn or Raise here if another playlist exists with the same name.
+        """
+        if self.remote_associated:
+            raise ValueError("This playlist is already associated online.")
+
+        return self._remote_create()
+
+    def remote_upsert(self):
+        """
+        Alternate usage pattern, besides playlist.remote_edit().
+
+        - if does not exist, create_online()
+        - if exists, then invoke remote_edit() wrapper.
+        """
+        raise NotImplementedError()
+
+    def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Apply minimal remote operations to match after state from before."""
+        new_name = after.name if before.name != after.name else None
+        new_description = (
+            after.description if before.description != after.description else None
+        )
+
+        if new_name is not None or new_description is not None:
+            self._remote_update_metadata(new_name, new_description)
+
+        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
+        for op in operations:
+            if isinstance(op, InsertOp):
+                self._remote_insert_track(op.idx, op.item, operations.live_list)
+            elif isinstance(op, DeleteOp):
+                self._remote_delete_track(op.idx, op.item, operations.live_list)
+            elif isinstance(op, MoveOp):
+                self._remote_move_track(
+                    op.old_idx, op.new_idx, op.item, operations.live_list
+                )
+
+    # ---------------------- Abstract remote operations ---------------------- #
+
+    @property
     @abstractmethod
-    def _remote_insert_track(self, idx: int, track: T) -> None:
+    def remote_associated(self) -> bool:
+        """Indicate if the playlist is already linked to a remote (online) playlist."""
+        ...
+
+    @abstractmethod
+    def _remote_create(self):
+        """Create the playlist online. Checks are handled in the public version."""
+        ...
+
+    @abstractmethod
+    def _remote_insert_track(
+        self,
+        idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Insert track at index on remote service.
 
         Parameters
@@ -117,11 +236,18 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Zero-based insertion index (0 <= idx <= current length)
         track : T
             Track object to insert
+        live_list : list[T]
+            Current live list
         """
         ...
 
     @abstractmethod
-    def _remote_delete_track(self, idx: int, track: T) -> None:
+    def _remote_delete_track(
+        self,
+        idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Delete track at index from remote service.
 
         Parameters
@@ -130,10 +256,18 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Zero-based index of track to delete
         track : T
             Track being deleted
+        live_list : list[T]
+            Current live list
         """
         ...
 
-    def _remote_move_track(self, old_idx: int, new_idx: int, track: T) -> None:
+    def _remote_move_track(
+        self,
+        old_idx: int,
+        new_idx: int,
+        track: T,
+        live_list: list[T],
+    ) -> None:
         """Move track from old_idx to new_idx remotely.
 
         Default: delete then insert. Subclasses may optimize.
@@ -146,9 +280,16 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             Destination index
         track : T
             Track being moved
+        live_list : list[T]
+            Current live list
         """
-        self._remote_delete_track(old_idx, track)
-        self._remote_insert_track(new_idx, track)
+        # Remove from old position
+        self._remote_delete_track(old_idx, track, live_list)
+        live_list.pop(old_idx)
+        # Insert at new position (note: new_idx may have shifted due to pop)
+        adjusted_new_idx = new_idx if new_idx > old_idx else new_idx
+        self._remote_insert_track(adjusted_new_idx, track, live_list)
+        live_list.insert(adjusted_new_idx, track)
 
     @abstractmethod
     def _remote_update_metadata(
@@ -166,25 +307,6 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
             New description
         """
 
-    def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Apply minimal remote operations to match after state from before."""
-        new_name = after.name if before.name != after.name else None
-        new_description = (
-            after.description if before.description != after.description else None
-        )
-
-        if new_name is not None or new_description is not None:
-            self._remote_update_metadata(new_name, new_description)
-
-        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
-        for op in operations:
-            if isinstance(op, InsertOp):
-                self._remote_insert_track(op.idx, op.item)
-            elif isinstance(op, DeleteOp):
-                self._remote_delete_track(op.idx, op.item)
-            elif isinstance(op, MoveOp):
-                self._remote_move_track(op.old_idx, op.new_idx, op.item)
-
     @staticmethod
     @abstractmethod
     def _track_key(track: T) -> Hashable:
@@ -193,12 +315,4 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         Used by list_diff() to match tracks between snapshots. Must be consistent
         across service lifetime (track ID, URI, etc).
         """
-
-    def __len__(self) -> int:
-        return len(self._tracks)
-
-    def __getitem__(self, index: int) -> T:
-        return self._tracks[index]
-
-    def __iter__(self) -> Iterator[T]:
-        return iter(self._tracks)
+        ...

@@ -1,11 +1,18 @@
 import pytest
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 from pathlib import Path
 from plistsync.services.plex.api import PlexApi
 from plistsync.services.plex.api_types import (
     PlexApiTrackResponse,
     PlexApiPlaylistResponse,
 )
+
+
+def side_effect_section_name_to_id(name):
+    if "Unknown" in name:
+        return None
+    else:
+        return 1
 
 
 @pytest.fixture
@@ -15,7 +22,12 @@ def mock_plex_api() -> Mock:
 
     # Mock the converts attribute
     mock_api.converts = Mock()
-    mock_api.converts.section_name_to_id = Mock(return_value=1)
+    mock_api.converts.section_name_to_id = MagicMock(
+        side_effect=side_effect_section_name_to_id
+    )
+    mock_api.converts.playlist_name_to_id = MagicMock(
+        side_effect=side_effect_section_name_to_id
+    )
 
     # Mock the sections method
     mock_api.sections = Mock(
@@ -30,10 +42,12 @@ def mock_plex_api() -> Mock:
 
     # Mock playlist methods
     mock_api.playlist = Mock()
-    mock_api.playlist.fetch_playlists = Mock(return_value=[])
-    mock_api.playlist.fetch_playlist = Mock(return_value={})
-    mock_api.playlist.fetch_playlist_items = Mock(return_value=[])
-    mock_api.playlist.insert_item_into_playlist = Mock(return_value=True)
+    mock_api.playlist.all = Mock(return_value=[])
+    mock_api.playlist.get = Mock(return_value={"title": "Mockplaylist"})
+    mock_api.playlist.get_items = Mock(return_value=[])
+    mock_api.playlist.update = Mock(return_value=True)
+    mock_api.playlist.delete = Mock(return_value=True)
+    mock_api.playlist.add_tracks = Mock(return_value=True)
 
     # Mock track methods
     mock_api.track = Mock()

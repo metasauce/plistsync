@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections import Counter
+import bisect
+from collections import Counter, defaultdict
 from collections.abc import Callable, Hashable, Iterator
 from dataclasses import dataclass
 from typing import Generic, TypeAlias, TypeVar
@@ -44,7 +45,7 @@ class DeleteOp(Generic[T]):
     """The item to remove from the list."""
 
 
-Ops: TypeAlias = InsertOp | DeleteOp | MoveOp
+Ops: TypeAlias = InsertOp[T] | DeleteOp[T] | MoveOp[T]
 
 
 @dataclass
@@ -56,41 +57,46 @@ class Operations(Generic[T]):
     old_list: list[T]
     """The original list before applying operations."""
 
-    def __iter__(self) -> Iterator[InsertOp | DeleteOp | MoveOp]:
-        """Iterate operations, skipping redundant actions."""
-        live_list = self.old_list[:]
+    def __iter__(self) -> Iterator[InsertOp[T] | DeleteOp[T] | MoveOp[T]]:
+        """Iterate operations with live list snapshots after each step."""
+        self._live_list = self.old_list[:]
 
         for op in self.ops:
             if isinstance(op, MoveOp):
                 # Find the exact object to move
                 try:
                     current_idx = next(
-                        i for i, v in enumerate(live_list) if v is op.item
+                        i for i, v in enumerate(self._live_list) if v is op.item
                     )
                 except StopIteration:
                     continue  # already deleted
                 if current_idx == op.new_idx:
                     continue  # already at target
-                val = live_list.pop(current_idx)
-                live_list.insert(op.new_idx, val)
+                val = self._live_list.pop(current_idx)
+                self._live_list.insert(op.new_idx, val)
                 yield op
 
             elif isinstance(op, InsertOp):
-                if op.idx < len(live_list) and live_list[op.idx] is op.item:
+                if op.idx < len(self._live_list) and self._live_list[op.idx] is op.item:
                     continue  # already inserted
-                live_list.insert(op.idx, op.item)
+                self._live_list.insert(op.idx, op.item)
                 yield op
 
             elif isinstance(op, DeleteOp):
                 # Find the item by identity
                 try:
                     current_idx = next(
-                        i for i, v in enumerate(live_list) if v is op.item
+                        i for i, v in enumerate(self._live_list[:]) if v is op.item
                     )
                 except StopIteration:
                     continue  # already deleted
-                live_list.pop(current_idx)
+                self._live_list.pop(current_idx)
                 yield op
+
+    @property
+    def live_list(self) -> list[T]:
+        """Current state of the list after all applied operations."""
+        return getattr(self, "_live_list", self.old_list[:])
 
 
 def list_diff(
@@ -113,54 +119,90 @@ def list_diff(
     -------
     Operations[T]
         Minimal operations to transform old into new.
+
+    Qwirks
+    ------
+    Delete operations are always done first.
+
     """
+    live_list: list[T] = []  # Keep track of the current operations
+
     old_keys = [eq_function(t) for t in old]
     new_keys = [eq_function(t) for t in new]
-    old_counts = Counter(old_keys)
     new_counts = Counter(new_keys)
-    # Track items with original positions to handle duplicates
-    live_list = old[:]
-    ops: list[InsertOp[T] | DeleteOp[T] | MoveOp[T]] = []
 
-    # Step 1: delete excess duplicates
-    for idx in reversed(range(len(live_list))):
-        if old_counts[old_keys[idx]] > new_counts.get(old_keys[idx], 0):
-            ops.append(DeleteOp(idx, live_list[idx]))
-            live_list.pop(idx)
-            old_counts[old_keys[idx]] -= 1
-
-    # Step 2: insert missing items
-    current_counts = Counter([eq_function(t) for t in live_list])
-    for idx, item in enumerate(new):
-        key = eq_function(item)
-        if current_counts.get(key, 0) == 0:
-            ops.append(InsertOp(idx, item))
-            live_list.insert(idx, item)
-            current_counts[key] = 1
+    # 1. Delete excess duplicates (keep first N occurrences of each key)
+    indices_to_delete: list[int] = []
+    keep_counts: dict[Hashable, int] = {}
+    for idx, key in enumerate(old_keys):
+        needed = new_counts.get(key, 0)
+        kept = keep_counts.get(key, 0)
+        if kept < needed:
+            keep_counts[key] = kept + 1
         else:
-            current_counts[key] -= 1
+            indices_to_delete.append(idx)
 
-    # Step 3: move remaining items to match target
-    used_old_indices: set[int] = set()
+    # Build live_list with survivors (keep first N)
+    del_set = set(indices_to_delete)
+    for idx, item in enumerate(old):
+        if idx not in del_set:
+            live_list.append(item)
+
+    # Create DeleteOps in reverse order (largest idx first)
+    ops: list[InsertOp[T] | DeleteOp[T] | MoveOp[T]] = []
+    for idx in reversed(indices_to_delete):
+        ops.append(DeleteOp(idx, old[idx]))
+
+    # Step 2: Match, insert missing items, and move to correct positions
+    # Build mapping from hash to list of indices in live_list
+    hash_to_indices: dict[Hashable, list[int]] = defaultdict(list)
+    unmatched_old_indices = list(range(len(live_list)))
+    for idx, item in enumerate(live_list):
+        hash_to_indices[eq_function(item)].append(idx)
+
+    def shift_indices(indices: list[int], threshold: int, delta: int) -> None:
+        pos = bisect.bisect_left(indices, threshold)
+        for i in range(pos, len(indices)):
+            indices[i] += delta
+
     for target_idx, target_item in enumerate(new):
-        key = eq_function(target_item)
-
-        # Skip if this position is already correct
-        if target_idx < len(live_list) and eq_function(live_list[target_idx]) == key:
-            used_old_indices.add(target_idx)
-            continue
-
-        # Find the first unused old item matching the target key
-        for old_idx, old_item in enumerate(live_list):
-            if old_idx in used_old_indices:
-                continue
-            if eq_function(old_item) == key:
-                # Found a match → move it
-                if old_idx != target_idx:
-                    ops.append(MoveOp(old_idx, target_idx, live_list[old_idx]))
-                    val = live_list.pop(old_idx)
-                    live_list.insert(target_idx, val)
-                used_old_indices.add(target_idx)
-                break
+        hash = eq_function(target_item)
+        matched_old_idx = None
+        # Get first unmatched old item with matching key
+        if hash_to_indices[hash]:
+            matched_old_idx = hash_to_indices[hash].pop(0)
+            # Remove matched index from unmatched_old_indices
+            # Since unmatched_old_indices is sorted, we can use binary search
+            pos = bisect.bisect_left(unmatched_old_indices, matched_old_idx)
+            if (
+                pos < len(unmatched_old_indices)
+                and unmatched_old_indices[pos] == matched_old_idx
+            ):
+                del unmatched_old_indices[pos]
+        if matched_old_idx is not None:
+            # matched an existing item
+            if matched_old_idx != target_idx:
+                ops.append(
+                    MoveOp(matched_old_idx, target_idx, live_list[matched_old_idx])
+                )
+                val = live_list.pop(matched_old_idx)
+                live_list.insert(target_idx, val)
+                # shift indices in unmatched_old_indices and key_to_indices
+                # First, adjust for removal: indices > matched_old_idx decrease by 1
+                shift_indices(unmatched_old_indices, matched_old_idx + 1, -1)
+                for lst in hash_to_indices.values():
+                    shift_indices(lst, matched_old_idx + 1, -1)
+                # Then adjust for insertion: indices >= target_idx increase by 1
+                shift_indices(unmatched_old_indices, target_idx, +1)
+                for lst in hash_to_indices.values():
+                    shift_indices(lst, target_idx, +1)
+        else:
+            # no matching old item -> insert
+            ops.append(InsertOp(target_idx, target_item))
+            live_list.insert(target_idx, target_item)
+            # shift unmatched indices >= target_idx
+            shift_indices(unmatched_old_indices, target_idx, +1)
+            for lst in hash_to_indices.values():
+                shift_indices(lst, target_idx, +1)
 
     return Operations(ops, old)

@@ -77,8 +77,8 @@ class PlexApiPlaylistResponse(TypedDict, total=False):
     ratingKey: Required[str]  # '109486'
     key: str  # '/playlists/109486/items'
     guid: str  # 'com.plexapp.agents.none://0579aebf-a0f0-4ffb-bdc7-a69685a69adf'
+    title: Required[str]  # 'm-tech'
     type: str  # 'playlist'
-    title: str  # 'm-tech'
     summary: str  # ''
     smart: bool  # False
     playlistType: str  # 'audio'

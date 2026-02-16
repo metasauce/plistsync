@@ -7,7 +7,7 @@ from plistsync.services.beets import BeetsTrack
 from sqlalchemy import select
 
 from tests.abc import TrackTestBase
-from tests.test_beets._common import item
+from tests.services.beets._common import item
 
 
 class TestBeetsTrack(TrackTestBase):

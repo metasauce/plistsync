@@ -76,7 +76,7 @@ class TestPlaylistCollection:
     def test_edit_tracks(self, ids_before, ids_after, expected_log):
         """Test track_operations() reflects changes in track lists."""
         pl = MockPlaylist("foo", [MockTrack(global_ids=tb) for tb in ids_before])
-        with pl.edit():
+        with pl.remote_edit():
             pl._tracks = [MockTrack(global_ids=ta) for ta in ids_after]
 
         assert [t.global_ids for t in pl._tracks] == ids_after  # Local state preserved
@@ -87,7 +87,7 @@ class TestPlaylistCollection:
 
     def test_edit_meta(self):
         pl = MockPlaylist("foo", [])
-        with pl.edit():
+        with pl.remote_edit():
             pl.name = "bar"
 
         assert pl.name == "bar"
@@ -95,7 +95,7 @@ class TestPlaylistCollection:
     def test_edit_rollbnack(self):
         pl = MockPlaylist("foo", [])
         try:
-            with pl.edit():
+            with pl.remote_edit():
                 pl.name = "bar"
                 raise ValueError()
         except ValueError:

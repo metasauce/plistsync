@@ -44,9 +44,8 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from pathlib import Path
 from typing import (
     Concatenate,
     Generic,
@@ -73,7 +72,7 @@ class GlobalLookup(Protocol):
         ...
 
     def find_many_by_global_ids(
-        self, global_ids_list: list[GlobalTrackIDs]
+        self, global_ids_list: Iterable[GlobalTrackIDs]
     ) -> Iterable[Track | None]:
         """Find multiple tracks by their global identifiers.
 
@@ -96,6 +95,18 @@ class LocalLookup(Protocol):
         # Not decided how to handle this 100% yet. For now, we raise warnings
         # and return the first match. (Same goes for global ids, actually.)
         ...
+
+    def find_many_by_local_ids(
+        self, local_ids_list: Iterable[LocalTrackIDs]
+    ) -> Iterable[Track | None]:
+        """Find multiple tracks by their local identifiers.
+
+        Default implementation iterates over the provided list and calls
+        `find_by_local_ids` for each entry. Collections can override this
+        method to provide a more efficient batch lookup if supported.
+        """
+        for local_ids in local_ids_list:
+            yield self.find_by_local_ids(local_ids)
 
 
 @runtime_checkable
@@ -121,8 +132,9 @@ class TrackStream(Protocol[T]):
     a library or processing all items in a playlist.
     """
 
+    @property
     @abstractmethod
-    def __iter__(self) -> Iterator[T]: ...
+    def tracks(self) -> Iterable[T]: ...
 
     def map_threadpool_chunked(
         self,
@@ -174,7 +186,7 @@ class TrackStream(Protocol[T]):
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             offset = 0
             while True:
-                chunk = itertools.islice(self, offset, offset + chunk_size)
+                chunk = itertools.islice(self.tracks, offset, offset + chunk_size)
 
                 futures = {
                     executor.submit(func, track, *args, **kwargs): track
@@ -386,6 +398,10 @@ class LibraryCollection(Generic[C], Collection, ABC):
         ...
 
     @abstractmethod
-    def get_playlist(self, name: Path | str) -> C | None:
-        """Get a specific playlist by name or identifier."""
+    def get_playlist(self, *args, **kwargs) -> C | None:
+        """Get a playlist by identifier.
+
+        Implement with kwargs like ``name=``, ``id=``, ``url=``, or ``uri=``.
+        Return ``None`` for name searches that fail.
+        """
         ...

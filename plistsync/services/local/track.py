@@ -52,7 +52,7 @@ class FileCache:
         if not isinstance(collection, TrackStream):
             raise ValueError("The collection is not iterable, cant build cache.")
 
-        for track in collection:
+        for track in collection.tracks:
             try:
                 path = track.path
             except NotImplementedError:

@@ -23,7 +23,8 @@ from .api_types import (
     PlaylistIncludedResource,
     PlaylistListDocument,
     PlaylistResource,
-    RelatinionshipResource,
+    PlaylistsItemsResourceIdentifier,
+    RelationshipResource,
     T_Included,
     TrackDocument,
     TrackIncludedResource,
@@ -226,8 +227,8 @@ class TidalApiSession(requests.Session):
     def _resolve_nested_pagination(
         self,
         include: list[str],
-        doc: MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any],
-    ) -> MultiResourceDataDocument[RelatinionshipResource[dict, dict], Any]:
+        doc: MultiResourceDataDocument[RelationshipResource[dict, dict], Any],
+    ) -> MultiResourceDataDocument[RelationshipResource[dict, dict], Any]:
         """
         Recursively resolve pagination for nested relationships.
 
@@ -452,7 +453,7 @@ class TidalTrackApi:
 
 class TidalPlaylistApi:
     session: TidalApiSession
-    default_include: ClassVar[list[str]] = ["items", "items.albums", "items.artists"]
+    default_include: ClassVar[list[str]] = []
 
     def __init__(self, session: TidalApiSession):
         self.session = session
@@ -556,6 +557,38 @@ class TidalPlaylistApi:
         lookup = include_to_lookup(playlist_list_document.get("included", []))
         return playlist_list_document["data"], lookup
 
+    def get_items(
+        self,
+        playlist_id: str,
+        include: list[str] | None = None,
+    ) -> tuple[list[PlaylistsItemsResourceIdentifier], LookupDict]:
+        """Fetch all items of a playlist.
+
+        Parameters
+        ----------
+        playlist_id : str
+            The playlist ID.
+        include : list[str] | None
+            Include parameters for the items relationship. Defaults to
+            ["items", "items.albums", "items.artists"].
+
+        Returns
+        -------
+        tuple[list[PlaylistsItemsResourceIdentifier], LookupDict]
+            List of item identifiers (with meta) and lookup dict for included
+            track resources.
+        """
+        if include is None:
+            include = ["items", "items.albums", "items.artists"]
+        doc = self.session.get_paginated(
+            f"/playlists/{playlist_id}/relationships/items",
+            include,
+        )
+        data = doc.get("data", [])
+        included = doc.get("included", [])
+        lookup = include_to_lookup(included)
+        return data, lookup
+
     def _create(
         self,
         name: str,
@@ -568,11 +601,13 @@ class TidalPlaylistApi:
             "/playlists",
             json={
                 "data": {
-                    "accessType": access_type,
-                    "description": description,
-                    "name": name,
+                    "attributes": {
+                        "accessType": access_type,
+                        "description": description,
+                        "name": name,
+                    },
+                    "type": "playlists",
                 },
-                "type": "playlists",
             },
         ).json()
 
@@ -724,9 +759,7 @@ class TidalPlaylistApi:
         for item_id in item_ids:
             item_data = {
                 "id": item_id[0],
-                "meta": {
-                    "itemId": item_id[1]  # The specific item to reorder
-                },
+                "meta": {"itemId": item_id[1]},
                 "type": item_type,
             }
             data.append(item_data)
@@ -760,3 +793,19 @@ def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:
     The key is a tuple of (type, id) and the value is the item dict.
     """
     return {(item["type"], item["id"]): item for item in included}
+
+
+def extract_tidal_playlist_id(url: str) -> str:
+    """Extract the Tidal playlist ID from a URL."""
+    # Example URL formats:
+    # https://tidal.com/browse/playlist/{playlist_id}
+    # https://tidal.com/playlist/{playlist_id}
+
+    import re
+
+    pattern = r"tidal\.com/(?:browse/)?playlist/([a-zA-Z0-9]+)"
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError(f"Invalid Tidal playlist URL: {url}")

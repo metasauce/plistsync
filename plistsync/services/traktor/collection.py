@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterable, Iterator
+from collections.abc import Iterable
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -105,7 +105,8 @@ class NMLCollection(LibraryCollection, TrackStream, LocalLookup):
             return self.find_by_traktor_path(TraktorPath.from_path(file_path))
         return None
 
-    def __iter__(self) -> Iterator[NMLTrack]:
+    @property
+    def tracks(self) -> Iterable[NMLTrack]:
         collection = self.tree.find("COLLECTION")
         if collection is None:
             raise ValueError("Could not find COLLECTION in NML file")
@@ -364,7 +365,8 @@ class NMLPlaylistCollection(Collection, TrackStream, LocalLookup):
             return self.find_by_traktor_path(TraktorPath.from_path(file_path))
         return None
 
-    def __iter__(self) -> Generator[NMLPlaylistTrack, None, None]:
+    @property
+    def tracks(self) -> Iterable[NMLPlaylistTrack]:
         """Iterate over the tracks in the playlist."""
 
         # Playlist on include a primarykey node which we still have

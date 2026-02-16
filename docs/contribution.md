@@ -86,3 +86,10 @@ We use:
 - **pytest** for testing
 
 Please ensure your code passes all checks before submitting a pull request.
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+dev/debug.md
+```

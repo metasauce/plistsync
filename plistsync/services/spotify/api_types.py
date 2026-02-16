@@ -95,20 +95,53 @@ class SpotifyApiPlaylistTrack(TypedDict):
     added_by: AddedBy
     is_local: bool
     primary_color: str | None
-    track: SpotifyApiTrackResponse
+    track: SpotifyApiTrackResponse | SpotifyAPIEpisodeResponse
     video_thumbnail: dict[str, Any]  # Usually {"url": None}
 
 
-class PlaylistTracks(TypedDict):
-    """Tracks object within a playlist."""
+class SpotifyAPIEpisodeResponse(TypedDict):
+    """Episode item within a playlist."""
+
+    audio_preview_url: str | None
+    description: str
+    html_description: str
+    duration_ms: int
+    explicit: bool
+    external_urls: ExternalUrls
+    href: str
+    id: str
+    images: list[Image]
+    is_externally_hosted: bool
+    is_playable: bool
+    languages: list[str]
+    name: str
+    release_date: str
+    release_date_precision: Literal["year", "month", "day"]
+    type: Literal["episode"]
+    uri: str
+
+
+class PlaylistTracksBase(TypedDict):
+    """Base type for tracks object within a playlist."""
 
     href: str
-    items: list[SpotifyApiPlaylistTrack]
-    limit: int
-    next: str | None
-    offset: int
-    previous: str | None
     total: int
+    next: str | None
+    limit: NotRequired[int]
+    offset: NotRequired[int]
+    previous: NotRequired[str | None]
+
+
+class PlaylistTracksSimplified(PlaylistTracksBase):
+    """Tracks object within a simplified playlist.."""
+
+    items: NotRequired[list[SpotifyApiPlaylistTrack]]
+
+
+class PlaylistTracks(PlaylistTracksBase):
+    """Tracks object within a playlist."""
+
+    items: list[SpotifyApiPlaylistTrack]
 
 
 class Owner(TypedDict):
@@ -122,40 +155,33 @@ class Owner(TypedDict):
     display_name: NotRequired[str]
 
 
-class SpotifyApiPlaylistResponse(TypedDict):
+class SpotifyApiPlaylistResponseBase(TypedDict):
+    """Type shared by the full and simplified response."""
+
+    collaborative: bool
+    description: str | None
+    external_urls: ExternalUrls
+    href: str
+    id: str
+    images: list[Image]
+    name: str
+    owner: Owner
+    public: bool
+    snapshot_id: str
+    type: Literal["playlist"]
+    uri: str
+
+
+class SpotifyApiPlaylistResponseFull(SpotifyApiPlaylistResponseBase):
     """Full playlist object."""
 
-    collaborative: bool
-    description: str | None
-    external_urls: ExternalUrls
-    href: str
-    id: str
-    images: list[Image]
-    name: str
-    owner: Owner
-    public: bool
-    snapshot_id: str
     tracks: PlaylistTracks
-    type: Literal["playlist"]
-    uri: str
 
 
-class SimplifiedPlaylist(TypedDict):
+class SpotifyApiPlaylistResponseSimplified(SpotifyApiPlaylistResponseBase):
     """Simplified playlist object (without full tracks)."""
 
-    collaborative: bool
-    description: str | None
-    external_urls: ExternalUrls
-    href: str
-    id: str
-    images: list[Image]
-    name: str
-    owner: Owner
-    public: bool
-    snapshot_id: str
-    tracks: dict[str, Any]  # Simplified tracks info
-    type: Literal["playlist"]
-    uri: str
+    tracks: PlaylistTracksSimplified
 
 
 class UserProfile(TypedDict):

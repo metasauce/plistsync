@@ -1,3 +1,10 @@
+"""
+Plex API, this is a thin wrapper around the endpoints.
+
+Advanced logic to work around endpoint shortcomings (like fixing track indices)
+happens on in the playlist.
+"""
+
 from __future__ import annotations
 
 import json
@@ -157,7 +164,7 @@ class PlexApi:
             _read_token(self.plex_config.token_path),
             server_url,
         )
-        self.playlist = PlaylistApi(self.session)
+        self.playlist = PlaylistApi(self)
         self.track = TrackApi(self.session)
         self.converts = ConvertsApi(self.session, self)
 
@@ -285,16 +292,22 @@ class PlexApi:
 class PlaylistApi:
     """Playlist-specific Plex API client."""
 
-    def __init__(self, session: PlexApiSession) -> None:
-        self.session = session
+    api: PlexApi
 
-    def fetch_playlists(self) -> list[PlexApiPlaylistResponse]:
+    def __init__(self, api: PlexApi) -> None:
+        self.api = api
+
+    @property
+    def session(self):
+        return self.api.session
+
+    def all(self) -> list[PlexApiPlaylistResponse]:
         """Get all playlists."""
         response = self.session.request("GET", f"{self.session.server_url}/playlists")
         response.raise_for_status()
         return response.json()["MediaContainer"]["Metadata"]
 
-    def fetch_playlist(self, playlist_id: str | int) -> PlexApiPlaylistResponse:
+    def get(self, playlist_id: int) -> PlexApiPlaylistResponse:
         """Get a specific playlist by ID."""
 
         response = self.session.request(
@@ -319,9 +332,7 @@ class PlaylistApi:
 
         return playlist_data[0]
 
-    def fetch_playlist_items(
-        self, playlist_id: str | int
-    ) -> list[PlexApiTrackResponse]:
+    def get_items(self, playlist_id: str | int) -> list[PlexApiTrackResponse]:
         """Get items in a specific playlist by ID."""
 
         response = self.session.request(
@@ -330,41 +341,151 @@ class PlaylistApi:
         response.raise_for_status()
         return response.json()["MediaContainer"].get("Metadata", [])
 
-    def create_playlist(self, title: str, items: list[str]) -> Any:
+    def create(
+        self,
+        name: str,
+        library_id: int | str = "library",
+        item_ids: list[str | int] | None = None,
+    ) -> PlexApiPlaylistResponse:
         """Create a new playlist."""
-        data = {"title": title, "items": items}
+
+        params: dict[str, Any] = {
+            "title": name,
+            "type": "audio",
+            "smart": 0,
+            "uri": f"server://{self.api.machine_id}/com.plexapp.plugins.library/{library_id}",
+        }
+
+        if item_ids:
+            params["uri"] += "/metadata/" + ",".join([str(i) for i in item_ids])
+
         response = self.session.request(
-            "POST", f"{self.session.server_url}/playlists", json=data
+            "POST",
+            f"{self.session.server_url}/playlists",
+            params=params,
         )
         response.raise_for_status()
-        return response.json()
+        return response.json()["MediaContainer"]["Metadata"][0]
 
-    def insert_item_into_playlist(
+    def update(
         self,
         playlist_id: str | int,
-        item_id: str | int,
-        machine_id: str,
-    ) -> Any:
-        """Insert items into a playlist by their IDs.
+        name: str | None = None,
+        description: str | None = None,
+    ):
+        """Update the details of a playlist.
 
         Parameters
         ----------
-        machine_id : str
-            The Plex machine ID of the server where to find the item.
+        playlist_id : str
+            The Spotify ID of the playlist.
+        name : str | None
+            The new name of the playlist, by default None (no change).
+        description : str | None
+            The new description of the playlist, by default None (no change).
+        """
+        params: dict[str, Any] = {}
+        if name is not None:
+            params["title"] = name
+        if description is not None:
+            params["summary"] = description
+
+        response = self.session.request(
+            "PUT",
+            f"{self.session.server_url}/playlists/{playlist_id}",
+            params=params,
+        )
+        response.raise_for_status()
+        return response
+
+    def delete(
+        self,
+        playlist_id: str | int,
+    ):
+        """Remove the playlist from the server."""
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}",
+        )
+        response.raise_for_status()
+        return response
+
+    def add_tracks(
+        self,
+        playlist_id: int,
+        item_ids: list[str | int],
+        library_id: int | str = "library",
+    ) -> Any:
+        """Insert items into a playlist by their IDs.
+
+        Does NOT support inserting at desired positions.
+
+        Parameters
+        ----------
         playlist_id : str | int
             The ID of the playlist to insert items into.
         item_ids : list[str | int]
             The IDs of the items to insert into the playlist.
         """
-        uri = f"server://{machine_id}/com.plexapp.plugins.library/library/metadata/{item_id}"
-        data = {"uri": uri}
+        if len(item_ids) == 0:
+            return self.get(playlist_id)
+
+        params: dict[str, Any] = {
+            "uri": f"server://{self.api.machine_id}/com.plexapp.plugins.library/{library_id}/metadata/"
+            + ",".join([str(i) for i in item_ids])
+        }
+
         response = self.session.request(
             "PUT",
             f"{self.session.server_url}/playlists/{playlist_id}/items",
-            json=data,
+            params=params,
         )
         response.raise_for_status()
         return response.json()
+
+    def remove_track(
+        self,
+        playlist_id: int,
+        item_id: str | int,
+    ):
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}",
+        )
+        response.raise_for_status()
+        return response
+
+    def move_track(
+        self,
+        playlist_id: int,
+        item_id: str | int,
+        after_id: str | int | None = None,
+    ) -> PlexApiPlaylistResponse:
+        """
+        Move the item after the provided `after_id`.
+
+        If no after_id is provided, moves the item to the front.
+        """
+
+        params: dict[str, Any] = {}
+        if after_id is not None:
+            params["after"] = after_id
+
+        response = self.session.request(
+            "PUT",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}/move",
+            params=params,
+        )
+        response.raise_for_status()
+        return response.json()["MediaContainer"]["Metadata"][0]
+
+    def clear(self, playlist_id: int) -> PlexApiPlaylistResponse:
+        response = self.session.request(
+            "DELETE",
+            f"{self.session.server_url}/playlists/{playlist_id}/items",
+        )
+        response.raise_for_status()
+        return response.json()["MediaContainer"]["Metadata"][0]
 
 
 class TrackApi:
@@ -383,7 +504,7 @@ class TrackApi:
         Parameters
         ----------
         section_id : str | int
-            The name or id of the Plex library (section).
+            The id of the Plex library (section).
         page_size : int
             Number of tracks to fetch per request (default: 1000).
 
@@ -533,7 +654,7 @@ class ConvertsApi:
             )
             response.raise_for_status()
         except ValueError:
-            for playlist in self.api.playlist.fetch_playlists():
+            for playlist in self.api.playlist.all():
                 if playlist.get("title") == playlist_name_or_id and (
                     playlist.get("type") == "playlist"
                 ):

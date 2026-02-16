@@ -2,6 +2,7 @@ from pathlib import Path
 from collections.abc import Iterable, Iterator
 
 import pytest
+from plistsync.services.plex.track import PlexTrack
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
 from plistsync.services.plex.collection import (
@@ -27,6 +28,9 @@ class TestPlexPlaylistCollection(CollectionTestBase):
         yield PlexPlaylistCollection(
             self.library_collection,
             "foo",
+            tracks=[
+                PlexTrack({"ratingKey": "10637"}),
+            ],
         )
 
     def create_sample_track(self):
@@ -36,57 +40,9 @@ class TestPlexPlaylistCollection(CollectionTestBase):
         collection!
         """
         for collection in self.create_collection():
-            for track in collection:
+            for track in collection.tracks:
                 return track
         raise RuntimeError("No track found in created collection")
-
-    def test_insert_track_by_path(self, audio_files: Path):
-        """Test inserting a track into a playlist by path."""
-        for collection in self.create_collection():
-            tracks = list(collection)
-            track = tracks[0]
-            len_before = len(tracks)
-            assert track.path is not None, (
-                "Track must have a valid path for this test to work"
-            )
-            # Insert the track into the playlist
-            collection.insert_by_path(
-                path=track.path,
-                library_collection=self.library_collection,
-            )
-
-            # Playlist should now contain an added track
-            tracks_after = list(collection)
-            assert len(tracks_after) == len_before + 1, (
-                "Playlist should have one more track after insertion by path"
-            )
-
-    def test_insert_track_by_id(self, audio_files: Path):
-        """Test inserting a track into a playlist by Plex ID."""
-        for collection in self.create_collection():
-            tracks = list(collection)
-            track = tracks[0]
-            len_before = len(tracks)
-
-            # Insert the track into the playlist
-            collection.insert_by_id(item_id=track.plex_id)
-
-            # Playlist should now contain an added track
-            tracks_after = list(collection)
-            assert len(tracks_after) == len_before + 1, (
-                "Playlist should have one more track after insertion by ID"
-            )
-
-    def test_refresh(self):
-        """Test that refreshing the playlist collection works."""
-        for collection in self.create_collection():
-            # Initially, the playlist should have no tracks
-            collection._items_data = []
-
-            collection.refresh()
-            assert len(list(collection)) != 0, (
-                "Playlist should have no tracks after refreshing empty data"
-            )
 
 
 class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
@@ -110,7 +66,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         collection!
         """
         for library_collection in self.create_collection():
-            for track in library_collection:
+            for track in library_collection.tracks:
                 return track
         raise RuntimeError("No track found in created collection")
 
@@ -120,7 +76,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
 
     @property
     def unknown_playlist_names(self) -> list[str]:
-        return ["Nonexistent Playlist", "Another Unknown Playlist"]
+        return ["Unknown Playlist", "Another Unknown Playlist"]
 
     def test_preload(self):
         """Test that preloading the library collection works."""
@@ -136,7 +92,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         )
 
         # Iter should yield tracks after preload
-        tracks = list(library_collection)
+        tracks = list(library_collection.tracks)
         assert len(tracks) > 0, "Library collection should yield tracks after preload()"
 
     def test_locations_property(self):
@@ -153,4 +109,4 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         """Get playlist via path not allowed."""
         with pytest.raises(ValueError):
             for library_collection in self.create_collection():
-                library_collection.get_playlist(Path("Some/Path/Playlist"))
+                library_collection.get_playlist(name="foo", id=121)  # type:ignore

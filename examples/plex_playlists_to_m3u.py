@@ -41,7 +41,7 @@ def main(
             old = new = ""
 
         m3u = ""
-        for track in pl:
+        for track in pl.tracks:
             if not str(track.path).startswith(old):
                 raise Warning(
                     f"Track {track.path} does not start with"

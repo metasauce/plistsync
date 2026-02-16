@@ -7,11 +7,12 @@ check_imports(
 
 from . import api
 from .collection import TidalLibraryCollection, TidalPlaylistCollection
-from .track import TidalTrack
+from .track import TidalPlaylistTrack, TidalTrack
 
 __all__ = [
-    "TidalTrack",
     "api",
+    "TidalTrack",
+    "TidalPlaylistTrack",
     "TidalLibraryCollection",
     "TidalPlaylistCollection",
 ]

@@ -17,10 +17,16 @@ from plistsync.utils.auth.bearer_token import (
     get_bearer_token,
 )
 
+from .api_types import (
+    PlaylistTracks,
+    PlaylistTracksBase,
+    SpotifyApiPlaylistTrack,
+)
+
 if TYPE_CHECKING:
     from .api_types import (
-        SimplifiedPlaylist,
-        SpotifyApiPlaylistResponse,
+        SpotifyApiPlaylistResponseFull,
+        SpotifyApiPlaylistResponseSimplified,
         SpotifyApiTrackResponse,
     )
 
@@ -147,29 +153,58 @@ class PlaylistApi:
         self.session = session
         self.api = api
 
-    def get(self, playlist_id: str) -> SpotifyApiPlaylistResponse:
+    @overload
+    def get(
+        self,
+        playlist_id: str,
+        preload: Literal[True] = ...,
+    ) -> SpotifyApiPlaylistResponseFull: ...
+    @overload
+    def get(
+        self,
+        playlist_id: str,
+        preload: Literal[False],
+    ) -> SpotifyApiPlaylistResponseSimplified: ...
+
+    def get(
+        self, playlist_id: str, preload: bool = True
+    ) -> SpotifyApiPlaylistResponseFull | SpotifyApiPlaylistResponseSimplified:
         """Get a single playlist by its Spotify identifier."""
         plist = self.session.request(
             "GET",
             f"/playlists/{playlist_id}",
         ).json()
 
-        # Resolve tracks (pagination)
-        tracks_obj = plist.get("tracks", {})
-        if next_page := tracks_obj.get("next"):
-            all_items = tracks_obj.get("items", [])
-            while next_page:
-                tracks = self.session.request(
-                    "GET",
-                    next_page,
-                ).json()
-                all_items.extend(tracks.get("items", []))
-                next_page = tracks.get("next")
-            tracks_obj["items"] = all_items
-            tracks_obj["next"] = None
-
-        plist["tracks"] = tracks_obj
+        if preload:
+            plist["tracks"] = {
+                **plist["tracks"],
+                "items": self._load_tracks(plist["tracks"]),
+                "next": None,
+            }
         return plist
+
+    def _load_tracks(
+        self,
+        data: PlaylistTracksBase,
+        force: bool = False,
+    ) -> list[SpotifyApiPlaylistTrack]:
+        """Resolve the track pagination."""
+        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore[assignment]
+
+        next_page = data.get("next")
+        if force:
+            all_items = []
+            next_page = data["href"]
+
+        while next_page:
+            tracks: PlaylistTracks = self.session.request(
+                "GET",
+                next_page,
+            ).json()
+            all_items.extend(tracks.get("items", []))
+            next_page = tracks.get("next")
+
+        return all_items
 
     def create(
         self,
@@ -177,7 +212,7 @@ class PlaylistApi:
         description: str,
         public: bool = False,
         collaborative: bool = False,
-    ) -> SpotifyApiPlaylistResponse:
+    ) -> SpotifyApiPlaylistResponseFull:
         """Create a new playlist for the current user.
 
         Parameters
@@ -370,7 +405,7 @@ class PlaylistApi:
         remove_uris: list[str],
         positions: list[int],
         snapshot_id: str | None = None,
-        plist_data: SpotifyApiPlaylistResponse | None = None,
+        plist_data: SpotifyApiPlaylistResponseFull | None = None,
     ) -> str:
         """Remove tracks from a playlist at specific positions.
 
@@ -563,16 +598,21 @@ class UserApi:
         self.api = api
 
     @overload
-    def get_playlists(self, simplified: Literal[True]) -> list[SimplifiedPlaylist]: ...
+    def get_playlists(
+        self, preload: Literal[True]
+    ) -> list[SpotifyApiPlaylistResponseSimplified]: ...
     @overload
     def get_playlists(
-        self, simplified: Literal[False] = ...
-    ) -> list[SpotifyApiPlaylistResponse]: ...
+        self, preload: Literal[False] = ...
+    ) -> list[SpotifyApiPlaylistResponseFull]: ...
     def get_playlists(
-        self, simplified: bool = False
-    ) -> list[SimplifiedPlaylist] | list[SpotifyApiPlaylistResponse]:
+        self, preload: bool = False
+    ) -> (
+        list[SpotifyApiPlaylistResponseSimplified]
+        | list[SpotifyApiPlaylistResponseFull]
+    ):
         # Migrated from get_user_playlists_simplified() and get_user_playlists_full()
-        if simplified:
+        if not preload:
             return self._get_playlists_simplified()
         else:
             return self._get_playlists_full()
@@ -584,7 +624,7 @@ class UserApi:
             "/me",
         ).json()
 
-    def _get_playlists_simplified(self) -> list[SimplifiedPlaylist]:
+    def _get_playlists_simplified(self) -> list[SpotifyApiPlaylistResponseSimplified]:
         """Get the current user's playlists without resolving all tracks.
 
         Returns
@@ -592,8 +632,8 @@ class UserApi:
         list[dict]
             A list of simplified playlist data from the Spotify API.
         """
-        next_page = "/me/playlists?limit=50"
-        simplified_playlists: list[SimplifiedPlaylist] = []
+        next_page = "/me/playlists?offset=0&limit=50"
+        simplified_playlists: list[SpotifyApiPlaylistResponseSimplified] = []
         while next_page:
             json_res = self.session.request(
                 "GET",
@@ -603,7 +643,7 @@ class UserApi:
             next_page = json_res.get("next", None)
         return simplified_playlists
 
-    def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponse]:
+    def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponseFull]:
         """Get the current user's playlists with full details.
 
         Returns
@@ -619,3 +659,20 @@ class UserApi:
             playlists_details.append(playlist_data)
 
         return playlists_details
+
+
+def extract_spotify_playlist_id(url_or_uri: str) -> str:
+    """Extract the Spotify ID from a playlist URL or URI."""
+    # Pattern matches:
+    # spotify:playlist:<id>
+    # https?://open.spotify.com/playlist/<id>
+    # open.spotify.com/playlist/<id> (without protocol)
+
+    import re
+
+    pattern = r"(?:spotify:playlist:|(?:https?://)?open\.spotify\.com/playlist/)([a-zA-Z0-9]+)"
+    match = re.search(pattern, url_or_uri)
+    if match:
+        return match.group(1)
+    else:
+        raise ValueError(f"Invalid Spotify playlist URL or URI: {url_or_uri}")
