@@ -215,6 +215,22 @@ class TestNMLPlaylistUpsert:
         ):
             pl.remote_upsert()
 
+    def test_remote_delete(
+        self,
+        collection: NMLCollection,
+    ):
+        pl_collection = NMLPlaylistCollection(collection, "New PL")
+        pl_collection.remote_upsert()
+
+        # Remove should work as upserted before
+        pl_collection.remote_delete()
+
+        assert not pl_collection.remote_associated
+
+        # Second delte should trigger value error
+        with pytest.raises(ValueError):
+            pl_collection.remote_delete()
+
 
 class TestNMLPlaylistCollection(CollectionTestBase):
     """Test the NMLPlaylistCollection class."""

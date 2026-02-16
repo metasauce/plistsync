@@ -424,6 +424,12 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
         else:
             self._remote_create()
 
+    def remote_delete(self):
+        """Remove in connected collection."""
+        if not self.remote_associated:
+            raise ValueError("This playlist is not associated online.")
+        _detach(self.root_node)
+
     @staticmethod
     def _track_key(track: NMLPlaylistTrack):
         return track.path
