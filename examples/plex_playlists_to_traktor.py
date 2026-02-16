@@ -52,7 +52,7 @@ def main(
                 traktor_library,
                 pl_plex.name,
             )
-            traktor_library.upsert_playlist(traktor_playlist)
+            traktor_playlist.remote_upsert()
 
         with traktor_playlist.remote_edit():
             for track in pl_plex.tracks:

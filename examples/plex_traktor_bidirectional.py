@@ -57,7 +57,7 @@ def main():
             traktor_collection,
             playlist_name,
         )
-        traktor_collection.upsert_playlist(traktor_playlist)
+        traktor_playlist.remote_upsert()
 
     # --- Add missing tracks from Plex to Traktor --- #
     # Rewrite paths from plex to match traktor paths

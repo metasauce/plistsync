@@ -106,7 +106,7 @@ class TestNMLPlaylistUpsert:
         """Allow to insert new playlist collection"""
         count_before = len(list(collection._playlist_nodes()))
         pl_collection = NMLPlaylistCollection(collection, "New PL")
-        collection.upsert_playlist(pl_collection)
+        pl_collection.remote_upsert()
 
         assert len(list(collection._playlist_nodes())) == count_before + 1
         # and it's retrievable via public API
@@ -124,7 +124,7 @@ class TestNMLPlaylistUpsert:
 
         pl_collection = NMLPlaylistCollection(collection, "New PL")
         with caplog.at_level(logging.WARNING):
-            collection.upsert_playlist(pl_collection)
+            pl_collection.remote_upsert()
 
         assert "Invalid SUBNODES COUNT value" in caplog.text
         assert subnodes_el.get("COUNT") == "1"
@@ -149,7 +149,7 @@ class TestNMLPlaylistUpsert:
         with pytest.raises(
             ValueError, match=r"Could not find SUBNODES in \$ROOT folder"
         ):
-            collection.upsert_playlist(new_pl)
+            new_pl.remote_upsert()
 
     def test_upsert_playlist_replaces_existing_by_uuid_and_removes_old_node(
         self, collection: NMLCollection
@@ -169,7 +169,7 @@ class TestNMLPlaylistUpsert:
             replacement.root_node is not old_node
         )  # ensures parent.remove path is taken
 
-        collection.upsert_playlist(replacement)
+        replacement.remote_upsert()
 
         # old node must be detached now (proves it was removed from its parent)
         assert old_node.getparent() is None
@@ -213,7 +213,7 @@ class TestNMLPlaylistUpsert:
         with pytest.raises(
             ValueError, match=r"Existing playlist node has no parent; cannot replace"
         ):
-            collection.upsert_playlist(pl)
+            pl.remote_upsert()
 
 
 class TestNMLPlaylistCollection(CollectionTestBase):
@@ -336,6 +336,19 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
         track = p1.find_by_local_ids({})
         assert track is None
+
+    def test_remote_create(self, collection: NMLCollection):
+        p1 = NMLPlaylistCollection(
+            collection,
+            name="foo",
+        )
+
+        with pytest.raises(ValueError):
+            collection.get_playlist(name="foo")
+
+        p1.remote_create()
+
+        assert collection.get_playlist(name="foo") is not None
 
 
 @pytest.mark.parametrize(
