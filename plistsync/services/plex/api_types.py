@@ -38,9 +38,16 @@ class PlexApiTrackResponse(TypedDict, total=False):
     musicAnalysisVersion: str  # '1'
     Media: list[PlexApiTrackMedia]
     Image: list[PlexApiTrackImage]
+    Genre: list[dict[str, str]]  # [{'tag': 'Jungle'}, {'tag': 'Drum And Bass'}]}
     librarySectionID: int  # 5
     librarySectionKey: str  # '/library/sections/5'
     librarySectionTitle: str  # 'Music'
+
+
+class PlexApiPlaylistTrack(PlexApiTrackResponse, total=False):
+    playlistItemID: int  # needed e.g. for deletion
+    ratingCount: int
+    updatedAt: int
 
 
 class PlexApiTrackMedia(TypedDict, total=False):

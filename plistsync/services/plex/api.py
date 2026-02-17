@@ -446,11 +446,15 @@ class PlaylistApi:
     def remove_track(
         self,
         playlist_id: int,
-        item_id: str | int,
+        pl_item_id: str | int,
     ):
+        """Remove track from playlist.
+
+        pl_item_id is not just the ratingKey.
+        """
         response = self.session.request(
             "DELETE",
-            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{pl_item_id}",
         )
         response.raise_for_status()
         return response
@@ -458,13 +462,15 @@ class PlaylistApi:
     def move_track(
         self,
         playlist_id: int,
-        item_id: str | int,
+        pl_item_id: str | int,
         after_id: str | int | None = None,
     ) -> PlexApiPlaylistResponse:
         """
         Move the item after the provided `after_id`.
 
         If no after_id is provided, moves the item to the front.
+
+        pl_item_id and after_id are playlistItemID not ratingKey.
         """
 
         params: dict[str, Any] = {}
@@ -473,7 +479,7 @@ class PlaylistApi:
 
         response = self.session.request(
             "PUT",
-            f"{self.session.server_url}/playlists/{playlist_id}/items/{item_id}/move",
+            f"{self.session.server_url}/playlists/{playlist_id}/items/{pl_item_id}/move",
             params=params,
         )
         response.raise_for_status()
