@@ -178,6 +178,13 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
 
         return self._remote_create()
 
+    def remote_delete(self):
+        """Delete the playlist online."""
+        if not self.remote_associated:
+            raise ValueError("Can only delete playlists that are associated online.")
+
+        return self._remote_delete()
+
     def remote_upsert(self):
         """
         Alternate usage pattern, besides playlist.remote_edit().
@@ -223,6 +230,11 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
     @abstractmethod
     def _remote_create(self):
         """Create the playlist online. Checks are handled in the public version."""
+        ...
+
+    @abstractmethod
+    def _remote_delete(self):
+        """Delete the playlist online."""
         ...
 
     @abstractmethod
