@@ -346,6 +346,11 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             )
         self._refetch_tracks()  # Force refetch tracks
 
+    def _remote_delete(self):
+        if self.id is None:
+            raise ValueError("Playlist must be online to call remote delete!")
+        self.api.playlist.delete(self.id)
+
     def _remote_insert_track(
         self,
         idx: int,

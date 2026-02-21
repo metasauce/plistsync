@@ -243,6 +243,18 @@ class PlaylistApi:
         ).json()
         return playlist
 
+    def delete(self, playlist_id: str):
+        """Delete a playlist from the owners library.
+
+        Note that spotify never really deletes playlists.
+        Rather, owners unfollow them (so others can still use them)
+        """
+        return self.session.request(
+            "DELETE",
+            "/me/library",
+            params={"uris": f"spotify:playlist:{playlist_id}"},
+        )
+
     def update(
         self,
         playlist_id: str,
