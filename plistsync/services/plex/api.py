@@ -23,6 +23,7 @@ from plistsync.logger import log
 from .api_types import (
     PlexApiConnection,
     PlexApiPlaylistResponse,
+    PlexApiPlaylistTrackResponse,
     PlexApiResourcesResponse,
     PlexApiTrackResponse,
     PlexMediaTypes,
@@ -332,7 +333,7 @@ class PlaylistApi:
 
         return playlist_data[0]
 
-    def get_items(self, playlist_id: str | int) -> list[PlexApiTrackResponse]:
+    def get_items(self, playlist_id: str | int) -> list[PlexApiPlaylistTrackResponse]:
         """Get items in a specific playlist by ID."""
 
         response = self.session.request(

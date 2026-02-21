@@ -34,8 +34,10 @@ class PlexApiTrackResponse(TypedDict, total=False):
     grandparentThumb: str  # '/library/metadata/55906/thumb/1713284398'
     grandparentArt: str  # '/library/metadata/55906/art/1713284398'
     duration: int  # 294990
-    addedAt: int  # 1734353414
+    addedAt: int  # 1734353414, epoch time, the track was added to the library
+    updatedAt: int # epoch time, the track was updated in the library
     musicAnalysisVersion: str  # '1'
+    ratingCount: int
     Media: list[PlexApiTrackMedia]
     Image: list[PlexApiTrackImage]
     Genre: list[dict[str, str]]  # [{'tag': 'Jungle'}, {'tag': 'Drum And Bass'}]}
@@ -44,10 +46,8 @@ class PlexApiTrackResponse(TypedDict, total=False):
     librarySectionTitle: str  # 'Music'
 
 
-class PlexApiPlaylistTrack(PlexApiTrackResponse, total=False):
-    playlistItemID: int  # needed e.g. for deletion
-    ratingCount: int
-    updatedAt: int
+class PlexApiPlaylistTrackResponse(PlexApiTrackResponse, total=False):
+    playlistItemID: int  # id of the track in the playlist. needed e.g. for deletion
 
 
 class PlexApiTrackMedia(TypedDict, total=False):

@@ -16,6 +16,7 @@ from plistsync.logger import log
 from plistsync.services.local.track import FileCache
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
+    PlexApiPlaylistTrackResponse,
     PlexApiTrackResponse,
 )
 
@@ -247,7 +248,7 @@ class PlexLibrarySectionCollection(
 @dataclass
 class PlexPlaylistOnlineData:
     playlist_data: PlexApiPlaylistResponse
-    tracks_data: list[PlexApiTrackResponse]
+    tracks_data: list[PlexApiPlaylistTrackResponse]
 
 
 class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
@@ -284,7 +285,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         cls,
         library: PlexLibrarySectionCollection,
         playlist_data: PlexApiPlaylistResponse,
-        tracks_data: list[PlexApiTrackResponse] | None = None,
+        tracks_data: list[PlexApiPlaylistTrackResponse] | None = None,
     ) -> Self:
         """
         Create a new instance of Plex playlist from a given api response.
@@ -477,10 +478,12 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
             raise ValueError("Playlist must be online to call remote delete!")
 
         t_data = self.data.tracks_data[idx]
-        if not t_data.get("ratingKey") == track.id:
+        if (
+            t_data.get("ratingKey") != track.id
+            or t_data.get("playlistItemID") != track.playlist_item_id
+        ):
             raise ValueError(f"Key mismatch for {idx=} vs {track=}")
 
-        # PS 2026-02-17: so it PlexPlaylistTrack does make sense, after all ...
         pl_item_id = cast(int, t_data.get("playlistItemID", -1))
         self.api.playlist.remove_track(self.id, pl_item_id)
         self._refetch_tracks()

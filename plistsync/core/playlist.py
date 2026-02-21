@@ -194,10 +194,6 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         """
         raise NotImplementedError()
 
-    def remote_delete(self):
-        """Delete playlist."""
-        raise NotImplementedError()
-
     def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
         """Apply minimal remote operations to match after state from before."""
         new_name = after.name if before.name != after.name else None
