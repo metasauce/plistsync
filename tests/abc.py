@@ -1,6 +1,7 @@
+from contextlib import nullcontext
 import pytest
-from pathlib import Path, PurePath
-from typing import ClassVar
+from pathlib import PurePath
+from typing import Any, ClassVar
 from abc import ABC, abstractmethod
 
 from plistsync.core import LibraryCollection, Track, Collection
@@ -12,6 +13,7 @@ from plistsync.core.collection import (
     TrackStream,
 )
 from plistsync.core.matching import Matches
+from plistsync.core.playlist import PlaylistCollection
 
 
 class TrackTestBase(ABC):
@@ -171,12 +173,24 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
 
     @property
     @abstractmethod
-    def known_playlist_names(self) -> Iterable[str | Path]:
+    def known_playlists(self) -> Iterable[tuple[str, Any]]:
+        """Know playlist for lookup by [key, value].
+
+        E.g. ["uri", "spotify:asdasdasd"]
+        will call get_playlist(uri="spotify:asdasdasd")
+        """
         pass
 
     @property
     @abstractmethod
-    def unknown_playlist_names(self) -> Iterable[str | Path]:
+    def unknown_playlists(self) -> Iterable[tuple[str, Any, bool]]:
+        """Unknow playlist for lookup by [key, value, expect_raise].
+
+        E.g. ["uri", "spotify:not_found",True]
+        will call get_playlist(uri="spotify:asdasdasd")
+        and expects it to raise!
+        """
+
         pass
 
     def test_playlists_property(self):
@@ -185,17 +199,25 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
             playlists = library_collection.playlists
             assert isinstance(playlists, Iterable), "Playlists should be iterable"
             # Optionally: further assertions based on expected behavior, e.g., length, types
+            for pl in playlists:
+                assert isinstance(pl, PlaylistCollection)
 
     def test_get_playlist_known(self):
         """Test retrieval of playlists by name or identifier."""
         for library_collection in self.create_collection():
-            for known_playlist_name in self.known_playlist_names:
-                playlist = library_collection.get_playlist(known_playlist_name)
+            for key, identifier in self.known_playlists:
+                playlist = library_collection.get_playlist(**{key: identifier})
                 assert playlist is not None, "Known playlist should be found"
 
     def test_get_playlist_unknown(self):
         """Test retrieval of unknown playlists by name or identifier."""
         for library_collection in self.create_collection():
-            for unknown_playlist_name in self.unknown_playlist_names:
-                playlist = library_collection.get_playlist(unknown_playlist_name)
-                assert playlist is None, "Unknown playlist should not be found"
+            for key, identifier, expect_raise in self.unknown_playlists:
+                if expect_raise:
+                    ctxm: Any = pytest.raises(ValueError)
+                else:
+                    ctxm = nullcontext()
+
+                with ctxm:
+                    playlist = library_collection.get_playlist(**{key: identifier})
+                    assert playlist is None, "Unknown playlist should not be found"

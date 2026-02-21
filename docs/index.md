@@ -47,6 +47,7 @@ services/local/index
 services/tidal/index
 services/spotify/index
 services/plex/index
+services/traktor/index
 ```
 
 ```{toctree}

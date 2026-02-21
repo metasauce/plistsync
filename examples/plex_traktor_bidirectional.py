@@ -10,8 +10,8 @@ Bidirectional sync between Plex and Traktor playlists.
 Only adds missing tracks, does not remove or reorder.
 Matching takes place via file paths.
 
-TODO: Rewrite
-- Library collections should have a .playlists property.
+TODO:
+- Rewrite
 - Commiting: I like the Traktor way of doing things first, and then committing.
 But in Plex, inserts are currently one http request per track.
 Eventually we should unify this, and check if there is an
@@ -29,6 +29,7 @@ from plistsync.services.plex.collection import (
     PlexLibrarySectionCollection,
 )
 from plistsync.services.traktor.collection import NMLCollection, NMLPlaylistCollection
+from plistsync.services.traktor.track import NMLPlaylistTrack
 
 # ---------------------------------- Options --------------------------------- #
 
@@ -46,16 +47,21 @@ def main():
     plex_playlist = plex_library.get_playlist(name=playlist_name)
     assert plex_playlist is not None, "Playlist not found"
 
-    # Load Traktor collection and playlist
+    # Load Traktor collection
     traktor_collection = NMLCollection(traktor_nml_path)
-    traktor_playlist = NMLPlaylistCollection(
-        traktor_collection,
-        playlist_name,
-        create=True,
-    )
+    # Get or create playlist
+    try:
+        traktor_playlist = traktor_collection.get_playlist(name=playlist_name)
+    except ValueError:
+        traktor_playlist = NMLPlaylistCollection(
+            traktor_collection,
+            playlist_name,
+        )
+        traktor_playlist.remote_upsert()
 
     # --- Add missing tracks from Plex to Traktor --- #
     # Rewrite paths from plex to match traktor paths
+    # TODO: Rethink as set approach is limited
     plex_paths = set(
         path_rewrite.apply(track.path) for track in plex_playlist.tracks if track.path
     )
@@ -65,8 +71,9 @@ def main():
     log.info(
         f"Adding {len(missing_in_traktor)} tracks from Plex to Traktor playlist..."
     )
-    for path in missing_in_traktor:
-        traktor_playlist.insert(path)
+    with traktor_playlist.remote_edit():
+        for path in missing_in_traktor:
+            traktor_playlist.tracks.append(NMLPlaylistTrack.from_path(path))
 
     # --- Add missing tracks from Traktor to Plex --- #
     missing_in_plex = traktor_paths - plex_paths
@@ -80,7 +87,7 @@ def main():
                 log.warning(f"Could not add {path} to Plex playlist: {e}")
 
     # Commit changes to Traktor NML file
-    traktor_playlist.commit()
+    traktor_collection.write()
     log.info("Sync complete.")
 
 

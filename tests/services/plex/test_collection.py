@@ -71,12 +71,17 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         raise RuntimeError("No track found in created collection")
 
     @property
-    def known_playlist_names(self) -> list[str]:
-        return ["Test Playlist"]
+    def known_playlists(self) -> list[tuple[str, str]]:
+        return [
+            ("name", "Test Playlist"),
+        ]
 
     @property
-    def unknown_playlist_names(self) -> list[str]:
-        return ["Unknown Playlist", "Another Unknown Playlist"]
+    def unknown_playlists(self) -> list[tuple[str, str, bool]]:
+        return [
+            ("name", "Unknown Playlist", False),
+            ("name", "Another Unknown Playlist", False),
+        ]
 
     def test_preload(self):
         """Test that preloading the library collection works."""

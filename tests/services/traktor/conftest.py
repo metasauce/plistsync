@@ -13,10 +13,18 @@ import lxml.etree as ET  # noqa: N812
 
 
 @pytest.fixture
-def collection():
-    """Fixture to create a NMLCollection for testing."""
-    t_path = Path(__file__).parent.parent.parent / "data" / "traktor_playlist.nml"
-    return NMLCollection(t_path)
+def collection(tmp_path: Path) -> NMLCollection:
+    """Fixture to create a writable NMLCollection for testing.
+
+    Copies the sample NML into a temp directory so tests can call .write()
+    without modifying the repo fixture.
+    """
+    import shutil
+
+    src = Path(__file__).parent.parent.parent / "data" / "traktor_playlist.nml"
+    dest = tmp_path / "traktor_playlist.nml"
+    shutil.copyfile(src, dest)
+    return NMLCollection(dest)
 
 
 @pytest.fixture
