@@ -620,11 +620,8 @@ class TidalPlaylistApi:
         doc = self._create(name, description, access_type)
         return doc["data"], include_to_lookup(doc.get("included", []))
 
-    def delete(self, id:str):
-        return self.session.request(
-            "DELETE",
-            f"/playlists/{id}"
-        )
+    def delete(self, id: str):
+        return self.session.request("DELETE", f"/playlists/{id}")
 
     def update(
         self,

@@ -59,7 +59,10 @@ class PlexTrack(Track):
         None for tracks that are not in a playlist, i.e. were created from
         PlexApiTrackResponse rather than PlexApiPlaylistTrackResponse.
         """
-        return self.data.get("playlistItemID", None)
+        value = self.data.get("playlistItemID", None)
+        return (
+            int(value) if isinstance(value, (int, str)) and value is not None else None
+        )
 
     def get_local_track(
         self,
@@ -144,4 +147,3 @@ class PlexTrack(Track):
             info["albums"] = [album]
 
         return info
-

@@ -32,6 +32,9 @@ class MockPlaylist(PlaylistCollection):
     def _remote_create(self):
         self.log.append(("remote_create",))
 
+    def _remote_delete(self):
+        self.log.append(("remote_create",))
+
     @property
     def remote_associated(self):
         return True

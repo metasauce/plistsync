@@ -35,7 +35,7 @@ class PlexApiTrackResponse(TypedDict, total=False):
     grandparentArt: str  # '/library/metadata/55906/art/1713284398'
     duration: int  # 294990
     addedAt: int  # 1734353414, epoch time, the track was added to the library
-    updatedAt: int # epoch time, the track was updated in the library
+    updatedAt: int  # epoch time, the track was updated in the library
     musicAnalysisVersion: str  # '1'
     ratingCount: int
     Media: list[PlexApiTrackMedia]

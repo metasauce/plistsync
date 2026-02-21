@@ -17,7 +17,6 @@ from plistsync.services.local.track import FileCache
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiPlaylistTrackResponse,
-    PlexApiTrackResponse,
 )
 
 from .api import PlexApi
