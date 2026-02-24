@@ -2,13 +2,11 @@ import logging
 from pathlib import Path
 import sys
 import pytest
-from plistsync.services.traktor import NMLCollection
-from plistsync.services.traktor.collection import (
-    NMLPlaylistCollection,
-    TraktorPath,
-    xpath_string_escape,
-)
+from plistsync.services.traktor import NMLLibraryCollection
+from plistsync.services.traktor import NMLPlaylistCollection
+from plistsync.services.traktor import NMLPath
 from plistsync.services.traktor.track import NMLPlaylistTrack
+from plistsync.services.traktor.utility import xpath_string_escape
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
 from lxml.etree import _Element
@@ -17,8 +15,8 @@ from lxml.etree import _Element
 class TestNMLCollection(LibraryCollectionTestBase):
     """Test the NMLCollection class."""
 
-    collection_class = NMLCollection
-    collection: NMLCollection
+    collection_class = NMLLibraryCollection
+    collection: NMLLibraryCollection
 
     length = 265  # Number of tracks in the test NML file
 
@@ -64,7 +62,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
     def test_find_by_path(self):
         """Test finding a track by its file path."""
         # Test with a valid path in collection
-        tp_exists = TraktorPath.from_path(
+        tp_exists = NMLPath.from_path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
         # Try with Volume specified
@@ -73,11 +71,11 @@ class TestNMLCollection(LibraryCollectionTestBase):
         assert track.title == "Dragger"
 
         # Test with an invalid path
-        tp_nonexistent = TraktorPath.from_path("D:/:nonexistent.mp3")
+        tp_nonexistent = NMLPath.from_path("D:/:nonexistent.mp3")
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
-    def test_write_persists(self, collection: NMLCollection) -> None:
+    def test_write_persists(self, collection: NMLLibraryCollection) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
         p = collection.get_playlist(uuid="6868ecd66b354d37a33b965dae7a82e7")
@@ -85,11 +83,11 @@ class TestNMLCollection(LibraryCollectionTestBase):
         collection.write()
 
         # After reload should be persisteted!
-        reloaded = NMLCollection(collection.path)
+        reloaded = NMLLibraryCollection(collection.path)
         p2 = reloaded.get_playlist(uuid="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
-    def test_find_by_local_ids(self, collection: NMLCollection):
+    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
         # Test with a valid path
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
@@ -102,7 +100,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
 
 
 class TestNMLPlaylistUpsert:
-    def test_upsert_new_playlist(self, collection: NMLCollection) -> None:
+    def test_upsert_new_playlist(self, collection: NMLLibraryCollection) -> None:
         """Allow to insert new playlist collection"""
         count_before = len(list(collection._playlist_nodes()))
         pl_collection = NMLPlaylistCollection(collection, "New PL")
@@ -115,7 +113,7 @@ class TestNMLPlaylistUpsert:
         assert fetched.uuid == pl_collection.uuid
 
     def test_upsert_playlist_invalid_subnodes_count(
-        self, collection: NMLCollection, caplog
+        self, collection: NMLLibraryCollection, caplog
     ) -> None:
         subnodes_el = collection.tree.xpath(
             ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
@@ -130,7 +128,7 @@ class TestNMLPlaylistUpsert:
         assert subnodes_el.get("COUNT") == "1"
 
     def test_upsert_playlist_raises_if_root_subnodes_missing(
-        self, collection: NMLCollection
+        self, collection: NMLLibraryCollection
     ) -> None:
         # sanity: the fixture file should normally have $ROOT/SUBNODES
         subnodes = collection.tree.xpath(
@@ -152,7 +150,7 @@ class TestNMLPlaylistUpsert:
             new_pl.remote_upsert()
 
     def test_upsert_playlist_replaces_existing_by_uuid_and_removes_old_node(
-        self, collection: NMLCollection
+        self, collection: NMLLibraryCollection
     ) -> None:
         existing_uuid = "6868ecd66b354d37a33b965dae7a82e7"
 
@@ -192,7 +190,7 @@ class TestNMLPlaylistUpsert:
 
     def test_upsert_playlist_raises_if_existing_matching_node_has_no_parent(
         self,
-        collection: NMLCollection,
+        collection: NMLLibraryCollection,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         # orphan node: getparent() is None
@@ -217,7 +215,7 @@ class TestNMLPlaylistUpsert:
 
     def test_remote_delete(
         self,
-        collection: NMLCollection,
+        collection: NMLLibraryCollection,
     ):
         pl_collection = NMLPlaylistCollection(collection, "New PL")
         pl_collection.remote_upsert()
@@ -238,7 +236,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
     collection_class = NMLPlaylistCollection
 
     @pytest.fixture(autouse=True)
-    def setup(self, collection: NMLCollection, sample_track):
+    def setup(self, collection: NMLLibraryCollection, sample_track):
         self.collection = collection
         self.track = sample_track
 
@@ -320,18 +318,18 @@ class TestNMLPlaylistCollection(CollectionTestBase):
                 break
         assert len(p1) == l_before + 1
 
-    def test_find_by_traktor_path(self, collection: NMLCollection, caplog):
+    def test_find_by_traktor_path(self, collection: NMLLibraryCollection, caplog):
         """Test finding a track by its file path in a playlist."""
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 
         # Test with a valid traktor path
         example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"  # noqa: E501
-        track = p1.find_by_traktor_path(TraktorPath(example_path))
+        track = p1.find_by_traktor_path(NMLPath(example_path))
         assert track is not None
 
         # Test valid but not in collection
-        track = p1.find_by_traktor_path(TraktorPath("D:/:Not/:existing.flac"))
+        track = p1.find_by_traktor_path(NMLPath("D:/:Not/:existing.flac"))
         assert track is None
 
         with p1.remote_edit():
@@ -339,7 +337,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
         assert "duplicate" in caplog.text
 
-    def test_find_by_local_ids(self, collection: NMLCollection):
+    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 
@@ -353,7 +351,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_local_ids({})
         assert track is None
 
-    def test_remote_create(self, collection: NMLCollection):
+    def test_remote_create(self, collection: NMLLibraryCollection):
         p1 = NMLPlaylistCollection(
             collection,
             name="foo",

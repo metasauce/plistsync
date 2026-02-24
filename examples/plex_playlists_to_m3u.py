@@ -2,10 +2,8 @@ import re
 from pathlib import Path
 
 from plistsync.logger import log
-from plistsync.services.plex.collection import (
-    PlexLibrarySectionCollection,
-    PlexPlaylistCollection,
-)
+from plistsync.services.plex import PlexLibrarySectionCollection
+from plistsync.services.plex.playlist import PlexPlaylistCollection
 
 # ---------------------------------- Options --------------------------------- #
 playlists = [

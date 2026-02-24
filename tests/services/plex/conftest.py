@@ -153,11 +153,11 @@ def mock_plex_api_with_data(mock_plex_api: Mock, audio_files: Path) -> Mock:
 @pytest.fixture
 def plex_library_collection(monkeypatch, mock_plex_api_with_data):
     """Fixture for a PlexLibrarySectionCollection with mocked API."""
-    from plistsync.services.plex.collection import PlexLibrarySectionCollection
+    from plistsync.services.plex import PlexLibrarySectionCollection
 
     # Monkeypatch the PlexApi constructor to return our mock
     monkeypatch.setattr(
-        "plistsync.services.plex.collection.PlexApi",
+        "plistsync.services.plex.library.PlexApi",
         lambda **kwargs: mock_plex_api_with_data,
     )
 

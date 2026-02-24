@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from plistsync.services.traktor.track import TraktorPath
+from plistsync.services.traktor import NMLPath
 
 
 class TestTraktorPath:
@@ -22,7 +22,7 @@ class TestTraktorPath:
         ],
     )
     def test_from_path_mac(self, path, expected_parts):
-        tp = TraktorPath.from_path(path)
+        tp = NMLPath.from_path(path)
         assert tp.os == "macos"
         assert tp.volume is not None
         assert tp.directories is not None
@@ -57,7 +57,7 @@ class TestTraktorPath:
         ],
     )
     def test_from_path_windows(self, path, expected_parts):
-        tp = TraktorPath.from_path(path)
+        tp = NMLPath.from_path(path)
         assert tp.os == "windows"
         assert tp.volume is not None
         assert tp.directories is not None
@@ -81,17 +81,17 @@ class TestTraktorPath:
     )
     def test_from_path_invalid(self, path):
         with pytest.raises(Exception):
-            TraktorPath.from_path(path)
+            NMLPath.from_path(path)
 
     def test_from_nml_location(self, collection):
         # Get a track from the collection
         for track in collection.tracks:
             loc = track.entry.find("LOCATION")
-            TraktorPath.from_nml_location(loc)
+            NMLPath.from_nml_location(loc)
 
     def test_directory_structure(self):
         # Test the directory structure of a valid TraktorPath
-        valid_path = TraktorPath("C:/:foo/:bar/:baz/:file.flac")
+        valid_path = NMLPath("C:/:foo/:bar/:baz/:file.flac")
         assert valid_path.parts == ["C:", "foo", "bar", "baz", "file.flac"]
         assert valid_path.volume == "C:"
         assert valid_path.directories == "/:foo/:bar/:baz/:"

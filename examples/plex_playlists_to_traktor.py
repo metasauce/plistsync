@@ -4,11 +4,12 @@ from pathlib import Path
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex.collection import (
-    PlexLibrarySectionCollection,
+from plistsync.services.plex.library import PlexLibrarySectionCollection
+from plistsync.services.traktor import (
+    NMLLibraryCollection,
+    NMLPlaylistCollection,
+    NMLPlaylistTrack,
 )
-from plistsync.services.traktor.collection import NMLCollection, NMLPlaylistCollection
-from plistsync.services.traktor.track import NMLPlaylistTrack
 
 # ---------------------------------- Options --------------------------------- #
 playlists = [
@@ -32,7 +33,7 @@ def main(
     plex_library = PlexLibrarySectionCollection(
         plex_section_name,
     )
-    traktor_library = NMLCollection(nml_path)
+    traktor_library = NMLLibraryCollection(nml_path)
     # make a backup of the nml file just in case
     nml_backup = nml_path.with_suffix(
         f".{datetime.now().strftime('%Y%m%d-%H%M%S')}.bak"
