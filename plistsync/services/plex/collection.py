@@ -4,7 +4,7 @@ from collections.abc import Generator, Iterable, Sequence
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Any, Self, overload
+from typing import Any, Self, cast, overload
 
 from typing_extensions import override
 
@@ -16,7 +16,7 @@ from plistsync.logger import log
 from plistsync.services.local.track import FileCache
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
-    PlexApiTrackResponse,
+    PlexApiPlaylistTrackResponse,
 )
 
 from .api import PlexApi
@@ -244,10 +244,10 @@ class PlexLibrarySectionCollection(
                 return track
 
 
-@dataclass(frozen=True)
+@dataclass
 class PlexPlaylistOnlineData:
     playlist_data: PlexApiPlaylistResponse
-    tracks_data: list[PlexApiTrackResponse]
+    tracks_data: list[PlexApiPlaylistTrackResponse]
 
 
 class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
@@ -276,7 +276,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         tracks: list[PlexTrack] | None = None,
     ) -> None:
         self.library = library
-        self._tracks = tracks or []
+        self._tracks = tracks or []  # do not set to None, we do not want to fetch!
         self.data = PlaylistInfo(name=name, description=description or "")
 
     @classmethod
@@ -284,7 +284,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         cls,
         library: PlexLibrarySectionCollection,
         playlist_data: PlexApiPlaylistResponse,
-        tracks_data: list[PlexApiTrackResponse] | None = None,
+        tracks_data: list[PlexApiPlaylistTrackResponse] | None = None,
     ) -> Self:
         """
         Create a new instance of Plex playlist from a given api response.
@@ -292,14 +292,18 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         The resulting instance will have id and we consider it is available online.
         """
         tracks_data = tracks_data or []
-        plist = cls(
+        pl = cls(
             library,
             name=playlist_data["title"],
             description=playlist_data.get("summary"),
         )
-        plist.data = PlexPlaylistOnlineData(playlist_data, tracks_data)
-        plist._tracks = [PlexTrack(t) for t in tracks_data]
-        return plist
+        pl.data = PlexPlaylistOnlineData(playlist_data, tracks_data)
+
+        if len(tracks_data) == playlist_data.get("leafCount", 0):
+            pl._tracks = [PlexTrack(t) for t in tracks_data]
+        else:
+            pl._tracks = None  # set to None to fetch on access
+        return pl
 
     # ----------------------- Properties and info logic ---------------------- #
 
@@ -379,10 +383,12 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
         Only works if the playlist is online.
         """
-        if not self.online_data:
+        log.debug(f"Refetching tracks for playlist {self.name}")
+        if self.id is None or not isinstance(self.data, PlexPlaylistOnlineData):
             raise ValueError("Cannot refetch tracks for offline playlist")
 
-        self._tracks = [PlexTrack(t) for t in self.online_data.tracks_data]
+        self.data.tracks_data = self.api.playlist.get_items(self.id)
+        self._tracks = [PlexTrack(t) for t in self.data.tracks_data]
 
     @property
     def tracks(self) -> list[PlexTrack]:
@@ -390,6 +396,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
         Might load them from the API if not already loaded.
         """
+        log.debug(f"track access {self._tracks=}")
         if self._tracks is None:
             self._refetch_tracks()
 
@@ -417,6 +424,12 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         return False
 
     def _remote_create(self):
+        # check whether a playlist with the same name exists
+        # TODO: user config option to set behaviour
+        for pl_res in self.api.playlist.all():
+            if pl_res["title"] == self.name:
+                raise ValueError(f"A playlist with name '{self.name}' already exists.")
+
         pl_data = self.api.playlist.create(name=self.name)
         pl_id = int(pl_data["ratingKey"])
         if self.description is not None and self.description != "":
@@ -427,18 +440,26 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
             self.api.playlist.add_tracks(pl_id, [t.id for t in self._tracks])
         self._refetch_tracks()
 
+    def _remote_delete(self):
+        if self.id is None:
+            raise ValueError("Playlist must be online to call remote delete!")
+        self.api.playlist.delete(self.id)
+
     def _remote_insert_track(
         self,
         idx: int,
         track: PlexTrack,
         live_list: list[PlexTrack],
     ) -> None:
+        log.debug(f"Inserting track {track.id} (idx {idx} ignored)")
         if self.id is None:
             raise ValueError("Playlist must be online to call remote insert!")
 
         self.api.playlist.add_tracks(playlist_id=self.id, item_ids=[track.id])
+        self._refetch_tracks()
 
-        # TODO: reordering needs its own api call.
+        # we always insert at the end, move to the right spot
+        self._remote_move_track(-1, idx, track, live_list)
 
     def _remote_delete_track(
         self,
@@ -450,11 +471,21 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         Delete Track from playlists.
 
         Plex does not allow duplicate items in playlists.
-        Therefore, idx is ignored.
         """
-        if self.id is None:
+        log.debug(f"Deleting track {track.id} (idx {idx} ignored)")
+        if self.id is None or not isinstance(self.data, PlexPlaylistOnlineData):
             raise ValueError("Playlist must be online to call remote delete!")
-        self.api.playlist.remove_track(self.id, track.id)
+
+        t_data = self.data.tracks_data[idx]
+        if (
+            t_data.get("ratingKey") != track.id
+            or t_data.get("playlistItemID") != track.playlist_item_id
+        ):
+            raise ValueError(f"Key mismatch for {idx=} vs {track=}")
+
+        pl_item_id = cast(int, t_data.get("playlistItemID", -1))
+        self.api.playlist.remove_track(self.id, pl_item_id)
+        self._refetch_tracks()
 
     def _remote_move_track(
         self,
@@ -469,14 +500,23 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         Plex does not allow duplicate items in playlists.
         Therefore, old_idx is ignored.
         """
-        if self.id is None:
+        log.debug(f"Moving track {track.id} to idx {new_idx}")
+        if self.id is None or not isinstance(self.data, PlexPlaylistOnlineData):
             raise ValueError("Playlist must be online to call remote move!")
 
         if new_idx == 0 or len(self) == 1:
             after_id = None
         else:
-            after_id = self.tracks[new_idx - 1].id
-        self.api.playlist.move_track(self.id, track.id, after_id)
+            after_id = cast(
+                int, self.data.tracks_data[new_idx - 1].get("playlistItemID", -1)
+            )
+
+        pl_item_id = cast(int, self.data.tracks_data[old_idx].get("playlistItemID", -1))
+        if self.data.tracks_data[old_idx].get("ratingKey", -1) != track.id:
+            raise ValueError(f"Key mismatch for {old_idx=} vs {track=}")
+
+        self.api.playlist.move_track(self.id, pl_item_id, after_id)
+        self._refetch_tracks()
 
     def _remote_update_metadata(self, new_name=None, new_description=None):
         if self.id is None:

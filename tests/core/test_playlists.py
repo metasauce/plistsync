@@ -1,8 +1,25 @@
+from collections.abc import Callable
 import pytest
 
 from plistsync.core.playlist import Snapshot
+from plistsync.core.track import GlobalTrackIDs
+from tests.abc import PlaylistCollectionTestBase
 from .mock_track import MockTrack
 from .mock_playlist import MockPlaylist
+
+
+@pytest.fixture
+def make_playlist() -> Callable[..., MockPlaylist]:
+    def _make(
+        *,
+        name: str = "foo",
+        ids: list[GlobalTrackIDs] | None = None,
+        remote_associated: bool = True,
+    ) -> MockPlaylist:
+        tracks = [MockTrack(global_ids=gid) for gid in (ids or [])]
+        return MockPlaylist(name, tracks, remote_associated=remote_associated)
+
+    return _make
 
 
 def eq_isrc(track: MockTrack) -> str:
@@ -73,31 +90,84 @@ class TestPlaylistCollection:
             ),
         ],
     )
-    def test_edit_tracks(self, ids_before, ids_after, expected_log):
-        """Test track_operations() reflects changes in track lists."""
-        pl = MockPlaylist("foo", [MockTrack(global_ids=tb) for tb in ids_before])
+    def test_edit_tracks(
+        self,
+        make_playlist,
+        ids_before,
+        ids_after,
+        expected_log,
+    ) -> None:
+        pl = make_playlist(ids=ids_before)
         with pl.remote_edit():
             pl._tracks = [MockTrack(global_ids=ta) for ta in ids_after]
 
         assert [t.global_ids for t in pl._tracks] == ids_after  # Local state preserved
         # Check log
-        assert (
-            list(map(lambda x: (x[0], x[1], x[2].global_ids), pl.log)) == expected_log
-        )  # Log reflects changes
+        assert [(op, idx, t.global_ids) for (op, idx, t) in pl.log] == expected_log
 
-    def test_edit_meta(self):
-        pl = MockPlaylist("foo", [])
+    def test_edit_metadata(self, make_playlist) -> None:
+        pl = make_playlist()
+
         with pl.remote_edit():
             pl.name = "bar"
 
         assert pl.name == "bar"
 
-    def test_edit_rollbnack(self):
-        pl = MockPlaylist("foo", [])
-        try:
+    def test_edit_rollback(self, make_playlist) -> None:
+        pl = make_playlist()
+
+        with pytest.raises(ValueError):
             with pl.remote_edit():
                 pl.name = "bar"
                 raise ValueError()
-        except ValueError:
-            pass
-        assert pl.name == "foo"  # Rollback
+
+        assert pl.name == "foo"  # rollback
+
+
+class TestPlaylistRemoteLifecycle:
+    def test_create(self, make_playlist) -> None:
+        pl = make_playlist(remote_associated=False)
+
+        pl.remote_create()
+
+        assert pl.remote_associated is True
+        assert ("remote_create",) in pl.log
+
+    def test_create_raises_if_already_associated(self, make_playlist) -> None:
+        pl = make_playlist(remote_associated=True)
+
+        with pytest.raises(ValueError, match="already associated"):
+            pl.remote_create()
+
+    def test_delete(self, make_playlist) -> None:
+        pl = make_playlist(remote_associated=True)
+
+        pl.remote_delete()
+
+        assert pl.remote_associated is False
+        assert ("remote_delete",) in pl.log
+
+    def test_delete_raises_if_not_associated(self, make_playlist) -> None:
+        pl = make_playlist(remote_associated=False)
+
+        with pytest.raises(ValueError, match="associated"):
+            pl.remote_delete()
+
+
+class TestMockPlaylistCollection(PlaylistCollectionTestBase):
+    def create_playlist(self, *, remote_associated: bool = True) -> MockPlaylist:
+        return MockPlaylist(
+            "pl",
+            None,
+            remote_associated=remote_associated,
+        )
+
+    def create_track(self, *, isrc: str) -> MockTrack:
+        return MockTrack(global_ids={"isrc": isrc})
+
+    def test_none_name_raises(self):
+        pl = self.create_playlist()
+        pl.info.pop("name")
+
+        with pytest.raises(ValueError, match="has no name"):
+            pl.name

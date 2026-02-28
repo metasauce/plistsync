@@ -70,14 +70,14 @@ class TidalLibraryCollection(LibraryCollection, GlobalLookup):
             playlists, _ = self.api.playlist.get_many_by_user(
                 self.api.user.me()["id"], include=[]
             )
-            for plist in playlists:
-                if plist["attributes"]["name"] == name:
-                    id = plist["id"]
-                    break
-
-            if id is None:
-                log.debug(f"Could not find playlist with name {name}")
+            found = [p for p in playlists if p["attributes"]["name"] == name]
+            if len(found) == 0:
+                log.info(f"Could not find playlist with name {name}")
                 return None
+
+            id = found[0]["id"]
+            if len(found) > 1:
+                log.info(f"Found more than one playlist with name {name}, using {id}")
 
         # This should never realistically happen -> assert instead of error
         assert id is not None, "ID must be set after resolving name/url"
@@ -331,6 +331,11 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                 ids=[t.id for t in self._tracks],
             )
         self._refetch_tracks()
+
+    def _remote_delete(self):
+        if self.id is None:
+            raise ValueError("Playlist must be online to call remote delete!")
+        self.api.playlist.delete(self.id)
 
     def _remote_insert_track(
         self,

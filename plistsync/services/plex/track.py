@@ -8,7 +8,10 @@ from pathlib import Path
 from plistsync.core import GlobalTrackIDs, PathRewrite, Track
 from plistsync.core.track import LocalTrackIDs, TrackInfo
 from plistsync.logger import log
-from plistsync.services.plex.api_types import PlexApiTrackResponse
+from plistsync.services.plex.api_types import (
+    PlexApiPlaylistTrackResponse,
+    PlexApiTrackResponse,
+)
 
 from ..local.track import FileCache, LocalTrack
 
@@ -20,17 +23,15 @@ class PlexTrack(Track):
     Ids are specific to one secdion (library) of one server instance.
     (No global lookups)
 
-    For the Plex Service, we currently do not distinguish between
-    Tracks and PlaylistTracks.
+    For the Plex Service, we currently do not distinguish Tracks and PlaylistTracks.
+    The reason is that tracks in plex playlists only get one single extra piece
+    of information (the playlist_item_id), but we have no info about when they were
+    added to the playlist etc.
     """
 
-    # TODO: Update plan: remove LocalTrack inheritance, and use
-    # LocalTrack(PathRewrite(my_plex_track.path, ...)) instead.
-    # maybe we have `.get_offline_info(path_rewrite)` property that does this for us.
+    data: PlexApiTrackResponse | PlexApiPlaylistTrackResponse
 
-    data: PlexApiTrackResponse
-
-    def __init__(self, data: PlexApiTrackResponse):
+    def __init__(self, data: PlexApiTrackResponse | PlexApiPlaylistTrackResponse):
         """Initialize a PlexTrack object.
 
         Parameter:
@@ -49,6 +50,19 @@ class PlexTrack(Track):
         libraries.
         """
         return self.data["ratingKey"]
+
+    @property
+    def playlist_item_id(self) -> int | None:
+        """
+        Unique Identifier within a playlist.
+
+        None for tracks that are not in a playlist, i.e. were created from
+        PlexApiTrackResponse rather than PlexApiPlaylistTrackResponse.
+        """
+        value = self.data.get("playlistItemID", None)
+        return (
+            int(value) if isinstance(value, (int, str)) and value is not None else None
+        )
 
     def get_local_track(
         self,
