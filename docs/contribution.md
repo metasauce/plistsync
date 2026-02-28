@@ -43,7 +43,23 @@ ruff format --check .
 # Run type checking
 mypy .
 
-# Run tests
+# Strip output from notebooks (if modified)
+find . -name '*.ipynb' -exec nbstripout {} +
+```
+
+If this looks tedious you may alternatively install the
+pre-commit hooks to automatically enforce code quality standards before each commit (this runs the commands above autocmatically).
+
+```bash
+# Install the git hooks
+pre-commit install
+```
+
+Once installed, every `git commit` will trigger automatic formatting with ruff, type checking with mypy, and linting. If you need to skip these checks (e.g., for a work-in-progress commit), use `git commit --no-verify`.
+
+5. Run tests
+
+```bash
 pytest .
 ```
 
@@ -53,17 +69,6 @@ pytest .
 git add .
 git commit -m "Add feature X"
 ```
-
-6. Run pre-commit hooks (optional but recommended)
-
-We use pre-commit hooks to automatically enforce code quality standards before each commit. This helps maintain consistency and catch issues early.
-
-```bash
-# Install the git hook
-pre-commit install
-```
-
-Once installed, every `git commit` will trigger automatic formatting with ruff, type checking with mypy, and linting. If you need to skip these checks (e.g., for a work-in-progress commit), use `git commit --no-verify`.
 
 ## Good First Issues
 
