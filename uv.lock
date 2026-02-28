@@ -1516,6 +1516,18 @@ wheels = [
 ]
 
 [[package]]
+name = "nbstripout"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nbformat" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f9/6f/b52c4da26babeb521078c08c78c3187a59197098ffc7a70b0fe76851813a/nbstripout-0.9.1.tar.gz", hash = "sha256:313bbb4217c8e38998567e5d790b6bd6c3a17a8c39073b205b84dadfc5d756dc", size = 32356, upload-time = "2026-02-21T16:19:55.975Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/20/16/e777eadfa0c0305878c36fae1d5e6db474fbb15dae202b9ec378809dfb4d/nbstripout-0.9.1-py3-none-any.whl", hash = "sha256:ca027ee45742ee77e4f8e9080254f9a707f1161ba11367b82fdf4a29892c759e", size = 19136, upload-time = "2026-02-21T16:19:54.868Z" },
+]
+
+[[package]]
 name = "nest-asyncio"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1723,6 +1735,7 @@ dev = [
     { name = "mypy" },
     { name = "myst-nb" },
     { name = "myst-parser" },
+    { name = "nbstripout" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1753,6 +1766,7 @@ docs = [
     { name = "sphinxcontrib-typer", extra = ["html"] },
 ]
 lint = [
+    { name = "nbstripout" },
     { name = "ruff" },
 ]
 test = [
@@ -1794,6 +1808,7 @@ dev = [
     { name = "mypy", specifier = ">=1.19.1" },
     { name = "myst-nb", specifier = ">=1.3.0" },
     { name = "myst-parser", specifier = ">=4.0.1" },
+    { name = "nbstripout", specifier = ">=0.9.1" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-asyncio", specifier = ">=1.3.0" },
@@ -1823,7 +1838,10 @@ docs = [
     { name = "sphinxcontrib-mermaid", specifier = ">=2.0.0" },
     { name = "sphinxcontrib-typer", extras = ["html"], specifier = ">=0.7.2" },
 ]
-lint = [{ name = "ruff", specifier = ">=0.14.11" }]
+lint = [
+    { name = "nbstripout", specifier = ">=0.9.1" },
+    { name = "ruff", specifier = ">=0.14.11" },
+]
 test = [
     { name = "beets", specifier = ">=2.5.1" },
     { name = "pytest", specifier = ">=9.0.2" },

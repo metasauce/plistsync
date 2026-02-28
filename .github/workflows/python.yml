@@ -44,7 +44,6 @@ jobs:
       - name: Check style with Ruff
         run: |
           uv run ruff check --output-format=github .
-
   format:
     name: Check format with Ruff
     runs-on: [self-hosted, linux]
@@ -60,7 +59,16 @@ jobs:
       - name: Check format with Ruff
         run: |
           uv run ruff format --check --diff .
+  check-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
 
+      - name: Check notebooks are stripped
+        uses: kynan/nbstripout@main
+        with:
+          paths: "**/*.ipynb"
   mypy:
     name: Check type hints with mypy
     runs-on: [self-hosted, linux]
