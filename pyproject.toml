@@ -143,3 +143,9 @@ allow_redefinition = true
 [[tool.mypy.overrides]]
 module = ["nest_asyncio.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# If tests/ is a package => tests.*
+# If tests are discovered as top-level modules => test_*
+module = ["tests.*", "test_*", "conftest"]
+disable_error_code = ["method-assign", "attr-defined"]

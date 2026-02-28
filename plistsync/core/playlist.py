@@ -82,7 +82,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         """The name of the playlist."""
         name = self.info.get("name")
         if name is None:
-            raise ValueError("Playlists need a name")
+            raise ValueError("Playlists has no name!")
         return name
 
     @name.setter

@@ -5,10 +5,16 @@ from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
 class MockPlaylist(PlaylistCollection):
     """Mock PlaylistCollection implementation for testing."""
 
-    def __init__(self, name: str, tracks: None | list = None):
+    def __init__(
+        self,
+        name: str,
+        tracks: None | list = None,
+        remote_associated: bool = True,
+    ):
         self._info: PlaylistInfo = {"name": name}
         self.log: list[tuple[Any, ...]] = []
         self._tracks = tracks or []
+        self._remote_associated = remote_associated
 
     @property
     def info(self) -> PlaylistInfo:
@@ -31,13 +37,15 @@ class MockPlaylist(PlaylistCollection):
 
     def _remote_create(self):
         self.log.append(("remote_create",))
+        self._remote_associated = True
 
     def _remote_delete(self):
-        self.log.append(("remote_create",))
+        self.log.append(("remote_delete",))
+        self._remote_associated = False
 
     @property
     def remote_associated(self):
-        return True
+        return self._remote_associated
 
     @staticmethod
     def _track_key(track) -> str:

@@ -13,7 +13,9 @@ from plistsync.core.collection import (
     TrackStream,
 )
 from plistsync.core.matching import Matches
-from plistsync.core.playlist import PlaylistCollection
+from plistsync.core.playlist import PlaylistCollection, Snapshot
+
+from unittest.mock import Mock, ANY
 
 
 class TrackTestBase(ABC):
@@ -221,3 +223,246 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
                 with ctxm:
                     playlist = library_collection.get_playlist(**{key: identifier})
                     assert playlist is None, "Unknown playlist should not be found"
+
+
+class PlaylistCollectionTestBase(ABC):
+    """Base class for testing PlaylistCollection implementations.
+
+    Assumes the implementation under test records remote operations in a log
+    (e.g. ('insert', idx, track), ('remote_create',), ...).
+    """
+
+    @abstractmethod
+    def create_playlist(
+        self,
+        *,
+        remote_associated: bool = True,
+    ) -> PlaylistCollection:
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_track(self, *, isrc: str) -> Track:
+        raise NotImplementedError
+
+    def test_info(self) -> None:
+        pl = self.create_playlist()
+        assert isinstance(pl.info, dict)
+
+        # Name is required
+        assert "name" in pl.info
+        assert isinstance(pl.info["name"], str)
+
+    def test_name_reflects_info(self) -> None:
+        pl = self.create_playlist()
+
+        assert pl.name == pl.info["name"]  # type: ignore
+
+    def test_name_setter(self) -> None:
+        pl = self.create_playlist()
+        new_name = f"{pl.name} (updated)"
+
+        pl.name = new_name
+
+        assert pl.name == new_name
+        assert pl.info["name"] == new_name  # type: ignore
+
+    def test_description(self) -> None:
+        pl = self.create_playlist()
+        new_description = f"{pl.description} (updated)"
+        pl.description = new_description
+
+        assert pl.description == new_description
+        assert pl.info.get("description") == new_description
+
+        # Setter should also support none
+        pl.description = None
+        assert pl.description is None
+        assert pl.info.get("description") is None
+
+    def test_tracks(self) -> None:
+        pl = self.create_playlist()
+        t1 = self.create_track(isrc="t1")
+        t2 = self.create_track(isrc="t2")
+
+        assert isinstance(pl.tracks, list)
+
+        # Test setter
+        pl.tracks = [t1, t2]
+        assert pl.tracks == [t1, t2]
+        assert len(pl) == 2
+        assert len(pl) == len(pl.tracks)
+
+    # -------------------------------- remote_edit ------------------------------- #
+
+    def test_remote_edit_raises_when_not_associated(self) -> None:
+        pl = self.create_playlist(remote_associated=False)
+
+        with pytest.raises(ValueError, match="remote_edit\\(\\)"):
+            with pl.remote_edit():
+                pass
+
+    def test_remote_edit_calls_apply_diff_on_success(self) -> None:
+        pl = self.create_playlist(remote_associated=True)
+        old_name = pl.name
+
+        pl._apply_diff = Mock()
+
+        with pl.remote_edit():
+            pl.name = f"{old_name} (updated)"
+
+        pl._apply_diff.assert_called_once()
+        before, after = pl._apply_diff.call_args.args
+        assert isinstance(before, Snapshot)
+        assert isinstance(after, Snapshot)
+        assert before.name == old_name
+        assert after.name == f"{old_name} (updated)"
+
+    def test_remote_edit_rolls_back_on_exception(self) -> None:
+        pl = self.create_playlist(remote_associated=True)
+        initial_name = pl.name
+        initial_description = pl.description
+        initial_tracks = list(pl.tracks)
+
+        pl._apply_diff = Mock()
+
+        with pytest.raises(ValueError):
+            with pl.remote_edit():
+                pl.name = f"{initial_name} (updated)"
+                pl.description = f"{initial_description} (updated)"
+                pl.tracks = [self.create_track(isrc="t1")]
+                raise ValueError("test error")
+
+        # rollback happened
+        assert pl.name == initial_name
+        assert pl.description == initial_description
+        assert pl.tracks == initial_tracks
+
+        # since we errored inside the context, diff application should not run
+        pl._apply_diff.assert_not_called()
+
+    # ------------------------------- remote_create ------------------------------ #
+
+    @pytest.mark.parametrize(
+        "remote_associated, expect_raise, match",
+        [
+            (True, True, "already associated"),
+            (False, False, ""),
+        ],
+    )
+    def test_remote_create(
+        self,
+        remote_associated: bool,
+        expect_raise: bool,
+        match: str,
+    ) -> None:
+        pl = self.create_playlist(remote_associated=remote_associated)
+
+        sentinel = object()
+        mocked = Mock(return_value=sentinel)
+        pl._remote_create = mocked
+
+        ctx = pytest.raises(ValueError, match=match) if expect_raise else nullcontext()
+        with ctx:
+            result = pl.remote_create()
+            if not expect_raise:
+                assert result is sentinel
+
+        if expect_raise:
+            mocked.assert_not_called()
+        else:
+            mocked.assert_called_once_with()
+
+    # ------------------------------- remote_delete ------------------------------ #
+
+    @pytest.mark.parametrize(
+        "remote_associated, expect_raise, match",
+        [
+            (False, True, "associated"),
+            (True, False, ""),
+        ],
+    )
+    def test_remote_delete(
+        self,
+        remote_associated: bool,
+        expect_raise: bool,
+        match: str,
+    ) -> None:
+        pl = self.create_playlist(remote_associated=remote_associated)
+
+        sentinel = object()
+        mocked = Mock(return_value=sentinel)
+        pl._remote_delete = mocked
+
+        ctx = pytest.raises(ValueError, match=match) if expect_raise else nullcontext()
+        with ctx:
+            result = pl.remote_delete()
+            if not expect_raise:
+                assert result is sentinel
+
+        if expect_raise:
+            mocked.assert_not_called()
+        else:
+            mocked.assert_called_once_with()
+
+    # -------------------------------- _apply_diff ------------------------------- #
+
+    def test_apply_diff_noop_does_nothing(self) -> None:
+        pl = self.create_playlist(remote_associated=True)
+        t1 = self.create_track(isrc="1")
+
+        pl._remote_update_metadata = Mock()
+        pl._remote_insert_track = Mock()
+        pl._remote_delete_track = Mock()
+        pl._remote_move_track = Mock()
+
+        before = Snapshot(name="n", description=None, tracks=[t1])
+        after = Snapshot(name="n", description=None, tracks=[t1])
+
+        pl._apply_diff(before, after)
+
+        pl._remote_update_metadata.assert_not_called()
+        pl._remote_insert_track.assert_not_called()
+        pl._remote_delete_track.assert_not_called()
+        pl._remote_move_track.assert_not_called()
+
+    def test_apply_diff_updates_metadata_only(self) -> None:
+        pl = self.create_playlist(remote_associated=True)
+        t1 = self.create_track(isrc="1")
+
+        pl._remote_update_metadata = Mock()
+        pl._remote_insert_track = Mock()
+        pl._remote_delete_track = Mock()
+        pl._remote_move_track = Mock()
+
+        before = Snapshot(name="old", description="d1", tracks=[t1])
+        after = Snapshot(name="new", description="d2", tracks=[t1])
+
+        pl._apply_diff(before, after)
+
+        pl._remote_update_metadata.assert_called_once_with("new", "d2")
+        pl._remote_insert_track.assert_not_called()
+        pl._remote_delete_track.assert_not_called()
+        pl._remote_move_track.assert_not_called()
+
+    def test_apply_diff_inserts_track(self) -> None:
+        pl = self.create_playlist(remote_associated=True)
+        t1 = self.create_track(isrc="1")
+        t4 = self.create_track(isrc="4")
+
+        # sanity: track keys must distinguish tracks (otherwise list_diff can't work)
+        assert pl._track_key(t1) != pl._track_key(t4)  # type: ignore[misc]
+
+        pl._remote_update_metadata = Mock()
+        pl._remote_insert_track = Mock()
+        pl._remote_delete_track = Mock()
+        pl._remote_move_track = Mock()
+
+        before = Snapshot(name="n", description=None, tracks=[t4])
+        after = Snapshot(name="n", description=None, tracks=[t1, t4])
+
+        pl._apply_diff(before, after)
+
+        pl._remote_update_metadata.assert_not_called()
+        pl._remote_insert_track.assert_called_once_with(0, t1, ANY)
+        pl._remote_delete_track.assert_not_called()
+        pl._remote_move_track.assert_not_called()
