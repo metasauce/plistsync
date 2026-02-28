@@ -68,8 +68,20 @@ def logging_setup(
         logging.getLogger().setLevel(level)  # enable other modules too
 
     # Adjust format
-    handler = logging.getHandlerByName("rich")
-    if not isinstance(handler, RichHandler):
+    root_logger = logging.getLogger()
+
+    # FIXME: Can be upgraded to getHandlerByName once we
+    # drop 3.11
+    handler = next(
+        (
+            h
+            for h in root_logger.handlers
+            if isinstance(h, RichHandler)
+            and (getattr(h, "name", None) in (None, "", "rich"))
+        ),
+        None,
+    )
+    if handler is None:
         return
 
     if verbose >= 2:
