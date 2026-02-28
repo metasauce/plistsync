@@ -85,10 +85,17 @@ class ServicesConfig:
 @dataclass
 class LoggingConfig:
     level: Annotated[
-        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        "Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL",
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"],
+        "Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET",
         "For production we recommend INFO or higher",
     ] = field(default="INFO")
+    handler: Annotated[
+        Literal["basic", "rich", "none"],
+        "Select the logging backend to initialize at startup.",
+        "basic: stdlib logging.basicConfig() with a StreamHandler (no Rich).",
+        "rich: RichHandler with nicer CLI output + optional tracebacks extras.",
+        "none: do not configure logging (host application/CLI is responsible).",
+    ] = field(default="rich")
 
 
 @dataclass
