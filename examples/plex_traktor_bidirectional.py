@@ -28,9 +28,11 @@ from plistsync.logger import log
 from plistsync.services.plex.library import (
     PlexLibrarySectionCollection,
 )
-from plistsync.services.traktor import NMLPlaylistCollection
-from plistsync.services.traktor import NMLLibraryCollection
-from plistsync.services.traktor import NMLPlaylistTrack
+from plistsync.services.traktor import (
+    NMLLibraryCollection,
+    NMLPlaylistCollection,
+    NMLPlaylistTrack,
+)
 
 # ---------------------------------- Options --------------------------------- #
 

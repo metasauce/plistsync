@@ -246,7 +246,7 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
 
     def _remote_delete(self):
         """Remove in connected collection."""
-        _detach(self.root_node)
+        detach(self.root_node)
 
     @staticmethod
     def _track_key(track: NMLPlaylistTrack):

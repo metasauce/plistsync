@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self, cast
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 @dataclass
 class PlexPlaylistOnlineData:
     playlist_data: PlexApiPlaylistResponse
-    tracks_data: list[PlexApiTrackResponse]
+    tracks_data: Sequence[PlexApiTrackResponse]
 
 
 class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
@@ -55,7 +56,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         cls,
         library: "PlexLibrarySectionCollection",
         playlist_data: PlexApiPlaylistResponse,
-        tracks_data: list[PlexApiTrackResponse] | None = None,
+        tracks_data: Sequence[PlexApiTrackResponse] | None = None,
     ) -> Self:
         """
         Create a new instance of Plex playlist from a given api response.
