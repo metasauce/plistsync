@@ -14,5 +14,6 @@ Looking for user-friendly concepts? See [Core Concepts](../core-concepts.md).
 ```{toctree}
 :maxdepth: 2
 
+logging
 matching
 ```
