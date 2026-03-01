@@ -10,15 +10,13 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import Generic, TypeVar
 
 from Levenshtein import ratio as levenshtein_ratio
 
 from plistsync.logger import log
 
-if TYPE_CHECKING:
-    from .track import Track, TrackInfo
-
+from .track import Track, TrackInfo
 
 Similarity = float
 
