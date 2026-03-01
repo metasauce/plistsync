@@ -12,6 +12,7 @@ All official examples live in the [`examples` folder](https://github.com/metasau
 :maxdepth: 1
 
 sync_spotify_tidal.ipynb
+transcode_playlist.ipynb
 ```
 
 ## Community showcase
