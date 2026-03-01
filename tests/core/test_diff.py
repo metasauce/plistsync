@@ -142,3 +142,15 @@ class TestPlaylistDiff:
         ops = Operations(ops_list, old_list=old)
         applied_ops = list(ops)
         assert applied_ops == expected_applied_ops
+
+    def test_operations_indexing(self):
+        ops = Operations(
+            [
+                InsertOp(idx=3, item="D"),
+                DeleteOp(idx=2, item="C"),
+            ],
+            old_list=["A", "B", "C", "D"],
+        )
+
+        for i, op in enumerate(ops.ops):
+            assert ops[i] == op
