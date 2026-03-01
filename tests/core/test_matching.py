@@ -142,7 +142,7 @@ class TestMatches:
 
     def test_similarity_no_matches(self, mock_track):
         """Test similarity property with no matches."""
-        matches = Matches(truth=mock_track)
+        matches: Matches[MockTrack] = Matches(truth=mock_track)
         assert matches.similarity == 0.0
 
     def test_iteration(self, mock_matches):
