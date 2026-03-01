@@ -37,6 +37,7 @@ getting-started.md
 details/core-concepts.md
 details/configuration.md
 details/advanced/index.md
+examples/readme.md
 ```
 
 ```{toctree}
