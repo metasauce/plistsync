@@ -204,7 +204,7 @@ class PlaylistCollection(Collection, TrackStream[T], ABC):
         if new_name is not None or new_description is not None:
             self._remote_update_metadata(new_name, new_description)
 
-        operations = list_diff(before.tracks, after.tracks, eq_function=self._track_key)
+        operations = list_diff(before.tracks, after.tracks, hash_func=self._track_key)
         for op in operations:
             if isinstance(op, InsertOp):
                 self._remote_insert_track(op.idx, op.item, operations.live_list)

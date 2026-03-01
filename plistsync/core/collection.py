@@ -44,7 +44,7 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
     Concatenate,
@@ -60,20 +60,21 @@ from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
 
 R = TypeVar("R")
 P = ParamSpec("P")
+T = TypeVar("T", bound=Track, covariant=True)
 
 
 @runtime_checkable
-class GlobalLookup(Protocol):
+class GlobalLookup(Protocol, Generic[T]):
     """A collection that can find tracks using global unique IDs."""
 
     @abstractmethod
-    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> Track | None:
+    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> T | None:
         """Find a single track by its global identifiers."""
         ...
 
     def find_many_by_global_ids(
         self, global_ids_list: Iterable[GlobalTrackIDs]
-    ) -> Iterable[Track | None]:
+    ) -> Iterable[T | None]:
         """Find multiple tracks by their global identifiers.
 
         Default implementation iterates over the provided list and calls
@@ -85,11 +86,11 @@ class GlobalLookup(Protocol):
 
 
 @runtime_checkable
-class LocalLookup(Protocol):
+class LocalLookup(Protocol, Generic[T]):
     """A collection that can find tracks using local context-specific IDs."""
 
     @abstractmethod
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> Track | None:
+    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> T | None:
         """Find a single track by its local identifiers."""
         # TODO: local ids might potentially return multiple tracks.
         # Not decided how to handle this 100% yet. For now, we raise warnings
@@ -98,7 +99,7 @@ class LocalLookup(Protocol):
 
     def find_many_by_local_ids(
         self, local_ids_list: Iterable[LocalTrackIDs]
-    ) -> Iterable[Track | None]:
+    ) -> Iterable[T | None]:
         """Find multiple tracks by their local identifiers.
 
         Default implementation iterates over the provided list and calls
@@ -110,20 +111,17 @@ class LocalLookup(Protocol):
 
 
 @runtime_checkable
-class InfoLookup(Protocol):
+class InfoLookup(Protocol, Generic[T]):
     """A collection that can search for tracks using metadata."""
 
     @abstractmethod
-    def find_by_info(self, info: TrackInfo) -> Iterable[Track]:
+    def find_by_info(self, info: TrackInfo) -> Iterable[T]:
         """Find tracks matching the given metadata."""
         ...
 
 
-T = TypeVar("T", bound=Track)
-
-
 @runtime_checkable
-class TrackStream(Protocol[T]):
+class TrackStream(Protocol, Generic[T]):
     """Supports iteration and parallel processing of tracks.
 
     A collection implementing this protocol must support iteration,
@@ -143,7 +141,7 @@ class TrackStream(Protocol[T]):
         max_workers: int = 4,
         *args: P.args,
         **kwargs: P.kwargs,
-    ) -> Iterable[tuple[list[R], list[T]]]:
+    ) -> Iterable[tuple[Sequence[R], Sequence[T]]]:
         """Map a function to each track in parallel.
 
         Iterate over all tracks in the collection and apply a function to each track.
@@ -230,7 +228,7 @@ def _fuzzy_match_track(a: Track, b: Track) -> Similarity:
     return fuzzy_match(a.info, b.info)
 
 
-class Collection(ABC):
+class Collection(ABC, Generic[T]):
     """A generic data structure that allows lookup or iteration of tracks.
 
     Collections act as flexible track containers, accommodating multiple storage formats
@@ -247,7 +245,7 @@ class Collection(ABC):
         skip_after_local_match: bool = True,
         skip_after_perfect_fuzzy_match: bool = True,
         cutoff=0.6,
-    ) -> Matches:
+    ) -> Matches[T]:
         """Potential matches for the given track based on different lookup strategies.
 
         The method checks for matches in this order:
@@ -271,7 +269,7 @@ class Collection(ABC):
             Minimum similarity score (0-1) for a match to be considered
         """
         # Initialize result containers
-        found_tracks: list[Track] = []
+        found_tracks: list[T] = []
         similarities: list[Similarity] = []
 
         # Check capabilities of this collection,
@@ -383,7 +381,7 @@ class Collection(ABC):
 C = TypeVar("C", bound=Collection)
 
 
-class LibraryCollection(Generic[C], Collection, ABC):
+class LibraryCollection(Generic[C, T], Collection[T]):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.

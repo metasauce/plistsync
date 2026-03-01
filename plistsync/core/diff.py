@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import bisect
 from collections import Counter, defaultdict
-from collections.abc import Callable, Hashable, Iterator
+from collections.abc import Callable, Hashable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Generic, TypeAlias, TypeVar
 
@@ -93,6 +93,9 @@ class Operations(Generic[T]):
                 self._live_list.pop(current_idx)
                 yield op
 
+    def __getitem__(self, index: int) -> InsertOp[T] | DeleteOp[T] | MoveOp[T]:
+        return self.ops[index]
+
     @property
     def live_list(self) -> list[T]:
         """Current state of the list after all applied operations."""
@@ -100,9 +103,9 @@ class Operations(Generic[T]):
 
 
 def list_diff(
-    old: list[T],
-    new: list[T],
-    eq_function: Callable[[T], Hashable],
+    old: Sequence[T],
+    new: Sequence[T],
+    hash_func: Callable[[T], Hashable],
 ) -> Operations[T]:
     """Compute minimal insert/delete/move operations between lists.
 
@@ -112,7 +115,7 @@ def list_diff(
         Original track list.
     new : list[T]
         Target track list.
-    eq_function : Callable[[T], Hashable]
+    hash_func : Callable[[T], Hashable]
         Function that returns a hashable key for logical equality.
 
     Returns
@@ -127,8 +130,8 @@ def list_diff(
     """
     live_list: list[T] = []  # Keep track of the current operations
 
-    old_keys = [eq_function(t) for t in old]
-    new_keys = [eq_function(t) for t in new]
+    old_keys = [hash_func(t) for t in old]
+    new_keys = [hash_func(t) for t in new]
     new_counts = Counter(new_keys)
 
     # 1. Delete excess duplicates (keep first N occurrences of each key)
@@ -158,7 +161,7 @@ def list_diff(
     hash_to_indices: dict[Hashable, list[int]] = defaultdict(list)
     unmatched_old_indices = list(range(len(live_list)))
     for idx, item in enumerate(live_list):
-        hash_to_indices[eq_function(item)].append(idx)
+        hash_to_indices[hash_func(item)].append(idx)
 
     def shift_indices(indices: list[int], threshold: int, delta: int) -> None:
         pos = bisect.bisect_left(indices, threshold)
@@ -166,7 +169,7 @@ def list_diff(
             indices[i] += delta
 
     for target_idx, target_item in enumerate(new):
-        hash = eq_function(target_item)
+        hash = hash_func(target_item)
         matched_old_idx = None
         # Get first unmatched old item with matching key
         if hash_to_indices[hash]:
@@ -205,4 +208,4 @@ def list_diff(
             for lst in hash_to_indices.values():
                 shift_indices(lst, target_idx, +1)
 
-    return Operations(ops, old)
+    return Operations(ops, list(old))
