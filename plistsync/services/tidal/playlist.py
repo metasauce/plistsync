@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Hashable
 from typing import TYPE_CHECKING, Self
 
@@ -13,7 +15,7 @@ if TYPE_CHECKING:
 
 
 class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
-    library: "TidalLibraryCollection"
+    library: TidalLibraryCollection
 
     # When the playlist is associated with an online playlist, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
@@ -21,7 +23,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
 
     def __init__(
         self,
-        library: "TidalLibraryCollection",
+        library: TidalLibraryCollection,
         name: str,
         description: str | None = None,
         tracks: list[TidalPlaylistTrack] | None = None,
@@ -33,7 +35,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     @classmethod
     def from_response_data(
         cls,
-        library: "TidalLibraryCollection",
+        library: TidalLibraryCollection,
         data: PlaylistResource,
         data_lookup: LookupDict,
     ) -> Self:

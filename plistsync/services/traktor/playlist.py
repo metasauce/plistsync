@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -29,14 +31,14 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
     Allows to parse and interact with a Traktor NML file that contains playlists.
     """
 
-    library: "NMLLibraryCollection"
+    library: NMLLibraryCollection
 
     # Root node to the playlist (not necessarly attached to the library)
     root_node: _Element  # <Node TYPE="PLAYLIST">
 
     def __init__(
         self,
-        library: "NMLLibraryCollection | str | Path",
+        library: NMLLibraryCollection | str | Path,
         name: str | _Element,
     ):
         """Initialize the NMLPlaylistCollection.

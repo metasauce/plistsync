@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self, cast
@@ -34,7 +36,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
     """
 
     # parent library for adding tracks
-    library: "PlexLibrarySectionCollection"
+    library: PlexLibrarySectionCollection
 
     # When the playlist is already on the server, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
@@ -42,7 +44,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
     def __init__(
         self,
-        library: "PlexLibrarySectionCollection",
+        library: PlexLibrarySectionCollection,
         name: str,
         description: str | None = None,
         tracks: list[PlexTrack] | None = None,
@@ -54,7 +56,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
     @classmethod
     def from_response_data(
         cls,
-        library: "PlexLibrarySectionCollection",
+        library: PlexLibrarySectionCollection,
         playlist_data: PlexApiPlaylistResponse,
         tracks_data: Sequence[PlexApiTrackResponse] | None = None,
     ) -> Self:

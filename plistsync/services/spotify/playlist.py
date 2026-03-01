@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Self
 
 from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
@@ -18,7 +20,7 @@ if TYPE_CHECKING:
 class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
-    library: "SpotifyLibraryCollection"
+    library: SpotifyLibraryCollection
 
     # When the playlist is associated with an online playlist, we have the response.
     # Otherwise, we have at least a name via PlaylistInfo.
@@ -30,7 +32,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     def __init__(
         self,
-        library: "SpotifyLibraryCollection",
+        library: SpotifyLibraryCollection,
         name: str,
         description: str | None = None,
         tracks: list[SpotifyPlaylistTrack] | None = None,
@@ -44,7 +46,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     @classmethod
     def from_response_data(
         cls,
-        library: "SpotifyLibraryCollection",
+        library: SpotifyLibraryCollection,
         data: SpotifyApiPlaylistResponseSimplified | SpotifyApiPlaylistResponseFull,
     ) -> Self:
         """
