@@ -37,7 +37,7 @@ git checkout -b my-feature-branch
 source ./.venv/bin/activate
 
 # Check code style and formatting
-ruff check .
+ruff check --fix .
 ruff format --check .
 
 # Run type checking
