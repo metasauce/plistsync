@@ -111,7 +111,6 @@ class TestServiceConfig:
 class TestConfigDirectory:
     """Tests for config directory hierarchy."""
 
-    local_config_dir: Path
     global_config_dir: Path
 
     @pytest.fixture(autouse=True)
@@ -119,7 +118,6 @@ class TestConfigDirectory:
         """Setup common mocks for all tests in this class."""
         cwd_dir = tmp_path / "project"
         self.global_config_dir = tmp_path / "user_config_dir"
-        self.local_config_dir = cwd_dir / "config"
 
         # Store patches as instance variables
         cwd_patcher = patch("plistsync.config.Path.cwd", return_value=cwd_dir)
@@ -165,13 +163,6 @@ class TestConfigDirectory:
             assert str(result) == env_var_value
         else:
             assert str(result) != env_var_value
-
-    def test_local_dir(self):
-        """Local ./config directory exists, use it."""
-        self.local_config_dir.mkdir(parents=True)
-
-        result = Config.get_dir()
-        assert result == self.local_config_dir.resolve()
 
     def test_global_dir(self):
         """If local and env not given use global dir"""

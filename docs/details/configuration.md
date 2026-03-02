@@ -12,7 +12,6 @@
 The configuration file is automatically located in the following order of precedence:
 
 1. **Environment Variable**: If the `PSYNC_CONFIG_DIR` environment variable is set to a **non-empty, non-whitespace** path, the config file is expected at `$PSYNC_CONFIG_DIR/config.yml`.
-2. **Local Directory**: If a `./config` directory exists in the current working directory, the config file is expected at `./config/config.yml`.
-3. **Global Directory**: Otherwise, the OS-specific user config directory is used (via `platformdirs`).
+2. **Global Directory**: Otherwise, the OS-specific user config directory is used (via `platformdirs`).
 
 The global config directory and environment variable directory are automatically created if they don't exist.

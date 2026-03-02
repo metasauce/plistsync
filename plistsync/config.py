@@ -139,13 +139,6 @@ class Config(EYConf[ConfigSchema]):
         return base
 
     @staticmethod
-    def _get_local_config_dir() -> Path:
-        """Get local config directory (current working directory)."""
-        cwd = Path.cwd()
-        config_dir = cwd / "config"
-        return config_dir
-
-    @staticmethod
     def get_dir() -> Path:
         """Get the path to the config directory.
 
@@ -153,15 +146,12 @@ class Config(EYConf[ConfigSchema]):
         determine the config directory:
 
         1. PSYCNC_CONFIG_DIR environment variable
-        2. ./config (local config directory)
-        3. OS-specific global config directory
+        2. OS-specific global config directory
         """
         if env_dir := os.getenv("PSYNC_CONFIG_DIR"):
             path = Path(env_dir)
         else:
-            local_dir = Config._get_local_config_dir()
-            global_dir = Config._get_global_config_dir()
-            path = local_dir if local_dir.exists() else global_dir
+            path = Config._get_global_config_dir()
 
         path.mkdir(parents=True, exist_ok=True)
         return path.resolve()
