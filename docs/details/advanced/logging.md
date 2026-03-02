@@ -1,51 +1,38 @@
 # Logging
 
-`plistsync` configures logging automatically at import time via `plistsync.logger.init_logging()` (called at the bottom of `plistsync/logger.py`). This gives you useful output by default, but it also means logging configuration can happen before your application/script code runs.
+By default, `plistsync` can configure logging automatically based on your config file. If your application already sets up logging (handlers/formatters/filters), you can disable `plistsync`’s logging setup and manage logging yourself.
 
 ## Overview
 
-By default, `plistsync` automatically configures logging based on your configuration file.  
-This includes choosing:
-
 ```yaml
 # ./config/config.yaml
 logging:
-  level: "INFO" # DEBUG ...
-  handler: "rich" # basic or none
+  enabled: true
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET
+  handler: "rich" # "rich" or "basic"
 ```
 
-This means that in most cases, you don’t need to write any logging setup code yourself, everything is handled when your application starts.
+If `logging.enabled` is set to `false`, plistsync will not perform any automatic logging setup and you’re expected to configure logging in your application. The `logging.level` setting controls how verbose plistsync’s logs are, and `logging.handler` selects the output style: use `"rich"` for a more readable, colorized console experience, or `"basic"` for plain standard output formatting.
 
-- `handler: "rich"`: Colorized console output using [rich](https://rich.readthedocs.io/en/stable/introduction.html) text.
-- `handler: "basic"`: Standard `logging.StreamHandler` with a timestamped formatter.
-- `handler: "none"`: Does not attach any handler.
-
-## Customizing logging
-
-Sometimes you’ll want more control, for example, if your application already sets up a global logging configuration and you dont want to use our setup.
-
-You can do this by setting the handler to `"none"`.
+## Disable plistsync logging setup (recommended if your app configures logging)
 
 ```yaml
-# ./config/config.yaml
 logging:
-  handler: "none"
+  enabled: false
 ```
 
-With this setting:
+You can also override `enabled` via environment variable:
 
-- `plistsync` **does not touch** Python’s global logging configuration.
-- You can configure and attach your own handlers, formatters, or log filters freely.
-- The `plistsync` logger (`logging.getLogger("plistsync")`) will integrate seamlessly with your custom logging setup.
+- `PLSYNC_LOGGING=true|1|t` enables
+- `PLSYNC_LOGGING=false|0|...` disables
 
-### Reconfigure root logging after importing plistsync
+## Configure logging yourself
+
+### Configure root logging (after importing plistsync)
 
 ```python
 import logging
-
-# triggers plistsync's init_logging side effect which wont do anything
-# if handler is set to none in the config
-import plistsync
+import plistsync  # calls init_logging(), but it does nothing if enabled=false
 
 logging.basicConfig(
     level=logging.INFO,
@@ -54,19 +41,15 @@ logging.basicConfig(
 )
 ```
 
-### Attach your own handler only to the plistsync logger
+### Attach a handler only to the plistsync logger
 
 ```python
 import logging
-from plistsync.logger import log, set_log_level
+from plistsync.logger import log
 
 handler = logging.FileHandler("plistsync.log")
-handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 
 log.addHandler(handler)
-log.propagate = False  # prevent double logging via root handlers (if any)
-```
-
-```{note}
-If log messages happen **before**` init_logging()` ran at import time, you’ll not see those early logs or they will use the default/configured level unless you apply global verbosity **very early**. This shouldn't be an issue normally but might be relevant for debugging startup issues.
+log.propagate = False  # avoid double logging via root handlers (if configured)
 ```

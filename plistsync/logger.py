@@ -1,14 +1,21 @@
 import logging
+import os
 
-from plistsync.config import Config
+from plistsync.config import Config, LoggingConfig
 
 log = logging.getLogger("plistsync")
 
 
-def _level_from_config(config: Config | None) -> int:
-    if config is None:
-        return logging.INFO
-    return _parse_log_level(config.logging_level)
+def _logging_config(config: Config | None) -> LoggingConfig:
+    """Parse logging config values."""
+    logging_config = LoggingConfig() if config is None else config.data.logging
+
+    # Allow to disable with env variable
+    env_enabled: str | None = os.getenv("PLSYNC_LOGGING")
+    if env_enabled is not None:
+        logging_config.enabled = env_enabled.lower() in ("true", "1", "t")
+
+    return logging_config
 
 
 def _parse_log_level(level: str | int) -> int:
@@ -27,20 +34,20 @@ def init_logging(
     level_overwrite: str | int | None = None,
 ) -> None:
     """Initialize plistsync logging from config. Call from CLI/app, not at import."""
-    if config is None:
-        config = Config() if Config.exists() else None
+    logging_config = _logging_config(config)
+    if not logging_config.enabled:
+        return
 
     # set level of log from config or use overwrite
-    level = _level_from_config(config) if level_overwrite is None else level_overwrite
-    set_log_level(level)
+    set_log_level(logging_config.level if level_overwrite is None else level_overwrite)
 
     # setup handler(s) from config
     handlers: list[logging.Handler] | None = None
-    handler_type = "rich" if config is None else config.data.logging.handler
-    if handler_type == "rich":
-        handlers = [rich_logging_handler()]
-    elif handler_type == "basic":
-        handlers = [basic_logging_handler()]
+    match logging_config.handler:
+        case "rich":
+            handlers = [rich_logging_handler()]
+        case "basic":
+            handlers = [basic_logging_handler()]
 
     if handlers is not None:
         logging.basicConfig(handlers=handlers, force=True)
@@ -48,7 +55,7 @@ def init_logging(
     if log.isEnabledFor(logging.DEBUG):
         log.debug(
             "Initialized logging: handler=%s, level=%s",
-            handler_type,
+            logging_config.handler,
             logging.getLevelName(log.getEffectiveLevel()),
         )
 

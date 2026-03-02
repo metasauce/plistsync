@@ -1,4 +1,5 @@
 import logging
+import os
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,17 +30,26 @@ class TestParseLogLevel:
         assert logger._parse_log_level(level) == expected
 
 
-class TestLevelFromConfig:
-    def test_level_from_config_none_returns_info(self):
-        assert logger._level_from_config(None) == logging.INFO
+class TestLoggingConfig:
+    def test_level_logging_config_defaults(self):
+        logging_config = logger._logging_config(None)
+        assert logging_config.enabled
+        assert logging_config.level == "INFO"
+        assert logging_config.handler == "rich"
 
     @pytest.mark.parametrize("level", ["DEBUG", "INFO", "WARNING"])
     def test_level_from_config_with_config(self, level):
         config = MagicMock()
-        config.logging_level = level
-        assert logger._level_from_config(config) == logging.getLevelNamesMapping().get(
-            level
-        )
+        config.data.logging.level = level
+        logging_config = logger._logging_config(config)
+        assert logging_config.level == level
+
+    def test_env_variable(self):
+        os.environ["PLSYNC_LOGGING"] = "false"
+        logging_config = logger._logging_config(None)
+        assert not logging_config.enabled
+
+        del os.environ["PLSYNC_LOGGING"]
 
 
 class TestSetLogLevel:
@@ -80,19 +90,13 @@ class TestRichLoggingHandler:
 class TestInitLogging:
     def test_init_logging_no_config_no_overwrite(self, monkeypatch):
         monkeypatch.setattr("plistsync.logger.Config.exists", lambda: False)
-        monkeypatch.setattr(
-            "plistsync.logger._level_from_config", lambda c: logging.INFO
-        )
         logger.init_logging()
         assert logger.log.getEffectiveLevel() == logging.INFO
 
     @pytest.mark.parametrize("handler_type", ["basic", "rich"])
-    def test_init_logging_with_handler(self, handler_type, monkeypatch):
+    def test_init_logging_with_handler(self, handler_type):
         config = MagicMock()
         config.data.logging.handler = handler_type
-        monkeypatch.setattr(
-            "plistsync.logger._level_from_config", lambda c: logging.INFO
-        )
         logger.init_logging(config=config)
         assert logging.root.handlers
 
@@ -100,11 +104,19 @@ class TestInitLogging:
         config = MagicMock()
         config.data.logging.handler = "basic"
         monkeypatch.setattr(
-            "plistsync.logger._level_from_config", lambda c: logging.DEBUG
-        )
-        monkeypatch.setattr(
             logger.log, "isEnabledFor", lambda level: level == logging.DEBUG
         )
         monkeypatch.setattr(logger.log, "debug", MagicMock())
         logger.init_logging(config=config)
         assert logger.log.debug.called  # type: ignore
+
+    def test_disabled(self, monkeypatch):
+        mock = MagicMock()
+        monkeypatch.setattr(logger, "set_log_level", mock)
+
+        config = MagicMock()
+        config.data.logging.enabled = False
+
+        logger.init_logging(config=config)
+
+        assert not mock.called  # type: ignore

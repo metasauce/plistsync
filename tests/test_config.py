@@ -19,7 +19,7 @@ def test_create_default_config(temp_config_file):
 
     # Default values from the schema
     assert config.path == temp_config_file[0]
-    assert config.logging_level == "INFO"
+    assert config.data.logging.level == "INFO"
 
 
 class TestServiceConfig:
