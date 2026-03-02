@@ -4,7 +4,7 @@ from plistsync.errors import DependencyError
 
 try:
     from plistsync.services.traktor import NMLTrack
-    from plistsync.services.traktor.collection import NMLCollection
+    from plistsync.services.traktor import NMLLibraryCollection
 except DependencyError:
     pytest.skip("Traktor dependencies not installed", allow_module_level=True)
 
@@ -13,7 +13,7 @@ import lxml.etree as ET  # noqa: N812
 
 
 @pytest.fixture
-def collection(tmp_path: Path) -> NMLCollection:
+def collection(tmp_path: Path) -> NMLLibraryCollection:
     """Fixture to create a writable NMLCollection for testing.
 
     Copies the sample NML into a temp directory so tests can call .write()
@@ -24,7 +24,7 @@ def collection(tmp_path: Path) -> NMLCollection:
     src = Path(__file__).parent.parent.parent / "data" / "traktor_playlist.nml"
     dest = tmp_path / "traktor_playlist.nml"
     shutil.copyfile(src, dest)
-    return NMLCollection(dest)
+    return NMLLibraryCollection(dest)
 
 
 @pytest.fixture

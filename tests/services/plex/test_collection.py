@@ -2,13 +2,11 @@ from pathlib import Path
 from collections.abc import Iterable, Iterator
 
 import pytest
+from plistsync.services.plex.playlist import PlexPlaylistCollection
 from plistsync.services.plex.track import PlexTrack
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
-from plistsync.services.plex.collection import (
-    PlexPlaylistCollection,
-    PlexLibrarySectionCollection,
-)
+from plistsync.services.plex import PlexLibrarySectionCollection
 
 
 class TestPlexPlaylistCollection(CollectionTestBase):

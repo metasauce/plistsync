@@ -60,15 +60,38 @@ jobs:
         run: |
           uv run ruff format --check --diff .
   check-notebooks:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: |
+          uv sync --group lint
+      - name: Check all notebooks
+        run: |
+          set -euo pipefail
 
-      - name: Check notebooks are stripped
-        uses: kynan/nbstripout@main
-        with:
-          paths: "**/*.ipynb"
+          mapfile -d '' notebooks < <(find . -name '*.ipynb' -print0)
+
+          if [ "${#notebooks[@]}" -eq 0 ]; then
+            echo "No notebooks found."
+            exit 0
+          fi
+
+          failed=0
+          for nb in "${notebooks[@]}"; do
+            if uv run nbstripout --verify "${nb}"; then
+              echo "OK   ${nb}"
+            else
+              echo "FAIL ${nb}"
+              failed=1
+            fi
+          done
+
+          exit "${failed}"
+
   mypy:
     name: Check type hints with mypy
     runs-on: [self-hosted, linux]

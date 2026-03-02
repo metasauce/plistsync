@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------ #
 # @Author:        F. Paul Spitzner
 # @Created:       2025-08-17 09:48:49
-# @Last Modified: 2025-08-17 12:59:55
+# @Last Modified: 2026-02-24 14:39:26
 # -------------------------------------------------
 
 """
@@ -25,11 +25,14 @@ from pathlib import Path
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex.collection import (
+from plistsync.services.plex.library import (
     PlexLibrarySectionCollection,
 )
-from plistsync.services.traktor.collection import NMLCollection, NMLPlaylistCollection
-from plistsync.services.traktor.track import NMLPlaylistTrack
+from plistsync.services.traktor import (
+    NMLLibraryCollection,
+    NMLPlaylistCollection,
+    NMLPlaylistTrack,
+)
 
 # ---------------------------------- Options --------------------------------- #
 
@@ -48,7 +51,7 @@ def main():
     assert plex_playlist is not None, "Playlist not found"
 
     # Load Traktor collection
-    traktor_collection = NMLCollection(traktor_nml_path)
+    traktor_collection = NMLLibraryCollection(traktor_nml_path)
     # Get or create playlist
     try:
         traktor_playlist = traktor_collection.get_playlist(name=playlist_name)

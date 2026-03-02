@@ -5,10 +5,13 @@ check_imports(
     required_packages=["requests_oauth2client"],
 )
 
-from .collection import SpotifyLibraryCollection, SpotifyPlaylistCollection
+from . import api
+from .library import SpotifyLibraryCollection
+from .playlist import SpotifyPlaylistCollection
 from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 __all__ = [
+    "api",
     "SpotifyLibraryCollection",
     "SpotifyPlaylistCollection",
     "SpotifyPlaylistTrack",
