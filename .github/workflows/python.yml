@@ -68,7 +68,7 @@ jobs:
       - name: Check notebooks are stripped
         uses: kynan/nbstripout@main
         with:
-          paths: "**/*.ipynb"
+          paths: "**/*.ipynb docs/**/*.ipynb"
   mypy:
     name: Check type hints with mypy
     runs-on: [self-hosted, linux]
