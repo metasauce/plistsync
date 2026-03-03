@@ -2,6 +2,14 @@
 
 By default, `plistsync` can configure logging automatically based on your config file. If your application already sets up logging (handlers/formatters/filters), you can disable `plistsync`’s logging setup and manage logging yourself.
 
+You can retrieve our logger, as is typical with python loggers (even if `enabled: false` as seen below):
+
+```python
+import logging
+
+log = logging.getLogger("plistsync")
+```
+
 ## Overview
 
 ```yaml
