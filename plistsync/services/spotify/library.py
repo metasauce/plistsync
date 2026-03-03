@@ -15,7 +15,7 @@ from .playlist import SpotifyPlaylistCollection
 from .track import SpotifyTrack
 
 
-class SpotifyLibraryCollection(LibraryCollection, GlobalLookup):
+class SpotifyLibraryCollection(LibraryCollection[SpotifyTrack], GlobalLookup):
     """A collection representing the full spotify library.
 
     It is not possible to add or remove items from this collection. Also iteration

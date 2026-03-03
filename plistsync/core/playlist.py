@@ -53,7 +53,7 @@ class Snapshot(Generic[T]):
     tracks: list[T]
 
 
-class PlaylistCollection(Collection, TrackStream[T], ABC):
+class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     """Abstract base class for playlist collections across music services.
 
     Manages local track state and syncs changes to remote services via concrete

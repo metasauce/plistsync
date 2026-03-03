@@ -378,10 +378,10 @@ class Collection(ABC, Generic[T]):
         )
 
 
-C = TypeVar("C", bound=Collection)
+C = TypeVar("C", bound=Collection, default=Collection)
 
 
-class LibraryCollection(Generic[C, T], Collection[T]):
+class LibraryCollection(Generic[T, C], Collection[T]):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
