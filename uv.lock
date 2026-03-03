@@ -1688,6 +1688,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pip"
+version = "26.0.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/48/83/0d7d4e9efe3344b8e2fe25d93be44f64b65364d3c8d7bc6dc90198d5422e/pip-26.0.1.tar.gz", hash = "sha256:c4037d8a277c89b320abe636d59f91e6d0922d08a05b60e85e53b296613346d8", size = 1812747, upload-time = "2026-02-05T02:20:18.702Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/de/f0/c81e05b613866b76d2d1066490adf1a3dbc4ee9d9c839961c3fc8a6997af/pip-26.0.1-py3-none-any.whl", hash = "sha256:bdb1b08f4274833d62c1aa29e20907365a2ceb950410df15fc9521bad440122b", size = 1787723, upload-time = "2026-02-05T02:20:16.416Z" },
+]
+
+[[package]]
 name = "platformdirs"
 version = "4.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1703,8 +1712,10 @@ source = { editable = "." }
 dependencies = [
     { name = "eyconf", extra = ["cli"] },
     { name = "levenshtein" },
+    { name = "pip" },
     { name = "requests" },
     { name = "typer" },
+    { name = "typing-extensions" },
 ]
 
 [package.optional-dependencies]
@@ -1791,6 +1802,7 @@ requires-dist = [
     { name = "levenshtein", specifier = ">=0.27.3" },
     { name = "lxml", marker = "extra == 'traktor'", specifier = ">=6.0.2" },
     { name = "nest-asyncio", marker = "extra == 'plex'", specifier = ">=1.6.0" },
+    { name = "pip", specifier = ">=26.0.1" },
     { name = "plistsync", extras = ["local"], marker = "extra == 'plex'" },
     { name = "requests", specifier = ">=2.32.5" },
     { name = "requests-oauth2client", marker = "extra == 'spotify'", specifier = ">=1.8.0" },
@@ -1798,6 +1810,7 @@ requires-dist = [
     { name = "sqlalchemy", marker = "extra == 'beets'", specifier = ">=2.0.45" },
     { name = "tinytag", marker = "extra == 'local'", specifier = ">=2.2.0" },
     { name = "typer", specifier = ">=0.21.1" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 provides-extras = ["traktor", "spotify", "tidal", "local", "beets", "plex"]
 

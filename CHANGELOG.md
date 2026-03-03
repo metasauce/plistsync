@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Traktor playlist `NMLPlaylistCollection` is now aligned with the `PlaylistCollection` protocol
+- Enhanced typing for `Matches` class and collection protocols by using a TypeVar for Tracks.
 
 ## [0.3.0] - 2026-02-16
 

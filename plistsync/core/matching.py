@@ -10,25 +10,25 @@ from __future__ import annotations
 import itertools
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, TypeVar
+from typing import Generic, TypeVar
 
 from Levenshtein import ratio as levenshtein_ratio
 
 from plistsync.logger import log
 
-if TYPE_CHECKING:
-    from .track import Track, TrackInfo
-
+from .track import Track, TrackInfo
 
 Similarity = float
 
+T = TypeVar("T", bound=Track)
+
 
 @dataclass
-class Matches:
+class Matches(Generic[T]):
     """Represents the result of a track matching operation."""
 
     truth: Track
-    found: Sequence[Track] = field(default_factory=list)
+    found: list[T] = field(default_factory=list)
     found_similarities: list[Similarity] = field(default_factory=list)
 
     @property
@@ -43,13 +43,13 @@ class Matches:
             return 0.0
         return max(self.found_similarities)
 
-    def __iter__(self) -> Iterator[tuple[Track, Similarity]]:
+    def __iter__(self) -> Iterator[tuple[T, Similarity]]:
         """Iterate over the found tracks."""
         # TODO: sort by similarity, best matches first
         return iter(zip(self.found, self.found_similarities))
 
     @property
-    def best_match(self) -> Track | None:
+    def best_match(self) -> T | None:
         """Get the best matching track, or None if no matches found."""
         if len(self.found) == 0:
             return None

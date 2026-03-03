@@ -13,7 +13,7 @@ from .playlist import TidalPlaylistCollection
 from .track import TidalTrack
 
 
-class TidalLibraryCollection(LibraryCollection, GlobalLookup):
+class TidalLibraryCollection(LibraryCollection[TidalTrack], GlobalLookup):
     """A collection of Tidal library items."""
 
     api: TidalApi

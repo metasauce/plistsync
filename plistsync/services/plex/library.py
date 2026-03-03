@@ -17,7 +17,7 @@ from .track import PlexTrack
 
 
 class PlexLibrarySectionCollection(
-    LibraryCollection, LocalLookup, GlobalLookup, TrackStream[PlexTrack]
+    LibraryCollection[PlexTrack], LocalLookup, GlobalLookup, TrackStream[PlexTrack]
 ):
     """A collection of all tracks in a Plex library section.
 
