@@ -38,13 +38,13 @@ source ./.venv/bin/activate
 
 # Check code style and formatting
 ruff check --fix .
-ruff format --check .
+ruff format .
 
 # Run type checking
 mypy .
 
 # Strip output from notebooks (if modified)
-find . -name '*.ipynb' -exec nbstripout {} +
+find . -name '*.ipynb' -exec nbstripout --keep-output {} +
 ```
 
 If this looks tedious you may alternatively install the
