@@ -84,11 +84,24 @@ class ServicesConfig:
 
 @dataclass
 class LoggingConfig:
+    enabled: Annotated[
+        bool,
+        "Whether plistsync should configure logging automatically at startup.",
+        "Set to False if you want to configure logging yourself (e.g., your "
+        "app/CLI/framework already sets handlers/formatters).",
+    ] = field(default=True)
     level: Annotated[
-        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        "Logging level can be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL",
-        "For production we recommend INFO or higher",
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"],
+        "Log level to set when `enabled=True` (one of: DEBUG, INFO, WARNING, ERROR,"
+        "CRITICAL, NOTSET); INFO is recommended for production, DEBUG is useful for "
+        "troubleshooting.",
     ] = field(default="INFO")
+    handler: Annotated[
+        Literal["basic", "rich"],
+        "Logging backend to initialize when `enabled=True`: 'basic' uses standard "
+        "library logging with plain text output to stderr, while 'rich' uses "
+        "RichHandler for nicer console formatting (and richer tracebacks if enabled).",
+    ] = field(default="rich")
 
 
 @dataclass
@@ -127,10 +140,6 @@ class Config(EYConf[ConfigSchema]):
 
         log.debug(f"Using config dir: {self.get_dir()}")
         super().__init__(ConfigSchema)
-
-    @property
-    def logging_level(self) -> str:
-        return getattr(self._data.logging, "level", "INFO")
 
     @staticmethod
     def _get_global_config_dir() -> Path:

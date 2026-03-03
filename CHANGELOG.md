@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configuration files can now be placed in multiple locations with clear precedence:
   1. Environment variable: `PSYNC_CONFIG_DIR=/path/to/config`
   2. Global directory: User's config folder (automatic fallback)
+- Added configurable logging (`logging.handler`: `rich|basic`), improved CLI verbosity (`-v`) behavior and documented advanced logging.
 
 ### Changed
 
