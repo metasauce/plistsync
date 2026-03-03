@@ -2,6 +2,8 @@ name: Integration tests
 on:
   push:
     branches: ["main"]
+  pull_request:
+    branches: ["main"]
   schedule:
     - cron: "27 4 * * *" # 4:27 every night
 env:
@@ -26,7 +28,7 @@ jobs:
           echo "$SPOTIFY_TOKEN_JSON" > "$PSYNC_CONFIG_DIR/spotify_token.json"
       - name: Test spotify notebooks
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 docs/services/spotify/*ipynb
+          uv run pytest --nbmake --nbmake-timeout=600 docs/services/spotify/*.ipynb
       - name: Setup Tidal token
         env:
           TIDAL_TOKEN_JSON: ${{ secrets.TIDAL_TOKEN_JSON }}
@@ -35,4 +37,4 @@ jobs:
           echo "$TIDAL_TOKEN_JSON" > "$PSYNC_CONFIG_DIR/tidal_token.json"
       - name: Test tidal notebooks
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 docs/services/tidal/*ipynb
+          uv run pytest --nbmake --nbmake-timeout=600 docs/services/tidal/*.ipynb
