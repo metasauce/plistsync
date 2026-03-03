@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 
 from eyconf import EYConf
 from eyconf.validation import ConfigurationError
+from platformdirs import user_config_dir
 
 # ---------------------------------------------------------------------------- #
 #                                 Config schema                                #
@@ -122,6 +123,9 @@ class Config(EYConf[ConfigSchema]):
     """
 
     def __init__(self):
+        from .logger import log
+
+        log.debug(f"Using config dir: {self.get_dir()}")
         super().__init__(ConfigSchema)
 
     @property
@@ -129,11 +133,28 @@ class Config(EYConf[ConfigSchema]):
         return getattr(self._data.logging, "level", "INFO")
 
     @staticmethod
+    def _get_global_config_dir() -> Path:
+        """Get OS-specific global config directory."""
+        base = Path(user_config_dir("plistsync", appauthor=False))
+        return base
+
+    @staticmethod
     def get_dir() -> Path:
-        """Get the path to the config directory."""
-        c_dir = Path(os.getenv("PSYNC_CONFIG_DIR", "./config"))
-        c_dir.mkdir(parents=True, exist_ok=True)
-        return c_dir.resolve()
+        """Get the path to the config directory.
+
+        We check if the following folders exist to
+        determine the config directory:
+
+        1. PSYCNC_CONFIG_DIR environment variable
+        2. OS-specific global config directory
+        """
+        if env_dir := os.getenv("PSYNC_CONFIG_DIR"):
+            path = Path(env_dir)
+        else:
+            path = Config._get_global_config_dir()
+
+        path.mkdir(parents=True, exist_ok=True)
+        return path.resolve()
 
     @staticmethod
     def get_file() -> Path:

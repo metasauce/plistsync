@@ -1,3 +1,5 @@
+from pathlib import Path
+from unittest.mock import patch
 from plistsync.errors import ConfigurationError
 import pytest
 import os
@@ -104,3 +106,66 @@ class TestServiceConfig:
         assert plex_config.app_name is not None
         assert plex_config.client_identifier is not None
         assert plex_config.token_path == temp_config_file[1] / "plex_token.json"
+
+
+class TestConfigDirectory:
+    """Tests for config directory hierarchy."""
+
+    global_config_dir: Path
+
+    @pytest.fixture(autouse=True)
+    def setup_mocks(self, tmp_path, monkeypatch):
+        """Setup common mocks for all tests in this class."""
+        cwd_dir = tmp_path / "project"
+        self.global_config_dir = tmp_path / "user_config_dir"
+
+        # Store patches as instance variables
+        cwd_patcher = patch("plistsync.config.Path.cwd", return_value=cwd_dir)
+        user_config_patcher = patch(
+            "plistsync.config.user_config_dir",
+            return_value=self.global_config_dir,
+        )
+
+        # Start patches
+        cwd_patcher.start()
+        user_config_patcher.start()
+        monkeypatch.delenv("PSYNC_CONFIG_DIR", raising=False)
+
+        yield
+
+        # Stop patches
+        cwd_patcher.stop()
+        user_config_patcher.stop()
+
+    @pytest.mark.parametrize(
+        "env_var_value, should_use_env",
+        [
+            # Empty string should not use env
+            ("", False),
+            ("  ", False),
+            # Valid path should use env
+            ("/valid/path", True),
+        ],
+    )
+    def test_env_var_dir(self, tmp_path, monkeypatch, env_var_value, should_use_env):
+        """Test edge cases for environment variable handling."""
+        # Create a valid env directory within tmp_path for the valid path case
+        if env_var_value == "/valid/path":
+            env_dir = tmp_path / "valid_env_config"
+            env_dir.mkdir()
+            env_var_value = str(env_dir)
+
+        monkeypatch.setenv("PSYNC_CONFIG_DIR", env_var_value)
+
+        result = Config.get_dir()
+
+        if should_use_env:
+            assert str(result) == env_var_value
+        else:
+            assert str(result) != env_var_value
+
+    def test_global_dir(self):
+        """If local and env not given use global dir"""
+
+        result = Config.get_dir()
+        assert result == self.global_config_dir.resolve()

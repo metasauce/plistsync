@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Enhanced documentation around traktor
+- Plex authentication flow: Automated token retrieval replaces manual web page searches
+- Config refactoring: Replaced hardcoded YAML defaults with dataclass fields (Note: requires config file recreation)
+- Unified CLI authentication: Standardized parameters across Spotify, Tidal, and Plex services
+- Configuration files can now be placed in multiple locations with clear precedence:
+  1. Environment variable: `PSYNC_CONFIG_DIR=/path/to/config`
+  2. Global directory: User's config folder (automatic fallback)
 
 ### Changed
 
