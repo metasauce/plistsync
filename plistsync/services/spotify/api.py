@@ -564,7 +564,7 @@ class TrackApi:
             tracks.extend(json_res.get("tracks", []))
         return tracks
 
-    def get_by_isrc(self, isrc: str) -> SpotifyApiTrackResponse:
+    def get_by_isrc(self, isrc: str) -> SpotifyApiTrackResponse | None:
         """Get a single track by its ISRC code."""
 
         json_res = self.session.request(
@@ -573,8 +573,7 @@ class TrackApi:
         ).json()
         tracks = json_res.get("tracks", {}).get("items", [])
         if len(tracks) == 0:
-            # TODO: think about what error to raise here
-            raise ValueError(f"No track found with ISRC {isrc}")
+            return None
         return tracks[0]
 
     def search(

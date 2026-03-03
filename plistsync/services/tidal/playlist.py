@@ -117,7 +117,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
             return self.data
         return None
 
-    def _refetch_tracks(self) -> None:
+    def _refetch_tracks(self) -> list[TidalPlaylistTrack]:
         """Refetch the tracks from the online playlist.
 
         Only works if the playlist is online.
@@ -143,6 +143,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
                     " tracks of playlist '{data['attributes']['name']}'"
                 )
         self._tracks = tracks
+        return self._tracks
 
     @property
     def tracks(self) -> list[TidalPlaylistTrack]:
@@ -151,9 +152,8 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         Might load them from the API if not already loaded.
         """
         if self._tracks is None:
-            self._refetch_tracks()
-        # After refetch tracks exist
-        return self._tracks  # type: ignore[return-value]
+            return self._refetch_tracks()
+        return self._tracks
 
     @tracks.setter
     def tracks(self, value: list[TidalPlaylistTrack]) -> None:

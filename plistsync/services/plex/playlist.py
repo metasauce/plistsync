@@ -152,7 +152,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
     # -------------------------------- Tracks -------------------------------- #
 
-    def _refetch_tracks(self) -> None:
+    def _refetch_tracks(self) -> list[PlexTrack]:
         """Refetch the tracks from the online playlist.
 
         Only works if the playlist is online.
@@ -163,6 +163,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
         self.data.tracks_data = self.api.playlist.get_items(self.id)
         self._tracks = [PlexTrack(t) for t in self.data.tracks_data]
+        return self._tracks
 
     @property
     def tracks(self) -> list[PlexTrack]:
@@ -170,11 +171,9 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
 
         Might load them from the API if not already loaded.
         """
-        log.debug(f"track access {self._tracks=}")
         if self._tracks is None:
-            self._refetch_tracks()
-
-        return self._tracks or []
+            return self._refetch_tracks()
+        return self._tracks
 
     @tracks.setter
     def tracks(self, value: list[PlexTrack]) -> None:
