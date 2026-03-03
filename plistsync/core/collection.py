@@ -51,9 +51,10 @@ from typing import (
     Generic,
     ParamSpec,
     Protocol,
-    TypeVar,
     runtime_checkable,
 )
+
+from typing_extensions import TypeVar
 
 from .matching import Matches, Similarity, fuzzy_match
 from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
