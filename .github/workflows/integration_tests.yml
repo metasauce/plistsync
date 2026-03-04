@@ -20,6 +20,40 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group test
+      - name: Setup config yaml
+        env:
+          INTEGRATION_CONFIG_YAML: ${{ secrets.INTEGRATION_CONFIG_YAML }}
+        run: |
+          mkdir -p $PSYNC_CONFIG_DIR
+          echo "$INTEGRATION_CONFIG_YAML" > "$PSYNC_CONFIG_DIR/config.yml"
+      - name: Debug config.yml safely (no secret output)
+        shell: bash
+        run: |
+          set -euo pipefail
+          f="$PSYNC_CONFIG_DIR/config.yml"
+
+          echo "== File metadata =="
+          test -f "$f" && echo "exists=yes" || (echo "exists=no" && exit 1)
+          # size + perms only
+          stat -c 'path=%n size=%s bytes perms=%a owner=%U group=%G mtime=%y' "$f"
+          # hash (lets you compare across runs without showing contents)
+          sha256sum "$f" | awk '{print "sha256="$1}'
+
+          echo "== YAML parse check (no value output) =="
+          uv run python - <<'PY'
+          import yaml, pathlib, sys
+          p = pathlib.Path("./tests/data/integration_config/config.yml")
+          try:
+            data = yaml.safe_load(p.read_text())
+          except Exception as e:
+            print("YAML_PARSE_OK=no")
+            print("error_type=", type(e).__name__)
+            sys.exit(1)
+          print("YAML_PARSE_OK=yes")
+          print("top_level_type=", type(data).__name__)
+          if isinstance(data, dict):
+            print("top_level_keys=", sorted(map(str, data.keys())))
+          PY
       - name: Setup Spotify token
         env:
           SPOTIFY_TOKEN_JSON: ${{ secrets.SPOTIFY_TOKEN_JSON }}
