@@ -53,14 +53,29 @@ class TidalTrack(Track):
 
     @property
     def _raw_artists(self) -> Iterable[dict]:
+        # Only select artists that are relationships of this track in lookup
+        artists_ids = set(
+            a["id"]
+            for a in self.data.get("relationships", {})["artists"]["data"]
+            if a["type"] == "artists"
+        )
+
         yield from filter(
-            lambda x: x.get("type") == "artists", self.data_lookup.values()
+            lambda x: x.get("type") == "artists" and x["id"] in artists_ids and x,
+            self.data_lookup.values(),
         )
 
     @property
     def _raw_albums(self) -> Iterable[dict]:
+        # Only select albums that are relationships of this track in lookup
+        album_ids = set(
+            a["id"]
+            for a in self.data.get("relationships", {})["albums"]["data"]
+            if a["type"] == "artists"
+        )
         yield from filter(
-            lambda x: x.get("type") == "albums", self.data_lookup.values()
+            lambda x: x.get("type") == "albums" and x["id"] in album_ids,
+            self.data_lookup.values(),
         )
 
     # ---------------------------------------------------------------------------- #
