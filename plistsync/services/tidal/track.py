@@ -56,7 +56,9 @@ class TidalTrack(Track):
         # Only select artists that are relationships of this track in lookup
         artists_ids = set(
             a["id"]
-            for a in self.data.get("relationships", {})["artists"]["data"]
+            for a in self.data.get("relationships", {})
+            .get("artists", {})
+            .get("data", [])
             if a["type"] == "artists"
         )
 
@@ -70,8 +72,10 @@ class TidalTrack(Track):
         # Only select albums that are relationships of this track in lookup
         album_ids = set(
             a["id"]
-            for a in self.data.get("relationships", {})["albums"]["data"]
-            if a["type"] == "artists"
+            for a in self.data.get("relationships", {})
+            .get("albums", {})
+            .get("data", [])
+            if a["type"] == "albums"
         )
         yield from filter(
             lambda x: x.get("type") == "albums" and x["id"] in album_ids,
