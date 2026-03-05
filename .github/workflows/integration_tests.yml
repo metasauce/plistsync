@@ -113,3 +113,37 @@ jobs:
         run: |
           uv run pytest --nbmake --nbmake-timeout=600 docs/services/tidal/*.ipynb
 
+      # Spotify secret can change after refresh
+      - name: Update Spotify secret from file
+        uses: actions/github-script@v6
+        if: matrix.service == 'spotify'
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const tokenFile = path.join(process.env.PSYNC_CONFIG_DIR, 'spotify_token.json');
+            let tokenContent;
+
+            try {
+              tokenContent = fs.readFileSync(tokenFile, 'utf8');
+              if (!tokenContent) throw new Error('Token file is empty');
+            } catch (err) {
+              core.setFailed(`Failed to read Spotify token file: ${err.message}`);
+              return;
+            }
+
+            // GitHub expects base64-encoded value for encrypted_value
+            const encryptedValue = Buffer.from(tokenContent).toString('base64');
+
+            try {
+              await github.rest.actions.createOrUpdateRepoSecret({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                secret_name: 'SPOTIFY_TOKEN_JSON',
+                encrypted_value: encryptedValue
+              });
+              core.info('Successfully updated SPOTIFY_TOKEN_JSON secret');
+            } catch (err) {
+              core.setFailed(`Failed to update secret: ${err.message}`);
+            }
