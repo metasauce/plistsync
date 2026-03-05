@@ -195,7 +195,7 @@ class Track(ABC):
     def __eq__(self, other: object) -> bool:
         """Check if two tracks are equal based on their data."""
         if not isinstance(other, Track):
-            return NotImplemented
+            return False
 
         # TODO: Design choice:
         # when is a track from another serivce the same track?
