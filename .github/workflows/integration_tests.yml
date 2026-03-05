@@ -114,37 +114,22 @@ jobs:
           uv run pytest --nbmake --nbmake-timeout=600 docs/services/tidal/*.ipynb
 
       # Spotify secret can change after refresh
+      # https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-environment-secret--parameters
       - name: Update Spotify secret from file
-        uses: actions/github-script@v8
-        if: matrix.service == 'spotify'
-        with:
-          github-token: ${{ secrets.PAT_UPDATE_SECRETS }}
-          script: |
-            const fs = require('fs');
-            const path = require('path');
+        if: (success() || failure()) && matrix.service == 'spotify'
+        env:
+          GH_TOKEN: ${{ secrets.PAT_UPDATE_SECRETS }}
+        run: |
+          set -euo pipefail
 
-            const tokenFile = path.join(process.env.PSYNC_CONFIG_DIR, 'spotify_token.json');
-            let tokenContent;
+          TOKEN_FILE="$PSYNC_CONFIG_DIR/spotify_token.json"
+          if [[ ! -f "$TOKEN_FILE" ]]; then
+            echo "❌ Spotify token file not found at $TOKEN_FILE"
+            exit 1
+          fi
 
-            try {
-              tokenContent = fs.readFileSync(tokenFile, 'utf8');
-              if (!tokenContent) throw new Error('Token file is empty');
-            } catch (err) {
-              core.setFailed(`Failed to read Spotify token file: ${err.message}`);
-              return;
-            }
+          TOKEN_CONTENT=$(cat "$TOKEN_FILE")
 
-            // GitHub expects base64-encoded value for encrypted_value
-            const encryptedValue = Buffer.from(tokenContent).toString('base64');
-
-            try {
-              await github.rest.actions.createOrUpdateRepoSecret({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                secret_name: 'SPOTIFY_TOKEN_JSON',
-                encrypted_value: encryptedValue
-              });
-              core.info('Successfully updated SPOTIFY_TOKEN_JSON secret');
-            } catch (err) {
-              core.setFailed(`Failed to update secret: ${err.message}`);
-            }
+          # Python script to encode the secrets
+          uv pip install pynacl
+          uv run ./.github/workflows/update_secret.py metasauce plistsync integration_tests SPOTIFY_TOKEN_JSON "$TOKEN_CONTENT"
