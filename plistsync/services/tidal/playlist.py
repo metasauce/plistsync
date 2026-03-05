@@ -194,6 +194,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
         if self.id is None:
             raise ValueError("Playlist must be online to call remote delete!")
         self.api.playlist.delete(self.id)
+        self.data = self.info
 
     def _remote_insert_track(
         self,
