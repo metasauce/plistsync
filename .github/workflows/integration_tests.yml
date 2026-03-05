@@ -115,9 +115,10 @@ jobs:
 
       # Spotify secret can change after refresh
       - name: Update Spotify secret from file
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         if: matrix.service == 'spotify'
         with:
+          github-token: ${{ secrets.PAT_UPDATE_SECRETS }}
           script: |
             const fs = require('fs');
             const path = require('path');
