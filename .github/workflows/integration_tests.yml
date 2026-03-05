@@ -83,53 +83,46 @@ jobs:
             print(f"{path} = {mask(value)}")
           PY
 
-      - name: Setup Spotify token
-        if: matrix.service == 'spotify'
+      - name: Setup token
         env:
           SPOTIFY_TOKEN_JSON: ${{ secrets.SPOTIFY_TOKEN_JSON }}
-        run: |
-          mkdir -p $PSYNC_CONFIG_DIR
-          f="$PSYNC_CONFIG_DIR/spotify_token.json"
-          echo "$SPOTIFY_TOKEN_JSON" > "$f"
-          echo "bytes=$(wc -c < "$f" | tr -d ' ')"
-          sha256sum "$f" | awk '{print "sha256="$1}'
-      - name: Test spotify notebooks
-        if: matrix.service == 'spotify'
-        run: |
-          uv run pytest --nbmake --nbmake-timeout=600 docs/services/spotify/*.ipynb
-
-      - name: Setup Tidal token
-        if: matrix.service == 'tidal'
-        env:
           TIDAL_TOKEN_JSON: ${{ secrets.TIDAL_TOKEN_JSON }}
+          SERVICE: ${{ matrix.service }}
         run: |
-          mkdir -p $PSYNC_CONFIG_DIR
-          f="$PSYNC_CONFIG_DIR/tidal_token.json"
-          echo "$TIDAL_TOKEN_JSON" > "$f"
-          echo "bytes=$(wc -c < "$f" | tr -d ' ')"
-          sha256sum "$f" | awk '{print "sha256="$1}'
-      - name: Test tidal notebooks
-        if: matrix.service == 'tidal'
+          mkdir -p "$PSYNC_CONFIG_DIR"
+          TOKEN_VAR="${SERVICE^^}_TOKEN_JSON"
+          TOKEN_FILE="$PSYNC_CONFIG_DIR/${SERVICE}_token.json"
+
+          # Dynamically get value of $TOKEN_VAR (e.g., SPOTIFY_TOKEN_JSON)
+          TOKEN_VALUE="${!TOKEN_VAR}"
+
+          echo "$TOKEN_VALUE" > "$TOKEN_FILE"
+          echo "✅ Token written to $TOKEN_FILE"
+          echo "bytes=$(wc -c < "$TOKEN_FILE" | tr -d ' ')"
+          sha256sum "$TOKEN_FILE" | awk '{print "sha256="$1}'
+
+      - name: Test ${{ matrix.service }} notebooks
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 docs/services/tidal/*.ipynb
+          uv run pytest --nbmake --nbmake-timeout=600 docs/services/${{ matrix.service }}/*.ipynb
 
       # Spotify secret can change after refresh
       # https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-environment-secret--parameters
-      - name: Update Spotify secret from file
-        if: (success() || failure()) && matrix.service == 'spotify'
+      - name: Update ${{ matrix.service }} secret (if changed)
+        if: (success() || failure())
         env:
           GH_TOKEN: ${{ secrets.PAT_UPDATE_SECRETS }}
+          SERVICE: ${{ matrix.service }}
         run: |
           set -euo pipefail
 
-          TOKEN_FILE="$PSYNC_CONFIG_DIR/spotify_token.json"
-          if [[ ! -f "$TOKEN_FILE" ]]; then
-            echo "❌ Spotify token file not found at $TOKEN_FILE"
-            exit 1
-          fi
+          TOKEN_FILE="$PSYNC_CONFIG_DIR/${SERVICE}_token.json"
+          [[ -f "$TOKEN_FILE" ]] || { echo "❌ Token file missing: $TOKEN_FILE"; exit 1; }
 
-          TOKEN_CONTENT=$(cat "$TOKEN_FILE")
+          SECRET_NAME="${SERVICE^^}_TOKEN_JSON"
 
-          # Python script to encode the secrets
           uv pip install pynacl
-          uv run ./.github/workflows/update_secret.py metasauce plistsync integration_tests SPOTIFY_TOKEN_JSON "$TOKEN_CONTENT"
+          uv run ./.github/workflows/update_secret.py \
+            metasauce plistsync integration_tests "$SECRET_NAME" \
+            "$(cat "$TOKEN_FILE")"
+
+          echo "✅ Token $SECRET_NAME updated"
