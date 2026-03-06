@@ -136,7 +136,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
 
     # ---------------------------- Track lazy loading ---------------------------- #
 
-    def _refetch_tracks(self) -> None:
+    def _refetch_tracks(self) -> list[SpotifyPlaylistTrack]:
         """Refetch the tracks from the online playlist.
 
         Only works if the playlist is online.
@@ -148,6 +148,7 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
             SpotifyPlaylistTrack(item)
             for item in self.api.playlist._load_tracks(self.online_data[1])
         ]
+        return self._tracks
 
     @property
     def tracks(self) -> list[SpotifyPlaylistTrack]:
@@ -156,9 +157,8 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
         Might load them from the API if not already loaded.
         """
         if self._tracks is None:
-            self._refetch_tracks()
-
-        return self._tracks or []
+            return self._refetch_tracks()
+        return self._tracks
 
     @tracks.setter
     def tracks(self, value: list[SpotifyPlaylistTrack]) -> None:

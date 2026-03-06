@@ -82,7 +82,7 @@ jobs:
 
           failed=0
           for nb in "${notebooks[@]}"; do
-            if uv run nbstripout --verify "${nb}"; then
+            if uv run nbstripout --verify --keep-output "${nb}"; then
               echo "OK   ${nb}"
             else
               echo "FAIL ${nb}"

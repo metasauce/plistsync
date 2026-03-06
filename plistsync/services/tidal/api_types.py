@@ -162,7 +162,7 @@ class PlaylistsItemsMultiRelationshipDataDocument(TypedDict):
 
 
 class TrackRelationships(TypedDict):
-    album: MultiRelationshipDataDocument
+    albums: MultiRelationshipDataDocument
     artists: MultiRelationshipDataDocument
     credits: MultiRelationshipDataDocument
     genres: MultiRelationshipDataDocument

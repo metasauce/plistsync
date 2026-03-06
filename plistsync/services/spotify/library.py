@@ -1,6 +1,7 @@
 from collections.abc import Iterable
 from typing import overload
 
+from requests import HTTPError
 from typing_extensions import override
 
 from plistsync.core import GlobalTrackIDs
@@ -112,14 +113,15 @@ class SpotifyLibraryCollection(LibraryCollection[SpotifyTrack], GlobalLookup):
         if spotify_id := global_ids.get("spotify_id"):
             try:
                 return SpotifyTrack(self.api.track.get(spotify_id))
-            except Exception as e:
-                log.debug(f"Could not find track by spotify ID {spotify_id}: {e}")
+            except HTTPError as e:
+                if e.response.status_code == 404:
+                    log.debug(f"Could not find track by spotify ID {spotify_id}: {e}")
+                else:
+                    raise
 
         if isrc := global_ids.get("isrc"):
-            try:
-                return SpotifyTrack(self.api.track.get_by_isrc(isrc))
-            except Exception as e:
-                log.debug(f"Could not find track by ISRC {isrc}: {e}")
+            if data := self.api.track.get_by_isrc(isrc):
+                return SpotifyTrack(data)
 
         return None
 

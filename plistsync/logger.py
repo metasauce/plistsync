@@ -116,4 +116,4 @@ def rich_logging_handler(
     return handler
 
 
-init_logging()
+init_logging(Config() if Config.exists() else None)
