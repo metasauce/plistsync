@@ -115,8 +115,12 @@ class SpotifyApiSession(requests.Session):
             res.raise_for_status()
             return res
         except ExpiredAccessToken:
-            self._refresh_token()
-            return self.request(method, url, *args, **kwargs)
+            # Avoid leaking via ExpiredAccessToken by extra try with raise from None
+            try:
+                self._refresh_token()
+                return self.request(method, url, *args, **kwargs)
+            except Exception as e:
+                raise e from None
         except requests.HTTPError as e:
             # Handle rate limiting
             if e.response.status_code == 429:

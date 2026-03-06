@@ -59,8 +59,19 @@ class BearerToken:
         return self.token(*args, **kwargs)
 
     def __repr__(self):
+        def mask(k: str, v: Any):
+            if not k.endswith("_token"):
+                return v
+            try:
+                v_str = str(v)
+                if len(v_str) < 9:
+                    return "***"
+                return f"{v_str[:3]}...{v_str[-3:]}"
+            except Exception:
+                return v
+
         res = "BearerToken("
-        res += ", ".join([f"{k}={v}" for k, v in self.as_dict().items()])
+        res += ", ".join([f"{k}={mask(k, v)}" for k, v in self.as_dict().items()])
         return res + ")"
 
     def as_dict(self) -> dict[str, Any]:
