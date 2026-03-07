@@ -1,0 +1,131 @@
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  check_version:
+    runs-on: [self-hosted, linux]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Fetch full history to compare versions
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: |
+          uv sync
+          uv pip install toml
+      - name: Get current version from pyproject.toml
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(uv run python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+      - name: Get previous version (from Git tags)
+        id: previous_version
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LAST_TAG" ]; then
+            PREV_VERSION=$(echo "$LAST_TAG" | sed 's/^v//')
+            echo "previous_version=$PREV_VERSION" >> $GITHUB_OUTPUT
+            echo "Previous version: $PREV_VERSION"
+          else
+            echo "previous_version=" >> $GITHUB_OUTPUT
+            echo "No previous version found"
+          fi
+      - name: Check version change
+        id: version_changed
+        run: |
+          if [ "${{ steps.current_version.outputs.version }}" != "${{ steps.previous_version.outputs.previous_version }}" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Version changed → Release triggered"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "Version unchanged → Skipping release"
+          fi
+
+  create_tag:
+    runs-on: [self-hosted, linux]
+    needs: check_version
+    if: needs.check_version.outputs.changed == 'true'
+    steps:
+      - name: Create and push tag
+        run: |
+          TAG_NAME="v${{ needs.check_version.outputs.version }}"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+          echo "tag_name=$TAG_NAME"  >> $GITHUB_OUTPUT
+
+  build_and_publish:
+    runs-on: [self-hosted, linux]
+    needs: check_version
+    if: needs.check_version.outputs.changed == 'true'
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Build package
+        run: uv build
+      - name: Build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist/
+          retention-days: 7
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  create_release:
+    runs-on: [self-hosted, linux]
+    needs: [create_tag, build_and_publish, check_version]
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-artifacts
+          path: dist/
+      - name: Get changelog entry
+        id: changelog
+        env:
+          CURRENT_VERSION: ${{ steps.check_version.outputs.version }}
+        run: |
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            NOTES=$(awk -v version="$CURRENT_VERSION" '
+              BEGIN { in_section=0 }
+              /^## / {
+                if (in_section) exit
+                if ($0 ~ version) { in_section=1; next }
+              }
+              in_section { print }
+            ' CHANGELOG.md)
+          fi
+          echo "changelog=$NOTES"  >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ needs.check_version.outputs.version }}
+          tag_name: v${{ needs.changelog.outputs.changelog }}
+          body: |
+            {{ steps.current_version.outputs.version }}
+
+            📦 **PyPI**: https://pypi.org/project/plistsync/${{ needs.check_version.outputs.version }}/
+
+            📁 **Artifacts**:
+            - sdist: `plistsync-${{ needs.check_version.outputs.version }}.tar.gz`
+            - wheel: `plistsync-${{ needs.check_version.outputs.version }}-py3-none-any.whl`
+          files: |
+            dist/plistsync-${{ needs.check_version.outputs.version }}.tar.gz
+            dist/plistsync-${{ needs.check_version.outputs.version }}-py3-none-any.whl
