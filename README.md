@@ -1,8 +1,10 @@
 [![Python checks](https://github.com/metasauce/plistsync/actions/workflows/python.yml/badge.svg?branch=main)](https://github.com/metasauce/plistsync/actions/workflows/python.yml)
 
+
 <p align="center">
     <h1 align="center">plistsync</h1>
 </p>
+
 
 <p align="center">
     <em><b>
@@ -13,8 +15,9 @@ Toolbox for transferring, converting and matching music collections and playlist
 </p>
 
 <p align="center">
-    <img src="./docs/_static/icon_ven.png" alt="plistsync logo" width="200" align="center">
+<img  src="./docs/_static/v2/ios_squircle.webp" alt="plistsync logo" width="80" align="center">
 </p>
+
 
 ## Overview
 
