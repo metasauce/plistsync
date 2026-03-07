@@ -93,7 +93,7 @@ html_css_files = [
     "css/custom.css",
 ]
 
-html_logo = "./_static/icon_ven_small.png"
+html_logo = "./_static/v2/ios_squircle_512.webp"
 
 
 # -- custom auto_summary() macro ---------------------------------------------
