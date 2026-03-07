@@ -7,6 +7,10 @@ on:
 jobs:
   check_version:
     runs-on: [self-hosted, linux]
+    outputs:
+      current_version: ${{ steps.current_version.outputs.current_version }}
+      previous_version: ${{ steps.previous_version.outputs.previous_version }}
+      version_changed: ${{ steps.version_changed.outputs.version_changed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -24,7 +28,7 @@ jobs:
         id: current_version
         run: |
           CURRENT_VERSION=$(uv run python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
-          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "Current version: $CURRENT_VERSION"
       - name: Get previous version (from Git tags)
         id: previous_version
@@ -41,30 +45,32 @@ jobs:
       - name: Check version change
         id: version_changed
         run: |
-          if [ "${{ steps.current_version.outputs.version }}" != "${{ steps.previous_version.outputs.previous_version }}" ]; then
-            echo "changed=true" >> $GITHUB_OUTPUT
+          if [ "${{ steps.current_version.outputs.current_version }}" != "${{ steps.previous_version.outputs.previous_version }}" ]; then
+            echo "version_changed=true" >> $GITHUB_OUTPUT
             echo "Version changed → Release triggered"
           else
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "version_changed=false" >> $GITHUB_OUTPUT
             echo "Version unchanged → Skipping release"
           fi
-
   create_tag:
     runs-on: [self-hosted, linux]
     needs: check_version
-    if: needs.check_version.outputs.changed == 'true'
+    permissions:
+      contents: write
+    if: needs.check_version.outputs.version_changed == 'true'
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Fetch full history to compare versions
       - name: Create and push tag
-        run: |
-          TAG_NAME="v${{ needs.check_version.outputs.version }}"
-          git tag "$TAG_NAME"
-          git push origin "$TAG_NAME"
-          echo "tag_name=$TAG_NAME"  >> $GITHUB_OUTPUT
-
+        uses: EndBug/latest-tag@latest
+        with:
+          ref: "v${{ needs.check_version.outputs.current_version }}"
   build_and_publish:
     runs-on: [self-hosted, linux]
     needs: check_version
-    if: needs.check_version.outputs.changed == 'true'
+    if: needs.check_version.outputs.version_changed == 'true'
     permissions:
       id-token: write
       contents: write
@@ -84,8 +90,7 @@ jobs:
           path: dist/
           retention-days: 7
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
+        run: uv publish
   create_release:
     runs-on: [self-hosted, linux]
     needs: [create_tag, build_and_publish, check_version]
@@ -98,7 +103,7 @@ jobs:
       - name: Get changelog entry
         id: changelog
         env:
-          CURRENT_VERSION: ${{ steps.check_version.outputs.version }}
+          CURRENT_VERSION: ${{ steps.check_version.outputs.current_version }}
         run: |
           NOTES=""
           if [ -f CHANGELOG.md ]; then
@@ -116,16 +121,16 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Release ${{ needs.check_version.outputs.version }}
-          tag_name: v${{ needs.changelog.outputs.changelog }}
+          name: Release ${{ needs.check_version.outputs.current_version }}
+          tag_name: v${{ needs.check_version.outputs.current_version }}
           body: |
-            {{ steps.current_version.outputs.version }}
+            {{ steps.changelog.outputs.changelog }}
 
-            📦 **PyPI**: https://pypi.org/project/plistsync/${{ needs.check_version.outputs.version }}/
+            📦 **PyPI**: https://pypi.org/project/plistsync/${{ needs.check_version.outputs.current_version }}/
 
             📁 **Artifacts**:
-            - sdist: `plistsync-${{ needs.check_version.outputs.version }}.tar.gz`
-            - wheel: `plistsync-${{ needs.check_version.outputs.version }}-py3-none-any.whl`
+            - sdist: `plistsync-${{ needs.check_version.outputs.current_version }}.tar.gz`
+            - wheel: `plistsync-${{ needs.check_version.outputs.current_version }}-py3-none-any.whl`
           files: |
-            dist/plistsync-${{ needs.check_version.outputs.version }}.tar.gz
-            dist/plistsync-${{ needs.check_version.outputs.version }}-py3-none-any.whl
+            dist/plistsync-${{ needs.check_version.outputs.current_version }}.tar.gz
+            dist/plistsync-${{ needs.check_version.outputs.current_version }}-py3-none-any.whl

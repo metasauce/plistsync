@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Upcoming
+## [0.4.0] - 2026-03-07
 
 ### Added
 
@@ -18,11 +18,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   2. Global directory: User's config folder (automatic fallback)
 - Verify jupyter notebooks are runnable and output via [nbmake](https://github.com/treebeardtech/nbmake)
 - Added configurable logging (`logging.handler`: `rich|basic`), improved CLI verbosity (`-v`) behavior and documented advanced logging.
+- Renewed icon
+- Added integration tests that use github secrets for tidal and spotify auth, and config yaml
+- Added check for notebook consistency via nbmake
 
 ### Changed
 
 - Traktor playlist `NMLPlaylistCollection` is now aligned with the `PlaylistCollection` protocol
 - Enhanced typing for `Matches` class and collection protocols by using a TypeVar for Tracks.
+- Nbstripout keeps outputs now
 
 ## [0.3.0] - 2026-02-16
 
