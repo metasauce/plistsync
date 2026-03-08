@@ -98,6 +98,7 @@ jobs:
 
           echo "$TOKEN_VALUE" > "$TOKEN_FILE"
           echo "✅ Token written to $TOKEN_FILE"
+
       - name: Compute token checksum
         id: old_sha
         env:
@@ -107,15 +108,26 @@ jobs:
           SHA=$(sha256sum "$TOKEN_FILE" | awk '{print $1}')
           echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "Token Checksum: $SHA"
+
       - name: Test ${{ matrix.service }} notebooks
+        id: nbmake_tests
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --log-cli-level=DEBUG docs/services/${{ matrix.service }}/*.ipynb
+          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --log-cli-level=DEBUG --overwrite docs/services/${{ matrix.service }}/*.ipynb
           cd $PSYNC_CONFIG_DIR
           ls -lah
 
+      - name: Upload executed notebooks on failure (${{ matrix.service }})
+        if: failure() && steps.nbmake_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbmake-notebooks-${{ matrix.service }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: docs/services/${{ matrix.service }}/*.ipynb
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Compute token checksum (updated)
         id: new_sha
-        if: always()
+        if: failure() || success()
         env:
           SERVICE: ${{ matrix.service }}
         run: |
@@ -126,6 +138,7 @@ jobs:
           SHA=$(sha256sum "$TOKEN_FILE" | awk '{print $1}')
           echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "Token Checksum: $SHA"
+
       # Spotify secret can change after refresh
       # https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-environment-secret--parameters
       - name: Update ${{ matrix.service }} secret (if changed)
