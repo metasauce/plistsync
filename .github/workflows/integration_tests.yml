@@ -112,9 +112,7 @@ jobs:
       - name: Test ${{ matrix.service }} notebooks
         id: nbmake_tests
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --log-cli-level=DEBUG --overwrite docs/services/${{ matrix.service }}/*.ipynb
-          cd $PSYNC_CONFIG_DIR
-          ls -lah
+          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --overwrite docs/services/${{ matrix.service }}/*.ipynb
 
       - name: Upload executed notebooks on failure (${{ matrix.service }})
         if: failure() && steps.nbmake_tests.outcome == 'failure'
@@ -131,9 +129,6 @@ jobs:
         env:
           SERVICE: ${{ matrix.service }}
         run: |
-          cd $PSYNC_CONFIG_DIR
-          ls -lah
-
           TOKEN_FILE="$PSYNC_CONFIG_DIR/${SERVICE}_token.json"
           SHA=$(sha256sum "$TOKEN_FILE" | awk '{print $1}')
           echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
