@@ -17,7 +17,10 @@ transcode_playlist.ipynb
 
 ## Community showcase
 
-A curated list of community workflows and scripts built around `plistsync`.
+A curated list of community workflows and scripts built around `plistsync` can be found in [`examples/community`](https://github.com/metasauce/plistsync/tree/main/examples/community)
+
+Current examples:
+- Sync Traktor and Plex (only inserting, both ways, no deletion) [link](https://github.com/metasauce/plistsync/tree/main/examples/community/plex_traktor_bidirectional.py)
 
 ```{note} Want to be featured?
 Open a PR adding your project/script here with a short description and a link.

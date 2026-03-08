@@ -46,9 +46,8 @@ def main(
         assert pl_plex is not None, "Playlist not found"
 
         # Get or create playlist in traktor
-        try:
-            traktor_playlist = traktor_library.get_playlist(name=pl_plex.name)
-        except ValueError:
+        traktor_playlist = traktor_library.get_playlist(name=pl_plex.name)
+        if traktor_playlist is None:
             traktor_playlist = NMLPlaylistCollection(
                 traktor_library,
                 pl_plex.name,
