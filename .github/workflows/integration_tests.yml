@@ -26,7 +26,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv sync --group test
-
       - name: Setup config yaml
         env:
           INTEGRATION_CONFIG_YAML: ${{ secrets.INTEGRATION_CONFIG_YAML }}
@@ -84,6 +83,7 @@ jobs:
           PY
 
       - name: Setup token
+        id: setup_token
         env:
           SPOTIFY_TOKEN_JSON: ${{ secrets.SPOTIFY_TOKEN_JSON }}
           TIDAL_TOKEN_JSON: ${{ secrets.TIDAL_TOKEN_JSON }}
@@ -98,17 +98,46 @@ jobs:
 
           echo "$TOKEN_VALUE" > "$TOKEN_FILE"
           echo "✅ Token written to $TOKEN_FILE"
-          echo "bytes=$(wc -c < "$TOKEN_FILE" | tr -d ' ')"
-          sha256sum "$TOKEN_FILE" | awk '{print "sha256="$1}'
+
+      - name: Compute token checksum
+        id: old_sha
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          TOKEN_FILE="$PSYNC_CONFIG_DIR/${SERVICE}_token.json"
+          SHA=$(sha256sum "$TOKEN_FILE" | awk '{print $1}')
+          echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Token Checksum: $SHA"
 
       - name: Test ${{ matrix.service }} notebooks
+        id: nbmake_tests
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 docs/services/${{ matrix.service }}/*.ipynb
+          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --overwrite docs/services/${{ matrix.service }}/*.ipynb
+
+      - name: Upload executed notebooks on failure (${{ matrix.service }})
+        if: failure() && steps.nbmake_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nbmake-notebooks-${{ matrix.service }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: docs/services/${{ matrix.service }}/*.ipynb
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Compute token checksum (updated)
+        id: new_sha
+        if: failure() || success()
+        env:
+          SERVICE: ${{ matrix.service }}
+        run: |
+          TOKEN_FILE="$PSYNC_CONFIG_DIR/${SERVICE}_token.json"
+          SHA=$(sha256sum "$TOKEN_FILE" | awk '{print $1}')
+          echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Token Checksum: $SHA"
 
       # Spotify secret can change after refresh
       # https://docs.github.com/en/rest/actions/secrets?apiVersion=2022-11-28#create-or-update-an-environment-secret--parameters
       - name: Update ${{ matrix.service }} secret (if changed)
-        if: (success() || failure())
+        if: steps.old_sha.outputs.token_sha != steps.new_sha.outputs.token_sha
         env:
           GH_TOKEN: ${{ secrets.PAT_UPDATE_SECRETS }}
           SERVICE: ${{ matrix.service }}
