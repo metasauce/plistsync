@@ -98,6 +98,43 @@ class TestNMLCollection(LibraryCollectionTestBase):
         track = collection.find_by_local_ids({})
         assert track is None
 
+    def test_write_creates_backup_when_enabled(
+        self, tmp_path, collection: NMLLibraryCollection
+    ):
+        """Test that backup file is created when backup=True"""
+        # Temporarily point to a test file in tmp_path to avoid modifying test data
+        import shutil
+
+        test_nml = tmp_path / "collection.nml"
+        shutil.copy(collection.path, test_nml)
+
+        # Create a new collection instance from the copied file
+        test_collection = NMLLibraryCollection(test_nml)
+
+        # Ensure backup is enabled (default behavior)
+        test_collection.write(backup=True)
+
+        # Check that a .bak file was created
+        bak_files = list(test_nml.parent.glob(f"{test_nml.stem}*.bak"))
+        assert len(bak_files) == 1, "Expected exactly one backup file"
+        assert bak_files[0].exists()
+
+    def test_write_skips_backup_when_disabled(
+        self, tmp_path, collection: NMLLibraryCollection
+    ):
+        """Test that no backup is created when backup=False"""
+        import shutil
+
+        test_nml = tmp_path / "collection.nml"
+        shutil.copy(collection.path, test_nml)
+
+        test_collection = NMLLibraryCollection(test_nml)
+
+        test_collection.write(backup=False)
+
+        bak_files = list(test_nml.parent.glob(f"{test_nml.stem}*.bak"))
+        assert len(bak_files) == 0, "No backup file should be created when backup=False"
+
 
 class TestNMLPlaylistUpsert:
     def test_upsert_new_playlist(self, collection: NMLLibraryCollection) -> None:

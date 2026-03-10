@@ -26,10 +26,13 @@ def plist_config(tmpdir_factory):
                 database: {tmp_dir}/beets.db
             plex:
                 enabled: true
-                default_server_url: http://localhost:32400
+                server_url: http://localhost:32400
             spotify:
                 enabled: true
                 client_id: 3b408bca2c3344dfa1cda1c7fa9adde4
+            traktor:
+                enabled: true
+                backup_before_write: false
         """,
         encoding="utf-8",
     )
