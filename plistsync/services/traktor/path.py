@@ -122,4 +122,4 @@ class NMLPath:
         return "/:".join(self._parts)
 
     def __repr__(self) -> str:
-        return f"TraktorPath[{str(self)}, {hash(self)}]"
+        return f"{type(self).__name__}(path={str(self)!r})"

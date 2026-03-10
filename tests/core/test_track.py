@@ -161,26 +161,20 @@ class TestTrack:
         assert "local_ids.beets_id" in diffs
         assert diffs["local_ids.beets_id"] == (None, 42)
 
-    def test_track_repr(self):
+    @pytest.mark.parametrize(
+        ["title", "artists", "expected_repr"],
+        [
+            ("Song", ["Artist"], "Track(artist='Artist', title='Song')"),
+            ("Song", [], "Track(artist='?', title='Song')"),
+            ("", ["Artist"], "Track(artist='Artist', title='?')"),
+            ("", [], "Track(artist='?', title='?')"),
+            (None, [], "Track(artist='?', title='?')"),
+        ],
+    )
+    def test_repr(self, title, artists, expected_repr):
         """Test the string representation of a track."""
-        track = MockTrack(title="Test Song", artists=["Test Artist"])
-        repr_str = repr(track)
-
-        assert "Track[" in repr_str
-        assert "Test Artist" in repr_str
-        assert "Test Song" in repr_str
-        # Should include the hash
-        assert str(hash(track)) in repr_str
-
-    def test_track_repr_no_artist(self):
-        """Test repr when track has no artist."""
-        track = MockTrack(title="Song Without Artist", artists=[])
-        repr_str = repr(track)
-
-        assert "Track[" in repr_str
-        assert "Song Without Artist" in repr_str
-        # Should handle None primary_artist gracefully
-        assert "None" in repr_str or " > " in repr_str
+        repr_str = repr(MockTrack(title=title, artists=artists))
+        assert expected_repr in repr_str
 
     def test_mock_track_serialize_deserialize(self):
         """Test MockTrack serialization and deserialization."""
