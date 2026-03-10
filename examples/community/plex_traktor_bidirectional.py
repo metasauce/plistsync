@@ -1,9 +1,3 @@
-# ------------------------------------------------------------------------------ #
-# @Author:        F. Paul Spitzner
-# @Created:       2025-08-17 09:48:49
-# @Last Modified: 2026-03-08 18:45:07
-# -------------------------------------------------
-
 """
 Bidirectional sync between Plex and Traktor playlists.
 
@@ -66,7 +60,7 @@ def main(
             "Can only use 'plex_path_base' and 'traktor_path_base' together."
         )
     elif plex_path_base is None or traktor_path_base is None:
-        path_rewrite = PathRewrite.from_str("/", "/") # dummy
+        path_rewrite = PathRewrite.from_str("/", "/")  # dummy
     else:
         path_rewrite = PathRewrite.from_str(plex_path_base, traktor_path_base)
 
@@ -132,7 +126,7 @@ def main(
     with plex_playlist.remote_edit():
         for p in missing_in_plex:
             p_for_plex = path_rewrite.invert.apply(p)
-            plex_track = plex_library.find_by_local_ids({"file_path" : p_for_plex})
+            plex_track = plex_library.find_by_local_ids({"file_path": p_for_plex})
             if plex_track is None:
                 log.warning(f"Could not find track in plex: {str(p_for_plex)}")
             else:
@@ -141,6 +135,6 @@ def main(
     log.info("Sync complete.")
 
 
+main.__doc__ = __doc__  # use module docstring as help
 if __name__ == "__main__":
-    main.__doc__ = __doc__  # use moduel docstring as help
     typer.run(main)
