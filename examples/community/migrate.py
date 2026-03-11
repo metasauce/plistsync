@@ -61,6 +61,7 @@ def migrate(
         SpotifyPlaylistCollection | TidalPlaylistCollection,
     ] = {}
     existing_playlists_to_service = {pl.name: pl for pl in to_service.library.playlists}
+    # TODO: It would be nice to have a playlist picker here
     for from_playlist in from_service.library.playlists:
         # Get or create playlist with user feedback for overwrite
         to_playlist = existing_playlists_to_service.get(from_playlist.name)
@@ -102,16 +103,20 @@ def migrate(
             f"Found {len(list(filter(None, matched_tracks)))} of {len(matched_tracks)} "
             f"tracks on {to_service.name}."
         )
-        for from_track, to_track in zip(from_playlist.tracks, matched_tracks):
-            if to_track is None:
-                log.warning(
-                    f"Couldn't find '{from_track.title} - {from_track.primary_artist}' "
-                    f"on {to_service.name!r}"
-                )
-            else:
-                to_playlist.tracks.append(
-                    to_service.playlist_track(to_track),  # type: ignore[arg-type]
-                )
+        with to_playlist.remote_edit():
+            for from_track, to_track in zip(from_playlist.tracks, matched_tracks):
+                if to_track is None:
+                    log.warning(
+                        f"Couldn't find '{from_track.title} "
+                        f"- {from_track.primary_artist}' "
+                        f"on {to_service.name!r}"
+                    )
+                else:
+                    to_playlist.tracks.append(
+                        to_service.playlist_track(to_track),  # type: ignore[arg-type]
+                    )
+
+        log.info(f"Successfully migrated {from_playlist.name!r}.")
 
 
 service_mapping: dict[str, type[SpotifyService] | type[TidalService]] = {
