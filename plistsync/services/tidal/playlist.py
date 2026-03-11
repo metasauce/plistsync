@@ -199,29 +199,29 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     def _remote_insert_track(
         self,
         idx: int,
-        track: TidalPlaylistTrack,
-        live_list: list[TidalPlaylistTrack],
+        track: TidalPlaylistTrack | list[TidalPlaylistTrack],
+        tracks_before: list[TidalPlaylistTrack],
     ) -> None:
         if not self.id:
             raise ValueError("Id must be set to call remote insert!")
-        # Live list includes current operation
-        if idx + 1 >= len(live_list):
+        track_ids = [t.id for t in track] if isinstance(track, list) else [track.id]
+        if idx >= len(tracks_before):
             self.api.playlist.add_items(
                 playlist_id=self.id,
-                ids=[track.id],
+                ids=track_ids,
             )
         else:
             self.api.playlist.add_items(
                 playlist_id=self.id,
-                ids=[track.id],
-                position_before=live_list[idx + 1].item_id,
+                ids=track_ids,
+                position_before=tracks_before[idx].item_id,
             )
 
     def _remote_delete_track(
         self,
         idx: int,
         track: TidalPlaylistTrack,
-        live_list: list[TidalPlaylistTrack],
+        tracks_before: list[TidalPlaylistTrack],
     ) -> None:
         if not self.id:
             raise ValueError("Id must be set to call remote delete!")
