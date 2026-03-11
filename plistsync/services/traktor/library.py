@@ -46,7 +46,10 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
         self.tree = etree.parse(self.path)
 
     def write(self, backup: bool | None = None):
-        """Write the changes back to the NML file."""
+        """Write changes to NML file.
+
+        Creates backup if backup=True or config 'traktor.backup_before_write' enabled.
+        """
 
         if backup is None:
             traktor_config = Config().traktor
