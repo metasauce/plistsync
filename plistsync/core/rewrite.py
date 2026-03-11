@@ -56,3 +56,6 @@ class PathRewrite(NamedTuple):
     def invert(self) -> PathRewrite:
         """Invert the rewrite rule."""
         return PathRewrite(self.new, self.old)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(old='{str(self.old)}', new='{str(self.new)}')"

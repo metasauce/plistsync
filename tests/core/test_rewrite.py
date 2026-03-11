@@ -53,3 +53,8 @@ class TestPathRewrite:
         rewrite = PathRewrite.from_str("/old", "/new")
         with pytest.raises(AttributeError):
             rewrite.old = Path("/changed")  # type: ignore
+
+    def test_repr(self):
+        rewrite = PathRewrite.from_str("/source", "/dest")
+        repr_str = repr(rewrite)
+        assert repr_str == "PathRewrite(old='/source', new='/dest')"
