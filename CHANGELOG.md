@@ -5,12 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-
 ## Upcoming
 
 ### Added
 
 - Traktor config option `backup_before_write`, (true by default, creates a backup of the nml file before each write).
+
+### Changed
+
+- Unified `__repr__` format to ClassName(key=value)
 
 ## [0.4.0] - 2026-03-07
 
@@ -79,7 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tooling: Ruff target-version bumped from Python 3.10 to 3.11.
 - Test suite reorganization:
   - Beets and Traktor tests moved under `tests/services/...`; Traktor tests now skip cleanly when optional dependencies are missing.
-
 - Enhanced README, added LICENCE, reformatted CHANGELOG.
 
 ## [0.2.0] - 2025-10-30

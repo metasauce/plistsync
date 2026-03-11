@@ -223,9 +223,6 @@ class NMLPlaylistTrack(Track):
         """The path to the track file on disk."""
         return self.traktor_path.pure_path
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}[{self.path}]"
-
     # ------------------------------- Contracts ------------------------------ #
 
     @property

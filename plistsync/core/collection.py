@@ -404,3 +404,6 @@ class LibraryCollection(Generic[T, C], Collection[T]):
         Return ``None`` for name searches that fail.
         """
         ...
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}()"

@@ -105,9 +105,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         self.info = info
 
     def __repr__(self) -> str:
-        return (
-            f'{type(self).__name__} {hex(id(self))} ["{self.name}", {len(self)} tracks]'
-        )
+        return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
 
     # -------------------------------- Tracks -------------------------------- #
 

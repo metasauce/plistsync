@@ -220,4 +220,7 @@ class Track(ABC):
         return hash((info_hash, global_ids_hash, local_ids_hash))
 
     def __repr__(self) -> str:
-        return f"Track[{self.primary_artist} > {self.title}, hash: {hash(self)}]"
+        cls = type(self).__name__
+        artist = self.primary_artist or "?"
+        title = self.title or "?"
+        return f"{cls}(artist={artist!r}, title={title!r})"

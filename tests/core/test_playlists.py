@@ -123,6 +123,22 @@ class TestPlaylistCollection:
 
         assert pl.name == "foo"  # rollback
 
+    @pytest.mark.parametrize(
+        ["name", "n_tracks", "expected_repr"],
+        [
+            ("Name", 0, "Playlist(name='Name', tracks=0)"),
+            ("Name", 10, "Playlist(name='Name', tracks=10)"),
+        ],
+    )
+    def test_repr(self, make_playlist, name, n_tracks, expected_repr):
+        repr_str = repr(
+            make_playlist(
+                name=name,
+                ids=[i for i in range(n_tracks)],
+            )
+        )
+        assert expected_repr in repr_str
+
 
 class TestPlaylistRemoteLifecycle:
     def test_create(self, make_playlist) -> None:
