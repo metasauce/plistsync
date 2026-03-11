@@ -75,11 +75,20 @@ class SpotifyConfig(OptionalService):
 
 
 @dataclass
+class TraktorConfig(OptionalService):
+    backup_before_write: Annotated[
+        bool,
+        "Create a backup of the libraries nml file before every write.",
+    ] = field(default=True)
+
+
+@dataclass
 class ServicesConfig:
     beets: BeetsConfig | None = field(default_factory=lambda: BeetsConfig())
     plex: PlexConfig | None = field(default_factory=lambda: PlexConfig())
     tidal: TidalConfig | None = field(default_factory=lambda: TidalConfig())
     spotify: SpotifyConfig | None = field(default_factory=lambda: SpotifyConfig())
+    traktor: TraktorConfig | None = field(default_factory=lambda: TraktorConfig())
 
 
 @dataclass
@@ -210,6 +219,14 @@ class Config(EYConf[ConfigSchema]):
                 "'spotify' is not enabled or missing in the configuration."
             )
         return self.data.services.spotify
+
+    @property
+    def traktor(self) -> TraktorConfig:
+        if not self.data.services.traktor or not self.data.services.traktor.enabled:
+            raise ConfigurationError(
+                "'traktor' is not enabled or missing in the configuration."
+            )
+        return self.data.services.traktor
 
     @property
     def redirect_port(self) -> int:

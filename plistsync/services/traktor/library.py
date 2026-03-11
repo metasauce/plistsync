@@ -1,9 +1,12 @@
 from collections.abc import Iterable
+from datetime import datetime
 from pathlib import Path
+from shutil import copyfile
 from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
+from plistsync.config import Config
 from plistsync.core.collection import LibraryCollection, LocalLookup, TrackStream
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
@@ -42,8 +45,22 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
 
-    def write(self):
-        """Write the changes back to the NML file."""
+    def write(self, backup: bool | None = None):
+        """Write changes to NML file.
+
+        Creates backup if backup=True or config 'traktor.backup_before_write' enabled.
+        """
+
+        if backup is None:
+            traktor_config = Config().traktor
+            backup = traktor_config.backup_before_write
+
+        if backup:
+            nml_backup = self.path.with_suffix(
+                f".{datetime.now().strftime('%Y%m%d-%H%M%S')}.bak"
+            )
+            copyfile(self.path, nml_backup)
+
         self.tree.write(
             self.path,
             encoding="utf-8",

@@ -98,6 +98,22 @@ class TestNMLCollection(LibraryCollectionTestBase):
         track = collection.find_by_local_ids({})
         assert track is None
 
+    @pytest.mark.parametrize(
+        [
+            "backup",
+        ],
+        [(True,), (False,)],
+    )
+    def test_write_backup(
+        self,
+        collection: NMLLibraryCollection,
+        backup: bool,
+    ):
+        collection.write(backup=backup)
+        # Check that a .bak file was or was not created
+        bak_files = list(collection.path.parent.glob(f"{collection.path.stem}*.bak"))
+        assert len(bak_files) == int(backup)
+
 
 class TestNMLPlaylistUpsert:
     def test_upsert_new_playlist(self, collection: NMLLibraryCollection) -> None:
