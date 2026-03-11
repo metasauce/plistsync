@@ -195,7 +195,7 @@ class PlaylistApi:
         """Resolve the track pagination."""
         all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore[assignment]
 
-        next_page = data.get("next")
+        next_page = data.get("next", data["href"])
         if force:
             all_items = []
             next_page = data["href"]
@@ -656,7 +656,12 @@ class UserApi:
             ).json()
             simplified_playlists.extend(json_res.get("items", []))
             next_page = json_res.get("next", None)
-        return simplified_playlists
+
+        # for some reason the spotify api returns the same playlists
+        # twice on pagination borders...
+        # we need to dedupe here
+        ids_to_playlists = {p["id"]: p for p in simplified_playlists}
+        return list(ids_to_playlists.values())
 
     def _get_playlists_full(self) -> list[SpotifyApiPlaylistResponseFull]:
         """Get the current user's playlists with full details.
@@ -673,7 +678,11 @@ class UserApi:
             playlist_data = self.api.playlist.get(plist["id"])
             playlists_details.append(playlist_data)
 
-        return playlists_details
+        # for some reason the spotify api returns the same playlists
+        # twice on pagination borders...
+        # we need to dedupe here
+        ids_to_playlists = {p["id"]: p for p in playlists_details}
+        return list(ids_to_playlists.values())
 
 
 def extract_spotify_playlist_id(url_or_uri: str) -> str | None:

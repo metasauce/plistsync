@@ -120,7 +120,6 @@ class TidalApiSession(requests.Session):
         # we can add some max retry logic if this ever
         # is an issue
         try:
-            log.debug("Request: %s", url)
             res = super().request(
                 method,
                 url,
