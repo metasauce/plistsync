@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Traktor config option `backup_before_write`, (true by default, creates a backup of the nml file before each write).
 - `pyproject.toml` information updated (readme, license, authors, urls, classifiers).
+- Added support for batched remote operations, should allow to minify expensive network request.
 
 ### Changed
 

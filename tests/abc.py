@@ -463,6 +463,8 @@ class PlaylistCollectionTestBase(ABC):
         pl._apply_diff(before, after)
 
         pl._remote_update_metadata.assert_not_called()
-        pl._remote_insert_track.assert_called_once_with(0, t1, ANY)
+        pl._remote_insert_track.assert_called_once_with(
+            idx=0, track=[t1], tracks_before=ANY
+        )
         pl._remote_delete_track.assert_not_called()
         pl._remote_move_track.assert_not_called()

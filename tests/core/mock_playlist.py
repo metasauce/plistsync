@@ -24,11 +24,29 @@ class MockPlaylist(PlaylistCollection):
     def info(self, value: PlaylistInfo):
         self._info = value
 
-    def _remote_delete_track(self, idx: int, track, live_list) -> None:
-        self.log.append(("delete", idx, track))
+    def _remote_delete_track(
+        self,
+        idx: int,
+        track,
+        tracks_before,
+    ) -> None:
+        if isinstance(track, list):
+            for t in track:
+                self.log.append(("delete", idx, t))
+        else:
+            self.log.append(("delete", idx, track))
 
-    def _remote_insert_track(self, idx: int, track, live_list) -> None:
-        self.log.append(("insert", idx, track))
+    def _remote_insert_track(
+        self,
+        idx: int,
+        track,
+        tracks_before,
+    ) -> None:
+        if isinstance(track, list):
+            for t in track:
+                self.log.append(("insert", idx, t))
+        else:
+            self.log.append(("insert", idx, track))
 
     def _remote_update_metadata(
         self, new_name: str | None = None, new_description: str | None = None
