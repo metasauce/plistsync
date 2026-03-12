@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Traktor config option `backup_before_write`, (true by default, creates a backup of the nml file before each write).
+- `pyproject.toml` information updated (readme, license, authors, urls, classifiers).
 
 ### Changed
 
