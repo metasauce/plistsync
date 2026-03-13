@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Hashable
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, cast
 
 from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
 from plistsync.logger import log
@@ -220,20 +220,23 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
     def _remote_delete_track(
         self,
         idx: int,
-        track: TidalPlaylistTrack,
+        track: TidalPlaylistTrack | list[TidalPlaylistTrack],
         tracks_before: list[TidalPlaylistTrack],
     ) -> None:
         if not self.id:
             raise ValueError("Id must be set to call remote delete!")
 
+        if not isinstance(track, list):
+            track = [track]
+
         # Realistically this should never be unset if we want to remove the track
-        if not track.item_id:
+        if not all(t.item_id for t in track):
             raise ValueError("ItemID must be set in track should be removed!")
 
         # Deletion is done via itemId (unique in playlist)
         self.api.playlist.remove_items(
             playlist_id=self.id,
-            item_ids=[(track.id, track.item_id)],
+            item_ids=[(t.id, cast(str, t.item_id)) for t in track],
         )
 
     def _remote_update_metadata(

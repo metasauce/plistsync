@@ -214,13 +214,11 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
                     tracks_before=batch[0].list_before,
                 )
             elif isinstance(batch[0].op, DeleteOp):
-                # FIXME: Implement batched delete
-                for step in batch:
-                    self._remote_delete_track(
-                        idx=step.op.idx,  # type: ignore[attr-defined]
-                        track=step.op.item,
-                        tracks_before=step.list_before,
-                    )
+                self._remote_delete_track(
+                    idx=batch[0].op.idx,
+                    track=[step.op.item for step in batch],
+                    tracks_before=batch[0].list_before,
+                )
             elif isinstance(batch[0].op, MoveOp):
                 # Multi moves at the same time are quite ambiguous
                 for step in batch:
@@ -276,7 +274,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def _remote_delete_track(
         self,
         idx: int,
-        track: T,
+        track: T | list[T],
         tracks_before: list[T],
     ) -> None:
         """Delete track at index from remote service.
@@ -285,8 +283,8 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         ----------
         idx : int
             Zero-based index of track to delete
-        track : T
-            Track being deleted
+        track : T | list[T]
+            Track object(s) to delete
         tracks_before : list[T]
             List of all tracks in the playlist before deletion.
             We need this argument because the apis of some services do not use indices

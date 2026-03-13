@@ -211,12 +211,15 @@ class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
     def _remote_delete_track(
         self,
         idx: int,
-        track: SpotifyPlaylistTrack,
+        track: SpotifyPlaylistTrack | list[SpotifyPlaylistTrack],
         tracks_before: list[SpotifyPlaylistTrack],
     ):
         if not self.id:
             raise ValueError("Id must be set to call remote delete!")
-        self.api.playlist.remove_tracks(self.id, [track.uri], [idx])
+        track_uris = [t.uri for t in track] if isinstance(track, list) else [track.uri]
+        self.api.playlist.remove_tracks(
+            self.id, track_uris, [i for i in range(idx, idx - len(track_uris), -1)]
+        )
 
     def _remote_move_track(
         self,
