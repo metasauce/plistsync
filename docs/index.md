@@ -10,7 +10,7 @@ hide-toc: true
 ```
 
 ```{note}
-This documentation is very much a work in progress. If you have any questions or suggestions, please feel free to open an issue or a pull request.
+We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](contribution.md), improvements to both code and documentation are welcome!
 ```
 
 ## Features
