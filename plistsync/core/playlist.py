@@ -265,7 +265,10 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         track : T | list[T]
             Track object(s) to insert
         tracks_before : list[T]
-            List of tracks before changes applied.
+            List of all tracks in the playlist insert is applied.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         ...
 
@@ -285,7 +288,10 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         track : T
             Track being deleted
         tracks_before : list[T]
-            List of tracks before deletion.
+            List of all tracks in the playlist before deletion.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         ...
 
@@ -298,6 +304,9 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     ) -> None:
         """Move track from old_idx to new_idx remotely.
 
+        Does not support batch operations, since it would be unclear in which order
+        moves should be undertaken.
+
         Default: delete then insert. Subclasses may optimize.
 
         Parameters
@@ -308,8 +317,11 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
             Destination index
         track : T
             Track being moved
-        live_list : list[T]
-            List of tracks before move was applied.
+        tracks_before : list[T]
+            List of all tracks in the playlist before move was applied.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         # Remove from old position
         self._remote_delete_track(old_idx, track, tracks_before)

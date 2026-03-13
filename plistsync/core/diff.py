@@ -118,7 +118,19 @@ class Operations(Generic[T]):
 def batch_consecutive(
     ops: Iterable[Step[T]],
 ) -> Iterator[list[Step[T]]]:
-    """Yield batches of consecutive operations of the same type."""
+    """
+    Yield batches of consecutive operations of the same type.
+
+    - Consecutive inserts -> single batch
+    - Non-consecutive inserts -> separate batches
+    - Consecutive deletes -> single batch
+    - Different types -> separate batches
+    - Moves -> each in own batch
+
+    Note:
+    This is optimized for common api support, e.g. spotify and tidal only support
+    batch operations for consecutive indices
+    """
     ops = list(ops)
     if not ops:
         return
