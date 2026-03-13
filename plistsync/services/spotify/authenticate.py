@@ -15,11 +15,6 @@ from plistsync.logger import log
 from plistsync.utils import build_url
 from plistsync.utils.auth.bearer_token import BearerToken
 
-spotify_cli = typer.Typer(
-    rich_markup_mode="rich", help="Interact with Spotify.", add_completion=False
-)
-
-
 SCOPES = " ".join(
     [
         "playlist-read-private",
@@ -30,7 +25,6 @@ SCOPES = " ".join(
 )
 
 
-@spotify_cli.command()
 def auth(
     mode: Literal["forward", "manual"] = typer.Option(
         "forward",
