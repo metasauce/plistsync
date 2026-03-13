@@ -34,6 +34,8 @@ We encourage early adopters to:
 
 - Unified `__repr__` format across all core classes to `ClassName(key=value)` for consistent, debug-friendly output.
 - Standardized `get_playlist()` behavior across all services: now consistently returns `None` when no playlist is found, regardless of the lookup identifier used. Introduced `get_playlist_or_raise()` for predictable, exception-raising behavior when a playlist _must_ exist.
+- Auth commands are now available via `plistsync auth [service]` instead of `plistsync [service] auth`
+- Added `plistsync --version` command to show the currently installed version of the library
 
 ## [0.4.0] - 2026-03-07
 
