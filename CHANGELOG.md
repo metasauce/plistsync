@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Unified `__repr__` format to ClassName(key=value)
+- For all services, the `get_playlist` method is now more consistent and always returns None if no playlist is found, independent of the used identifier. Added `get_playlist_or_raise` to get predictable behaviour and return Type.
 
 ## [0.4.0] - 2026-03-07
 

@@ -75,10 +75,10 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         ]
 
     @property
-    def unknown_playlists(self) -> list[tuple[str, str, bool]]:
+    def unknown_playlists(self) -> list[tuple[str, str]]:
         return [
-            ("name", "Unknown Playlist", False),
-            ("name", "Another Unknown Playlist", False),
+            ("name", "Unknown Playlist"),
+            ("name", "Another Unknown Playlist"),
         ]
 
     def test_preload(self):

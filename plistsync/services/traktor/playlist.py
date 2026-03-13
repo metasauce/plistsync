@@ -211,11 +211,10 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
 
     @property
     def remote_associated(self) -> bool:
-        try:
-            self.library._get_playlist_root_node_by_uuid(self.uuid)
-            return True
-        except ValueError:
+        root_node = self.library._get_playlist_root_node_by_uuid(self.uuid)
+        if root_node is None:
             return False
+        return True
 
     def remote_upsert(self):
         """Insert or replace a playlist node in this NML library.

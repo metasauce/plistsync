@@ -84,18 +84,16 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
     def get_playlist(self, *, name: str) -> NMLPlaylistCollection: ...
 
     @overload
-    def get_playlist(self, *, uuid: str) -> NMLPlaylistCollection: ...
+    def get_playlist(self, *, uuid: str) -> NMLPlaylistCollection | None: ...
 
     def get_playlist(
         self,
         name: str | None = None,
         uuid: str | None = None,
-        # path: str | Path | None = None,
-    ) -> NMLPlaylistCollection:
+    ) -> NMLPlaylistCollection | None:
         """Get a specific playlist.
 
-        One of the kwargs must be given. Either search
-        by name or get by uuid.
+        Exactly one of the kwargs must be given. Either search by name or by uuid.
 
         Will raise if not found!
         """
@@ -116,7 +114,7 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
         nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
         return nodes
 
-    def _get_playlist_root_node_by_uuid(self, uuid: str) -> "_Element":
+    def _get_playlist_root_node_by_uuid(self, uuid: str) -> _Element | None:
         """Get a playlist by uuid."""
 
         node = self.tree.xpath(
@@ -125,7 +123,7 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
         if len(node) > 0:
             return node[0]
         else:
-            raise ValueError(f"Playlist '{uuid}' not found!")
+            return None
 
     def _get_playlist_root_node_by_name(self, name: str) -> "_Element":
         node = self.tree.xpath(

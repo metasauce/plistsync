@@ -401,9 +401,16 @@ class LibraryCollection(Generic[T, C], Collection[T]):
         """Get a playlist by identifier.
 
         Implement with kwargs like ``name=``, ``id=``, ``url=``, or ``uri=``.
-        Return ``None`` for name searches that fail.
+        Return ``None`` for searches that fail.
         """
         ...
+
+    def get_playlist_or_raise(self, *args, **kwargs) -> C:
+        """Like get_playlist() but raises if no result is found."""
+        playlist = self.get_playlist(*args, **kwargs)
+        if playlist is None:
+            raise ValueError(f"Could not find playlist for {kwargs}")
+        return playlist
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}()"

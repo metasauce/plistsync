@@ -652,7 +652,7 @@ class ConvertsApi:
                     return section_id
             raise ValueError(f"Library '{section_name_or_id}' not found.")
 
-    def playlist_name_to_id(self, playlist_name_or_id: str | int) -> int:
+    def playlist_name_to_id(self, playlist_name_or_id: str | int) -> int | None:
         """Resolve a playlist ID from a name or return the ID if already numeric."""
         try:
             playlist_id = int(playlist_name_or_id)
@@ -672,5 +672,6 @@ class ConvertsApi:
                     )
                     return playlist_id
 
-            raise ValueError(f"Playlist '{playlist_name_or_id}' not found.")
+            log.debug(f"Playlist '{playlist_name_or_id}' not found.")
+            return None
         return playlist_id

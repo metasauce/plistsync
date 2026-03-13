@@ -66,5 +66,5 @@ class TestExtractSpotifyId:
     )
     def test_invalid_inputs(self, invalid_input):
         """Test that invalid inputs raise ValueError."""
-        with pytest.raises(ValueError, match="Invalid Spotify playlist URL or URI"):
-            extract_spotify_playlist_id(invalid_input)
+        id = extract_spotify_playlist_id(invalid_input)
+        assert id is None
