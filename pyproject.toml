@@ -7,12 +7,32 @@ dependencies = [
     "requests>=2.32.5",
     "levenshtein>=0.27.3",
     "typer>=0.21.1",
-    "pip>=26.0.1",
     "typing-extensions>=4.15.0",
 ]
+description = "Toolbox for transferring, converting and matching music collections and playlists across services."
+readme = "README.md"
+license = "PolyForm-Noncommercial-1.0.0"
+authors = [
+    { name = "Sebastian B. Mohr", email = "sebastian@mohrenclan.de" },
+    { name = "F. Paul Spitzner", email = "github@makeitso.one" },
+]
+keywords = ["music", "playlists", "sync", "transfer", "conversion", "matching"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+Documentation = "https://docs.plistsync.com"
+Repository = "https://github.com/metasauce/plistsync.git"
+Issues = "https://github.com/metasauce/plistsync/issues"
+Changelog = "https://github.com/metasauce/plistsync/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
-# Service specific dependencies
 traktor = ["lxml>=6.0.2"]
 spotify = ["requests_oauth2client>=1.8.0"]
 tidal = ["requests_oauth2client>=1.8.0"]
@@ -21,7 +41,6 @@ beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
 
 [dependency-groups]
-# Dev dependencies
 dev = [
     { include-group = "lint" },
     { include-group = "test" },
@@ -29,7 +48,6 @@ dev = [
     { include-group = "typed" },
     "pre-commit>=4.5.1",
 ]
-
 lint = ["ruff>=0.14.11", "nbstripout>=0.9.1"]
 test = [
     "beets>=2.5.1",
@@ -70,6 +88,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["plistsync"]
+include = ["plistsync/py.typed"] 
 
 [tool.ruff]
 include = [
@@ -110,10 +129,7 @@ fixable = ["ALL"]
     "W",
     "E501", # long lines
 ]
-"**__main__.py" = ["D103"]
-
-# TODO: Reevaluate if we can remove benchmarks
-"**/tests/bench_readtags**" = ["ALL"]
+"**/__main__.py" = ["D103"]
 
 # ignore import order in init files
 # to allow dependency error handling
@@ -131,6 +147,10 @@ filterwarnings = ["error", "ignore::DeprecationWarning"]
 pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 
+[tool.coverage.run]
+branch = true
+source = ["plistsync"]
+
 [tool.coverage.report]
 omit = ["*/tests/*"]
 exclude_lines = ["if TYPE_CHECKING"]
@@ -140,8 +160,10 @@ exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true
+warn_unused_configs = true
 # We should enable these at some point
 # disallow_incomplete_defs = true
+# warn_return_any = true
 
 [[tool.mypy.overrides]]
 module = ["nest_asyncio.*"]
