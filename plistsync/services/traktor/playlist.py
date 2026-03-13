@@ -64,7 +64,7 @@ class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
             if s_name != name:
                 log.warning(
                     f"Playlist name changed from `{name}` to `{s_name}`"
-                    " issues with Traktor.",
+                    " to avoid issues with Traktor.",
                 )
             root_node = self._create_playlist_node(s_name)
         else:
