@@ -452,6 +452,8 @@ class PlaylistApi:
         """Remove track from playlist.
 
         pl_item_id is not just the ratingKey.
+
+        The plex rest api currently does not support batch deletion.
         """
         response = self.session.request(
             "DELETE",

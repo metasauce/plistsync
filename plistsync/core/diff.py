@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import bisect
+from abc import ABC
 from collections import Counter, defaultdict
-from collections.abc import Callable, Hashable, Iterator, Sequence
+from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Generic, TypeAlias, TypeVar
 
@@ -10,7 +11,15 @@ T = TypeVar("T")
 
 
 @dataclass(slots=True, frozen=True)
-class MoveOp(Generic[T]):
+class BaseOp(Generic[T], ABC):
+    """Base class for all diff operations."""
+
+    item: T
+    """The item involved in the operation."""
+
+
+@dataclass(slots=True, frozen=True)
+class MoveOp(BaseOp[T]):
     """Represents a move operation in a list diff."""
 
     old_idx: int
@@ -19,87 +28,138 @@ class MoveOp(Generic[T]):
     new_idx: int
     """The target index in the live list after the move."""
 
-    item: T
-    """The item to move."""
-
 
 @dataclass(slots=True, frozen=True)
-class InsertOp(Generic[T]):
+class InsertOp(BaseOp[T]):
     """Represents an insertion operation in a list diff."""
 
     idx: int
     """Live index at which the item should be inserted."""
 
-    item: T
-    """The item to insert into the list."""
-
 
 @dataclass(slots=True, frozen=True)
-class DeleteOp(Generic[T]):
+class DeleteOp(BaseOp[T]):
     """Represents a deletion operation in a list diff."""
 
     idx: int
     """Live index of the item to delete."""
 
-    item: T
-    """The item to remove from the list."""
+
+Op: TypeAlias = BaseOp[T]
 
 
-Ops: TypeAlias = InsertOp[T] | DeleteOp[T] | MoveOp[T]
+@dataclass(slots=True, frozen=True)
+class Step(Generic[T]):
+    """Represents a single operation applied to a list."""
+
+    op: Op[T]
+    """The single operation to apply."""
+
+    list_before: list[T]
+    """The list state before this operation was applied."""
+
+
+Ops: TypeAlias = MoveOp[T] | InsertOp[T] | DeleteOp[T]
 
 
 @dataclass
 class Operations(Generic[T]):
     """Container for a sequence of list diff operations."""
 
-    ops: list[InsertOp[T] | DeleteOp[T] | MoveOp[T]]
+    ops: list[Ops[T]]
     """List of operations to transform old_list into the target list."""
     old_list: list[T]
     """The original list before applying operations."""
 
-    def __iter__(self) -> Iterator[InsertOp[T] | DeleteOp[T] | MoveOp[T]]:
-        """Iterate operations with live list snapshots after each step."""
-        self._live_list = self.old_list[:]
-
+    def iter(self) -> Iterator[Step[T]]:
+        """Iterate operations as Step objects."""
+        # Yield each operation individually
+        working_list = self.old_list.copy()
         for op in self.ops:
-            if isinstance(op, MoveOp):
-                # Find the exact object to move
-                try:
-                    current_idx = next(
-                        i for i, v in enumerate(self._live_list) if v is op.item
-                    )
-                except StopIteration:
-                    continue  # already deleted
-                if current_idx == op.new_idx:
-                    continue  # already at target
-                val = self._live_list.pop(current_idx)
-                self._live_list.insert(op.new_idx, val)
-                yield op
+            list_before = working_list.copy()
+            if self._apply_op_to_list(op, working_list):
+                yield Step(op=op, list_before=list_before)
 
-            elif isinstance(op, InsertOp):
-                if op.idx < len(self._live_list) and self._live_list[op.idx] is op.item:
-                    continue  # already inserted
-                self._live_list.insert(op.idx, op.item)
-                yield op
+    def _apply_op_to_list(self, op: Ops[T], working_list: list[T]) -> bool:
+        """Apply operation to target list, returns whether operation was applied."""
+        if isinstance(op, MoveOp):
+            try:
+                current_idx = next(
+                    i for i, v in enumerate(working_list) if v is op.item
+                )
+            except StopIteration:
+                return False  # already deleted
+            if current_idx == op.new_idx:
+                return False  # already at target
 
-            elif isinstance(op, DeleteOp):
-                # Find the item by identity
-                try:
-                    current_idx = next(
-                        i for i, v in enumerate(self._live_list[:]) if v is op.item
-                    )
-                except StopIteration:
-                    continue  # already deleted
-                self._live_list.pop(current_idx)
-                yield op
+            val = working_list.pop(current_idx)
+            working_list.insert(op.new_idx, val)
 
-    def __getitem__(self, index: int) -> InsertOp[T] | DeleteOp[T] | MoveOp[T]:
+        elif isinstance(op, InsertOp):
+            if op.idx < len(working_list) and working_list[op.idx] is op.item:
+                return False  # already inserted
+            working_list.insert(op.idx, op.item)
+
+        elif isinstance(op, DeleteOp):
+            try:
+                current_idx = next(
+                    i for i, v in enumerate(working_list) if v is op.item
+                )
+            except StopIteration:
+                return False  # already deleted
+            working_list.pop(current_idx)
+
+        return True
+
+    def __getitem__(self, index: int) -> Op[T]:
         return self.ops[index]
 
-    @property
-    def live_list(self) -> list[T]:
-        """Current state of the list after all applied operations."""
-        return getattr(self, "_live_list", self.old_list[:])
+
+def batch_consecutive(
+    ops: Iterable[Step[T]],
+) -> Iterator[list[Step[T]]]:
+    """
+    Yield batches of consecutive operations of the same type.
+
+    - Consecutive inserts -> single batch
+    - Non-consecutive inserts -> separate batches
+    - Consecutive deletes -> single batch
+    - Different types -> separate batches
+    - Moves -> each in own batch
+
+    Note:
+    This is optimized for common api support, e.g. spotify and tidal only support
+    batch operations for consecutive indices
+    """
+    ops = list(ops)
+    if not ops:
+        return
+    batch = [ops[0]]
+    for step in ops[1:]:
+        prev_op = batch[-1].op
+        curr_op = step.op
+
+        # Different type -> new batch
+        if type(prev_op) is not type(curr_op):
+            yield batch
+            batch = [step]
+            continue
+
+        # Check consecutiveness
+        is_consecutive = False
+        if isinstance(prev_op, InsertOp) and isinstance(curr_op, InsertOp):
+            is_consecutive = curr_op.idx == prev_op.idx + 1
+        elif isinstance(prev_op, DeleteOp) and isinstance(curr_op, DeleteOp):
+            is_consecutive = curr_op.idx == prev_op.idx - 1
+
+        if is_consecutive:
+            batch.append(step)
+        else:
+            yield batch
+            batch = [step]
+
+    if batch:
+        yield batch
 
 
 def list_diff(
@@ -154,7 +214,7 @@ def list_diff(
     # Create DeleteOps in reverse order (largest idx first)
     ops: list[InsertOp[T] | DeleteOp[T] | MoveOp[T]] = []
     for idx in reversed(indices_to_delete):
-        ops.append(DeleteOp(idx, old[idx]))
+        ops.append(DeleteOp(item=old[idx], idx=idx))
 
     # Step 2: Match, insert missing items, and move to correct positions
     # Build mapping from hash to list of indices in live_list
@@ -186,7 +246,11 @@ def list_diff(
             # matched an existing item
             if matched_old_idx != target_idx:
                 ops.append(
-                    MoveOp(matched_old_idx, target_idx, live_list[matched_old_idx])
+                    MoveOp(
+                        old_idx=matched_old_idx,
+                        new_idx=target_idx,
+                        item=live_list[matched_old_idx],
+                    )
                 )
                 val = live_list.pop(matched_old_idx)
                 live_list.insert(target_idx, val)
@@ -201,11 +265,10 @@ def list_diff(
                     shift_indices(lst, target_idx, +1)
         else:
             # no matching old item -> insert
-            ops.append(InsertOp(target_idx, target_item))
+            ops.append(InsertOp(idx=target_idx, item=target_item))
             live_list.insert(target_idx, target_item)
             # shift unmatched indices >= target_idx
             shift_indices(unmatched_old_indices, target_idx, +1)
             for lst in hash_to_indices.values():
                 shift_indices(lst, target_idx, +1)
-
     return Operations(ops, list(old))

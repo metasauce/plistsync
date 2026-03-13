@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from typing import Generic, TypedDict
 
 from .collection import Collection, TrackStream, TypeVar
-from .diff import DeleteOp, InsertOp, MoveOp, list_diff
+from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
 
@@ -203,15 +203,31 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
             self._remote_update_metadata(new_name, new_description)
 
         operations = list_diff(before.tracks, after.tracks, hash_func=self._track_key)
-        for op in operations:
-            if isinstance(op, InsertOp):
-                self._remote_insert_track(op.idx, op.item, operations.live_list)
-            elif isinstance(op, DeleteOp):
-                self._remote_delete_track(op.idx, op.item, operations.live_list)
-            elif isinstance(op, MoveOp):
-                self._remote_move_track(
-                    op.old_idx, op.new_idx, op.item, operations.live_list
+        for batch in batch_consecutive(operations.iter()):
+            # Batch is always nonempty batch of operation
+            # including consecutive indexes
+            # we can use them here without worry
+            if isinstance(batch[0].op, InsertOp):
+                self._remote_insert_track(
+                    idx=batch[0].op.idx,
+                    track=[step.op.item for step in batch],
+                    tracks_before=batch[0].list_before,
                 )
+            elif isinstance(batch[0].op, DeleteOp):
+                self._remote_delete_track(
+                    idx=batch[0].op.idx,
+                    track=[step.op.item for step in batch],
+                    tracks_before=batch[0].list_before,
+                )
+            elif isinstance(batch[0].op, MoveOp):
+                # Multi moves at the same time are quite ambiguous
+                for step in batch:
+                    self._remote_move_track(
+                        old_idx=step.op.old_idx,  # type: ignore[attr-defined]
+                        new_idx=step.op.new_idx,  # type: ignore[attr-defined]
+                        track=step.op.item,
+                        tracks_before=step.list_before,
+                    )
 
     # ---------------------- Abstract remote operations ---------------------- #
 
@@ -235,8 +251,8 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def _remote_insert_track(
         self,
         idx: int,
-        track: T,
-        live_list: list[T],
+        track: T | list[T],
+        tracks_before: list[T],
     ) -> None:
         """Insert track at index on remote service.
 
@@ -244,10 +260,13 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         ----------
         idx : int
             Zero-based insertion index (0 <= idx <= current length)
-        track : T
-            Track object to insert
-        live_list : list[T]
-            Current live list
+        track : T | list[T]
+            Track object(s) to insert
+        tracks_before : list[T]
+            List of all tracks in the playlist insert is applied.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         ...
 
@@ -255,8 +274,8 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def _remote_delete_track(
         self,
         idx: int,
-        track: T,
-        live_list: list[T],
+        track: T | list[T],
+        tracks_before: list[T],
     ) -> None:
         """Delete track at index from remote service.
 
@@ -264,10 +283,13 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         ----------
         idx : int
             Zero-based index of track to delete
-        track : T
-            Track being deleted
-        live_list : list[T]
-            Current live list
+        track : T | list[T]
+            Track object(s) to delete
+        tracks_before : list[T]
+            List of all tracks in the playlist before deletion.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         ...
 
@@ -276,9 +298,12 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         old_idx: int,
         new_idx: int,
         track: T,
-        live_list: list[T],
+        tracks_before: list[T],
     ) -> None:
         """Move track from old_idx to new_idx remotely.
+
+        Does not support batch operations, since it would be unclear in which order
+        moves should be undertaken.
 
         Default: delete then insert. Subclasses may optimize.
 
@@ -290,16 +315,19 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
             Destination index
         track : T
             Track being moved
-        live_list : list[T]
-            Current live list
+        tracks_before : list[T]
+            List of all tracks in the playlist before move was applied.
+            We need this argument because the apis of some services do not use indices
+            to reference tracks in the playlist (therefore we need this as a helper
+            to work with old_ and nex_idx consistently across services)
         """
         # Remove from old position
-        self._remote_delete_track(old_idx, track, live_list)
-        live_list.pop(old_idx)
+        self._remote_delete_track(old_idx, track, tracks_before)
+        tracks_before.pop(old_idx)
         # Insert at new position (note: new_idx may have shifted due to pop)
         adjusted_new_idx = new_idx if new_idx > old_idx else new_idx
-        self._remote_insert_track(adjusted_new_idx, track, live_list)
-        live_list.insert(adjusted_new_idx, track)
+        self._remote_insert_track(adjusted_new_idx, track, tracks_before)
+        tracks_before.insert(adjusted_new_idx, track)
 
     @abstractmethod
     def _remote_update_metadata(

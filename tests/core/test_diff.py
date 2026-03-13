@@ -1,12 +1,18 @@
 import pytest
 
-from plistsync.core.diff import DeleteOp, InsertOp, MoveOp, Operations, list_diff
+from plistsync.core.diff import (
+    DeleteOp,
+    InsertOp,
+    MoveOp,
+    Operations,
+    batch_consecutive,
+    list_diff,
+)
 
 
 class TestPlaylistDiff:
-    """Test suif for the playlist_diff function."""
+    """Test suite for the playlist_diff function."""
 
-    # fmt: off
     @pytest.mark.parametrize(
         "old, new, expected",
         [
@@ -19,7 +25,7 @@ class TestPlaylistDiff:
             pytest.param([], ["B", "B"], [InsertOp(idx=0, item="B"), InsertOp(idx=1, item="B")], id="insert_two_duplicates"),
             pytest.param(["A"], ["A", "A"], [InsertOp(idx=1, item="A")], id="insert_duplicate_after"),
             pytest.param(["A", "B", "C"], ["A", "B", "B", "C"], [InsertOp(idx=2, item="B")], id="insert_duplicate_in_middle"),
-            # Delets
+            # Deletes
             pytest.param(["A"], [], [DeleteOp(idx=0, item="A")], id="delete_single"),
             pytest.param(["A", "A"], ["A"], [DeleteOp(idx=1, item="A")], id="delete_duplicate"),
             pytest.param(["A", "B", "C"], ["A", "C"], [DeleteOp(idx=1, item="B")], id="delete_middle"),
@@ -73,16 +79,20 @@ class TestPlaylistDiff:
                 [MoveOp(old_idx=1, new_idx=0, item="B")],
                 id="swap_two",
             ),
+       
         ],
-    )
+   
+    )  # fmt: skip
     def test_playlist_diff(self, old, new, expected):
         """Comprehensive test suite for playlist_diff."""
         ops = list_diff(old, new, lambda x: x)
-        assert list(ops) == expected, f"Expected {expected}, got {ops}"
+        applied_ops = [op.op for op in ops.iter()]
+        assert applied_ops == expected, f"Expected {expected}, got {ops}"
 
         # Verify round-trip
         playlist = old.copy()
-        for op in list(ops):
+        for step in ops.iter():
+            op = step.op
             if isinstance(op, DeleteOp):
                 # Remove the item at the index
                 playlist.pop(op.idx)
@@ -96,8 +106,6 @@ class TestPlaylistDiff:
             else:
                 raise ValueError(f"Unknown operation: {op}")
         assert playlist == new, f"Failed to reconstruct: {playlist} != {new}"
-
-    # fmt: on
 
     @pytest.mark.parametrize(
         "old, ops_list, expected_applied_ops",
@@ -140,7 +148,7 @@ class TestPlaylistDiff:
     def test_operations_redundant(self, old, ops_list, expected_applied_ops):
         """Test that Operations.__iter__ skips redundant or impossible actions."""
         ops = Operations(ops_list, old_list=old)
-        applied_ops = list(ops)
+        applied_ops = [op.op for op in ops.iter()]
         assert applied_ops == expected_applied_ops
 
     def test_operations_indexing(self):
@@ -154,3 +162,64 @@ class TestPlaylistDiff:
 
         for i, op in enumerate(ops.ops):
             assert ops[i] == op
+
+
+class TestBatchConsecutive:
+    @pytest.mark.parametrize(
+        ["old", "new", "expected_batches"],
+        [
+            # Consecutive inserts -> single batch
+            (
+                ["A", "B"],
+                ["A", "B", "C", "D"],
+                [
+                    [InsertOp("C", 2), InsertOp("D", 3)],
+                ],
+            ),
+            # Non-consecutive inserts -> separate batches
+            (
+                ["A", "B"],
+                ["A", "C", "B", "D"],
+                [
+                    [InsertOp("C", 1)],
+                    [InsertOp("D", 3)],
+                ],
+            ),
+            # Consecutive deletes -> single batch
+            (
+                ["A", "B", "C"],
+                [],
+                [
+                    [DeleteOp("C", 2), DeleteOp("B", 1), DeleteOp("A", 0)],
+                ],
+            ),
+            # Different types -> separate batches
+            (
+                ["A", "B", "C"],
+                ["A", "D", "C"],
+                [
+                    [DeleteOp("B", 1)],
+                    [InsertOp("D", 1)],
+                ],
+            ),
+            # Moves -> each in own batch
+            (
+                ["A", "B", "C"],
+                ["B", "A", "C"],
+                [
+                    [MoveOp(old_idx=1, new_idx=0, item="B")],
+                ],
+            ),
+            # No changes
+            (
+                ["A", "B"],
+                ["A", "B"],
+                [],
+            ),
+        ],
+    )
+    def test_batch(self, old, new, expected_batches):
+        ops = list_diff(old, new, lambda x: x)
+        batch_steps = list(batch_consecutive(ops.iter()))
+        batch_ops = list(map(lambda x: [i.op for i in x], batch_steps))
+        assert batch_ops == expected_batches

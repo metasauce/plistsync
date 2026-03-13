@@ -221,41 +221,57 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
     def _remote_insert_track(
         self,
         idx: int,
-        track: PlexTrack,
-        live_list: list[PlexTrack],
+        track: PlexTrack | list[PlexTrack],
+        tracks_before: list[PlexTrack],
     ) -> None:
-        log.debug(f"Inserting track {track.id} (idx {idx} ignored)")
         if self.id is None:
             raise ValueError("Playlist must be online to call remote insert!")
 
-        self.api.playlist.add_tracks(playlist_id=self.id, item_ids=[track.id])
+        if not isinstance(track, list):
+            track = [track]
+
+        self.api.playlist.add_tracks(
+            playlist_id=self.id, item_ids=[t.id for t in track]
+        )
         self._refetch_tracks()
 
         # we always insert at the end, move to the right spot
-        self._remote_move_track(-1, idx, track, live_list)
+        for i, t in enumerate(track):
+            self._remote_move_track(-1 - i, idx, t, tracks_before)
 
     def _remote_delete_track(
         self,
         idx: int,
-        track: PlexTrack,
-        live_list: list[PlexTrack],
+        track: PlexTrack | list[PlexTrack],
+        tracks_before: list[PlexTrack],
     ):
         """
         Delete Track from playlists.
 
         Plex does not allow duplicate items in playlists.
         """
-        log.debug(f"Deleting track {track.id} (idx {idx} ignored)")
         if self.id is None or not isinstance(self.data, PlexPlaylistOnlineData):
             raise ValueError("Playlist must be online to call remote delete!")
 
-        t_data = self.data.tracks_data[idx]
-        if not t_data.get("ratingKey") == track.id:
-            raise ValueError(f"Key mismatch for {idx=} vs {track=}")
+        if not isinstance(track, list):
+            track = [track]
 
-        # PS 2026-02-17: so it PlexPlaylistTrack does make sense, after all ...
-        pl_item_id = cast(int, t_data.get("playlistItemID", -1))
-        self.api.playlist.remove_track(self.id, pl_item_id)
+        for t in track:
+            t_data = None
+            for td in self.data.tracks_data:
+                if td.get("ratingKey") == t.id:
+                    t_data = td
+                    break
+
+            if t_data is None:
+                log.warning(
+                    f"Could not find track data for track id {t.id} in playlist. "
+                    "This should not happen, please consider opening an issue."
+                )
+                continue
+
+            pl_item_id = cast(int, t_data.get("playlistItemID", -1))
+            self.api.playlist.remove_track(self.id, pl_item_id)
         self._refetch_tracks()
 
     def _remote_move_track(
@@ -263,7 +279,7 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
         old_idx: int,
         new_idx: int,
         track: PlexTrack,
-        live_list: list[PlexTrack],
+        tracks_before: list[PlexTrack],
     ) -> None:
         """
         Move track in a playlist.
