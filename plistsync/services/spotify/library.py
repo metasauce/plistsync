@@ -2,7 +2,6 @@ from collections.abc import Iterable
 from typing import overload
 
 from requests import HTTPError
-from typing_extensions import override
 
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
@@ -46,17 +45,13 @@ class SpotifyLibraryCollection(LibraryCollection[SpotifyTrack], GlobalLookup):
 
     @overload
     def get_playlist(self, *, name: str) -> SpotifyPlaylistCollection | None: ...
-
     @overload
-    def get_playlist(self, *, id: str) -> SpotifyPlaylistCollection: ...
-
+    def get_playlist(self, *, id: str) -> SpotifyPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, url: str) -> SpotifyPlaylistCollection: ...
-
+    def get_playlist(self, *, url: str) -> SpotifyPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, uri: str) -> SpotifyPlaylistCollection: ...
+    def get_playlist(self, *, uri: str) -> SpotifyPlaylistCollection | None: ...
 
-    @override
     def get_playlist(
         self,
         name: str | None = None,
@@ -66,11 +61,9 @@ class SpotifyLibraryCollection(LibraryCollection[SpotifyTrack], GlobalLookup):
     ) -> SpotifyPlaylistCollection | None:
         """Get a specific playlist.
 
-        One of the kwargs must be given. Either search
-        by name or get by id/url/uri.
+        Exactly one of the kwargs must be given: name/id/url/uri.
 
-        Will raise on id/url/uri not found but return None if
-        search by name not found.
+        Returns None if not found.
         """
 
         if sum(arg is not None for arg in [name, id, url, uri]) != 1:
@@ -89,19 +82,19 @@ class SpotifyLibraryCollection(LibraryCollection[SpotifyTrack], GlobalLookup):
                     id = plist["id"]
                     break
 
-            if id is None:
-                # For searches we want to return None if not found
-                log.debug(f"Could not find playlist with name '{name}'")
-                return None
-
-        # This should never realistically happen -> assert instead of error
-        assert id is not None, "ID must be set after resolving name/url/uri"
+        if id is None:
+            log.debug(f"Could not find playlist for {name=} {uri=} {url=}")
+            return None
 
         #  Direct ID lookup (fastest path)
-        return SpotifyPlaylistCollection.from_response_data(
-            self,
-            self.api.playlist.get(id),
-        )
+        try:
+            return SpotifyPlaylistCollection.from_response_data(
+                self,
+                self.api.playlist.get(id),
+            )
+        except HTTPError as e:
+            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            return None
 
     # --------------------------- GlobalLookup protocol -------------------------- #
 

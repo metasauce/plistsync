@@ -41,8 +41,8 @@ class TestNMLCollection(LibraryCollectionTestBase):
     @property
     def unknown_playlists(self):
         return [
-            ("name", "unknown playlist", True),
-            ("uuid", "asdasdas", True),
+            ("name", "unknown playlist"),
+            ("uuid", "asdasdas"),
         ]
 
     def test_get_playlist_invalid_args(self, collection):
@@ -78,13 +78,13 @@ class TestNMLCollection(LibraryCollectionTestBase):
     def test_write_persists(self, collection: NMLLibraryCollection) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
-        p = collection.get_playlist(uuid="6868ecd66b354d37a33b965dae7a82e7")
+        p = collection.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
         p.name = new_name
         collection.write()
 
         # After reload should be persisteted!
         reloaded = NMLLibraryCollection(collection.path)
-        p2 = reloaded.get_playlist(uuid="6868ecd66b354d37a33b965dae7a82e7")
+        p2 = reloaded.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
     def test_find_by_local_ids(self, collection: NMLLibraryCollection):
@@ -124,7 +124,7 @@ class TestNMLPlaylistUpsert:
 
         assert len(list(collection._playlist_nodes())) == count_before + 1
         # and it's retrievable via public API
-        fetched = collection.get_playlist(uuid=pl_collection.uuid)
+        fetched = collection.get_playlist_or_raise(uuid=pl_collection.uuid)
         assert fetched.name == "New PL"
         assert fetched.uuid == pl_collection.uuid
 
@@ -172,6 +172,7 @@ class TestNMLPlaylistUpsert:
 
         # Grab the actual node currently in the tree
         old_node = collection._get_playlist_root_node_by_uuid(existing_uuid)
+        assert old_node is not None
         old_parent = old_node.getparent()
         assert old_parent is not None
         old_index = old_parent.index(old_node)
@@ -200,7 +201,7 @@ class TestNMLPlaylistUpsert:
         assert old_parent.index(new_node) == old_index
 
         # and public API returns the replaced playlist data
-        fetched = collection.get_playlist(uuid=existing_uuid)
+        fetched = collection.get_playlist_or_raise(uuid=existing_uuid)
         assert fetched.name == "Replaced Name"
         assert fetched.uuid == existing_uuid
 
@@ -241,7 +242,7 @@ class TestNMLPlaylistUpsert:
 
         assert not pl_collection.remote_associated
 
-        # Second delte should trigger value error
+        # Second delete should trigger value error
         with pytest.raises(ValueError):
             pl_collection.remote_delete()
 
@@ -374,7 +375,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         )
 
         with pytest.raises(ValueError):
-            collection.get_playlist(name="foo")
+            collection.get_playlist_or_raise(name="foo")
 
         p1.remote_create()
 

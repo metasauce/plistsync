@@ -185,12 +185,12 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
 
     @property
     @abstractmethod
-    def unknown_playlists(self) -> Iterable[tuple[str, Any, bool]]:
-        """Unknow playlist for lookup by [key, value, expect_raise].
+    def unknown_playlists(self) -> Iterable[tuple[str, Any]]:
+        """Unknow playlist for lookup by [key, value].
 
-        E.g. ["uri", "spotify:not_found",True]
-        will call get_playlist(uri="spotify:asdasdasd")
-        and expects it to raise!
+        E.g. ["uri", "spotify:not_found"]
+        will call get_playlist(uri="spotify:asdasdasd") -> check None
+        and get_playlist_or_raise(uri="spotify:asdasdasd") -> check raises
         """
 
         pass
@@ -214,15 +214,14 @@ class LibraryCollectionTestBase(CollectionTestBase, ABC):
     def test_get_playlist_unknown(self):
         """Test retrieval of unknown playlists by name or identifier."""
         for library_collection in self.create_collection():
-            for key, identifier, expect_raise in self.unknown_playlists:
-                if expect_raise:
-                    ctxm: Any = pytest.raises(ValueError)
-                else:
-                    ctxm = nullcontext()
+            for key, identifier in self.unknown_playlists:
+                playlist = library_collection.get_playlist(**{key: identifier})
+                assert playlist is None, "Unknown playlist should not be found"
 
-                with ctxm:
-                    playlist = library_collection.get_playlist(**{key: identifier})
-                    assert playlist is None, "Unknown playlist should not be found"
+                with pytest.raises(ValueError):
+                    playlist = library_collection.get_playlist_or_raise(
+                        **{key: identifier}
+                    )
 
 
 class PlaylistCollectionTestBase(ABC):

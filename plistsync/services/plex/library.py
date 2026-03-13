@@ -3,7 +3,7 @@ from functools import cached_property
 from pathlib import Path
 from typing import Any, overload
 
-from typing_extensions import override
+from requests import HTTPError
 
 from plistsync.core import GlobalTrackIDs, LibraryCollection, PathRewrite
 from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
@@ -84,11 +84,9 @@ class PlexLibrarySectionCollection(
 
     @overload
     def get_playlist(self, *, name: str) -> PlexPlaylistCollection | None: ...
-
     @overload
-    def get_playlist(self, *, id: int) -> PlexPlaylistCollection: ...
+    def get_playlist(self, *, id: int) -> PlexPlaylistCollection | None: ...
 
-    @override
     def get_playlist(
         self,
         name: str | None = None,
@@ -96,11 +94,10 @@ class PlexLibrarySectionCollection(
     ) -> PlexPlaylistCollection | None:
         """Get a specific playlist.
 
-        One of the kwargs must be given. Either search
-        by name or get by id (rating_key).
+        Exactly one of the kwargs must be given. Either search
+        by name or by id (rating_key).
 
-        Will raise on id not found but return None if
-        search by name not found.
+        Will return None if not found.
 
         Tracks are fetched eagerly.
         """
@@ -111,17 +108,17 @@ class PlexLibrarySectionCollection(
             id = self.api.converts.playlist_name_to_id(name)
 
         if id is None:
-            # For searches we want to return None if not found
-            log.debug(f"Could not find playlist with name '{name}'")
             return None
 
-        plist = PlexPlaylistCollection.from_response_data(
-            library=self,
-            playlist_data=self.api.playlist.get(id),
-            tracks_data=self.api.playlist.get_items(id),
-        )
-
-        return plist
+        try:
+            return PlexPlaylistCollection.from_response_data(
+                library=self,
+                playlist_data=self.api.playlist.get(id),
+                tracks_data=self.api.playlist.get_items(id),
+            )
+        except HTTPError as e:
+            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            return None
 
     @cached_property
     def locations(self) -> list[Path]:

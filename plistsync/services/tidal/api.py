@@ -802,7 +802,7 @@ def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:
     return {(item["type"], item["id"]): item for item in included}
 
 
-def extract_tidal_playlist_id(url: str) -> str:
+def extract_tidal_playlist_id(url: str) -> str | None:
     """Extract the Tidal playlist ID from a URL."""
     # Example URL formats:
     # https://tidal.com/browse/playlist/{playlist_id}
@@ -815,4 +815,5 @@ def extract_tidal_playlist_id(url: str) -> str:
     if match:
         return match.group(1)
     else:
-        raise ValueError(f"Invalid Tidal playlist URL: {url}")
+        log.debug(f"Invalid Tidal playlist URL: {url}")
+        return None

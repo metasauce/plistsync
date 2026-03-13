@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from datetime import datetime
 from pathlib import Path
@@ -14,7 +16,7 @@ from plistsync.logger import log
 from .path import NMLPath
 from .playlist import NMLPlaylistCollection
 from .track import NMLTrack
-from .utility import xpath_string_escape
+from .utility import sanitize_plist_name, xpath_string_escape
 
 if TYPE_CHECKING:
     from lxml.etree import _Element, _ElementTree
@@ -31,7 +33,7 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
     """
 
     path: Path
-    tree: "_ElementTree"
+    tree: _ElementTree
 
     def __init__(self, path: Path | str):
         if isinstance(path, str):
@@ -81,23 +83,21 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
             yield pl
 
     @overload
-    def get_playlist(self, *, name: str) -> NMLPlaylistCollection: ...
+    def get_playlist(self, *, name: str) -> NMLPlaylistCollection | None: ...
 
     @overload
-    def get_playlist(self, *, uuid: str) -> NMLPlaylistCollection: ...
+    def get_playlist(self, *, uuid: str) -> NMLPlaylistCollection | None: ...
 
     def get_playlist(
         self,
         name: str | None = None,
         uuid: str | None = None,
-        # path: str | Path | None = None,
-    ) -> NMLPlaylistCollection:
+    ) -> NMLPlaylistCollection | None:
         """Get a specific playlist.
 
-        One of the kwargs must be given. Either search
-        by name or get by uuid.
+        Exactly one of the kwargs must be given. Either search by name or by uuid.
 
-        Will raise if not found!
+        If Ids are not found this raises, but if names are not found it retuns None.
         """
         if sum(arg is not None for arg in [name, uuid]) != 1:
             raise ValueError("Exactly one of name or uuid must be provided")
@@ -106,17 +106,26 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
 
         if uuid is not None:
             root_node = self._get_playlist_root_node_by_uuid(uuid)
-        else:
-            root_node = self._get_playlist_root_node_by_name(name)  # type: ignore[arg-type]
+        elif name is not None:
+            s_name = sanitize_plist_name(name)
+            if s_name != name:
+                log.warning(
+                    f"Playlist name changed from `{name}` to `{s_name}`"
+                    " to avoid issues with Traktor.",
+                )
+            root_node = self._get_playlist_root_node_by_name(s_name)
+
+        if root_node is None:
+            return None
 
         return NMLPlaylistCollection(self, root_node)
 
-    def _playlist_nodes(self) -> "Iterable[_Element]":
+    def _playlist_nodes(self) -> Iterable[_Element]:
         """Get all playlists in the NML file."""
         nodes = self.tree.xpath(".//NODE[@TYPE='PLAYLIST']")
         return nodes
 
-    def _get_playlist_root_node_by_uuid(self, uuid: str) -> "_Element":
+    def _get_playlist_root_node_by_uuid(self, uuid: str) -> _Element | None:
         """Get a playlist by uuid."""
 
         node = self.tree.xpath(
@@ -125,16 +134,16 @@ class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
         if len(node) > 0:
             return node[0]
         else:
-            raise ValueError(f"Playlist '{uuid}' not found!")
+            return None
 
-    def _get_playlist_root_node_by_name(self, name: str) -> "_Element":
+    def _get_playlist_root_node_by_name(self, name: str) -> _Element | None:
         node = self.tree.xpath(
             f".//NODE[@TYPE='PLAYLIST'][@NAME={xpath_string_escape(name)}]"
         )
         if len(node) > 0:
             return node[0]
         else:
-            raise ValueError(f"Playlist '{name}' not found!")
+            return None
 
     # --------------------------- LocalLookup protocol --------------------------- #
 

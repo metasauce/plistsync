@@ -1,6 +1,8 @@
 from collections.abc import Iterable
 from typing import overload
 
+from requests import HTTPError
+
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
     GlobalLookup,
@@ -34,12 +36,10 @@ class TidalLibraryCollection(LibraryCollection[TidalTrack], GlobalLookup):
 
     @overload
     def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
-
     @overload
-    def get_playlist(self, *, id: str) -> TidalPlaylistCollection: ...
-
+    def get_playlist(self, *, id: str) -> TidalPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, url: str) -> TidalPlaylistCollection: ...
+    def get_playlist(self, *, url: str) -> TidalPlaylistCollection | None: ...
 
     def get_playlist(
         self,
@@ -49,11 +49,9 @@ class TidalLibraryCollection(LibraryCollection[TidalTrack], GlobalLookup):
     ) -> TidalPlaylistCollection | None:
         """Get a specific playlist.
 
-        One of the kwargs must be given. Either search
-        by name or get by id/url.
+        Exactly one of the kwargs must be given: name/id/url.
 
-        Will raise on id/url not found but return None if
-        search by name not found.
+        Returns None if not found.
         """
         if sum(arg is not None for arg in [name, id, url]) != 1:
             raise ValueError("Exactly one of name, id, or url must be provided")
@@ -69,18 +67,24 @@ class TidalLibraryCollection(LibraryCollection[TidalTrack], GlobalLookup):
             )
             found = [p for p in playlists if p["attributes"]["name"] == name]
             if len(found) == 0:
-                log.info(f"Could not find playlist with name {name}")
-                return None
+                id = None
+            else:
+                id = found[0]["id"]
 
-            id = found[0]["id"]
             if len(found) > 1:
                 log.info(f"Found more than one playlist with name {name}, using {id}")
 
-        # This should never realistically happen -> assert instead of error
-        assert id is not None, "ID must be set after resolving name/url"
-        return TidalPlaylistCollection.from_response_data(
-            self, *self.api.playlist.get(id)
-        )
+        if id is None:
+            log.debug(f"Could not find playlist for {name=} {url=}")
+            return None
+
+        try:
+            return TidalPlaylistCollection.from_response_data(
+                self, *self.api.playlist.get(id)
+            )
+        except HTTPError as e:
+            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            return None
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""

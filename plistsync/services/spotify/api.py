@@ -676,7 +676,7 @@ class UserApi:
         return playlists_details
 
 
-def extract_spotify_playlist_id(url_or_uri: str) -> str:
+def extract_spotify_playlist_id(url_or_uri: str) -> str | None:
     """Extract the Spotify ID from a playlist URL or URI."""
     # Pattern matches:
     # spotify:playlist:<id>
@@ -690,4 +690,5 @@ def extract_spotify_playlist_id(url_or_uri: str) -> str:
     if match:
         return match.group(1)
     else:
-        raise ValueError(f"Invalid Spotify playlist URL or URI: {url_or_uri}")
+        log.debug(f"Invalid Spotify playlist URL or URI: {url_or_uri}")
+        return None
