@@ -16,7 +16,7 @@ while IFS= read -r nb; do
   echo "=== Checking $nb -> $PY_FILE ==="
 
   # Convert to _ prefixed filename (simple!)
-  jupyter nbconvert --to python "$nb" \
+  uv run jupyter nbconvert --to python "$nb" \
     --output "_${NB_BASE}" \
     --log-level ERROR
   

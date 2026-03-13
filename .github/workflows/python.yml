@@ -13,7 +13,7 @@ jobs:
     name: Get changed files
     outputs:
       any_python_changed: ${{ steps.raw-changed-python-files.outputs.any_changed }}
-      changed_python_files: ${{ steps.changed-python-files.outputs.all_changed_files }}
+      all_changed_files: ${{ steps.changed-python-files.outputs.all_changed_files }}
     steps:
       - uses: actions/checkout@v4
       - name: Get changed python files
@@ -22,6 +22,10 @@ jobs:
         with:
           files: |
             **.py
+            **.ipynb
+            pyproject.toml
+            uv.lock
+
       - name: Check changed python files
         id: changed-python-files
         env:
@@ -44,6 +48,7 @@ jobs:
       - name: Check style with Ruff
         run: |
           uv run ruff check --output-format=github .
+
   format:
     name: Check format with Ruff
     runs-on: [self-hosted, linux]
@@ -59,8 +64,10 @@ jobs:
       - name: Check format with Ruff
         run: |
           uv run ruff format --check --diff .
-  check-notebooks:
+
+  verify-nbstripout:
     runs-on: [self-hosted, linux]
+    if: needs.changed-files.outputs.any_python_changed == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -107,7 +114,21 @@ jobs:
       - name: Check type hints with mypy
         run: |
           uv run mypy --show-error-codes --check-untyped-defs --config-file ./pyproject.toml ./
-      - name: Check notebook typehints with mypy
+
+  mypy-notebooks:
+    name: Check notebook type hints with mypy
+    runs-on: [self-hosted, linux]
+    needs: changed-files
+    if: needs.changed-files.outputs.any_python_changed == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras
+          uv pip install jupyter
+      - name: Check notebook type hints with mypy
         run: |
           ./.github/workflows/mypy_notebooks.sh
 
@@ -144,6 +165,7 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+
   docs:
     name: Build Sphinx docs
     runs-on: [self-hosted, linux]
