@@ -2,7 +2,10 @@
 #
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
+import os
+import sys
 
+sys.path.append(os.path.join(os.path.dirname(__file__), "services"))  # noqa: PTH118, PTH120
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
