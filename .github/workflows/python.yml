@@ -107,6 +107,10 @@ jobs:
       - name: Check type hints with mypy
         run: |
           uv run mypy --show-error-codes --check-untyped-defs --config-file ./pyproject.toml ./
+      - name: Check notebook typehints with mypy
+        run: |
+          ./.github/workflows/mypy_notebooks.sh
+
   test:
     name: Run tests
     runs-on: [self-hosted, linux]
