@@ -26,6 +26,12 @@ class TestCliInvocation:
         assert result.exit_code == 0
         assert "config" in result.output.lower()
 
+    def test_version(self):
+        """Test that config subcommand shows help."""
+        result = runner.invoke(main.cli, ["--version"])
+        assert result.exit_code == 0
+        assert "plistsync" in result.output.lower()
+
 
 class TestLoggingSetup:
     """Test the logging_setup callback function."""
@@ -33,40 +39,37 @@ class TestLoggingSetup:
     def test_verbose_flag_level_1(self, plist_config):
         """Test that -v sets log level to INFO."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_setup(verbose=1)
+            main.logging_callback(verbose=1)
             mock_set_level.assert_called_once_with(20)
 
     def test_verbose_flag_level_2(self, plist_config):
         """Test that -vv sets log level to DEBUG."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_setup(verbose=2)
+            main.logging_callback(verbose=2)
             mock_set_level.assert_called_once_with(10)
 
     def test_verbose_flag_level_3(self, plist_config):
         """Test that -vvv sets log level to DEBUG."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_setup(verbose=3)
+            main.logging_callback(verbose=3)
             mock_set_level.assert_called_once_with(10)
 
     def test_verbose_flag_zero(self, plist_config):
         """Test that no -v flag returns None without setting level."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            result = main.logging_setup(verbose=0)
-            assert result is None
+            main.logging_callback(verbose=0)
             mock_set_level.assert_not_called()
 
     def test_verbose_flag_negative(self, plist_config):
         """Test that negative verbose returns None without setting level."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            result = main.logging_setup(verbose=-1)
-            assert result is None
+            main.logging_callback(verbose=-1)
             mock_set_level.assert_not_called()
 
     def test_verbose_over_max(self, plist_config):
         """Test that verbose > 3 returns None without setting level."""
         with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            result = main.logging_setup(verbose=10)
-            assert result is None
+            main.logging_callback(verbose=10)
             mock_set_level.assert_not_called()
 
 
@@ -79,7 +82,7 @@ class TestRegisterApps:
             mock_module = MagicMock()
             mock_import.return_value = mock_module
 
-            main.register_apps(main.cli)
+            main.register_auth(main.cli)
 
             assert mock_import.call_count >= 3
 
@@ -97,6 +100,6 @@ class TestRegisterApps:
                 DependencyError("test", ["test-package"]),
             ]
 
-            main.register_apps(main.cli)
+            main.register_auth(main.cli)
 
             assert mock_log.debug.call_count >= 1

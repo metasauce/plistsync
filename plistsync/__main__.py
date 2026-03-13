@@ -15,44 +15,47 @@ cli = typer.Typer(
     rich_markup_mode="rich",
     help="Command line tool for [bold italic]plistsync[/bold italic].",
     pretty_exceptions_show_locals=False,
+    no_args_is_help=True,
 )
 
 
-def register_apps(cli: typer.Typer):
-    """Register subcommands.
+def register_auth(cli: typer.Typer):
+    """Register authentication subcommands.
 
-    To allow partial dependencies we only register cli if the import is sucessfull.
+    To allow partial dependencies we only register cli if the import is successful.
     """
 
+    auth_app = typer.Typer(
+        name="auth",
+        help="Authentication for services.",
+        no_args_is_help=True,
+    )
+
+    # Register auth su
     imports_ = {
-        "plistsync.services.plex.authenticate": "plex_cli",
-        "plistsync.services.spotify.authenticate": "spotify_cli",
-        "plistsync.services.tidal.authenticate": "tidal_cli",
+        "plistsync.services.plex.authenticate:auth": "plex",
+        "plistsync.services.spotify.authenticate:auth": "spotify",
+        "plistsync.services.tidal.authenticate:auth": "tidal",
     }
 
-    for module_name, obj_name in imports_.items():
+    for module_str, name in imports_.items():
+        module_name, func_name = module_str.split(":")
         try:
             module = importlib.import_module(module_name)
-            cli.add_typer(getattr(module, obj_name), name=obj_name.replace("_cli", ""))
+            auth_app.command(name=name)(getattr(module, func_name))
         except DependencyError:
-            # TODO: register subcommand (should not be shown in help)
-            # prints message how to install service
             log.debug(
-                f"Skipping '{module_name}.{obj_name}' due to missing dependencies."
+                f"Skipping '{module_name}.{func_name}' due to missing dependencies."
             )
 
+    cli.add_typer(auth_app)
 
-register_apps(cli)
+
+register_auth(cli)
 cli.add_typer(create_config_cli(Config), name="config")
 
 
-# Add global verbose option
-@cli.callback()
-def logging_setup(
-    verbose: int = typer.Option(
-        -1, "--verbose", "-v", count=True, help="Increase verbosity."
-    ),
-) -> None:
+def logging_callback(verbose: int) -> None:
     level_mapping: dict[int, int] = {
         1: logging.INFO,
         2: logging.DEBUG,
@@ -60,7 +63,7 @@ def logging_setup(
     }
     level = level_mapping.get(verbose)
     if level is None:
-        return
+        return None
 
     # Only adjust levels; logging handlers were already configured at import time.
     set_log_level(level)
@@ -82,7 +85,7 @@ def logging_setup(
         None,
     )
     if handler is None:
-        return
+        return None
 
     if verbose >= 2:
         handler._log_render.show_path = True
@@ -96,6 +99,43 @@ def logging_setup(
         handler.setFormatter(logging.Formatter("%(name)-12s %(message)s"))
 
     log.debug("Adjusted log level to %s", logging.getLevelName(level))
+
+
+def version_callback(value: bool) -> None:
+    if not value:
+        return None
+
+    from importlib.metadata import version
+
+    from .services import available_services
+
+    ver = version("plistsync")
+    services = [service.name.split(".")[-1] for service in available_services()]
+
+    svc_str = ", ".join(services) if services else "none"
+    typer.echo(f"plistsync: {ver}  ({svc_str})")
+    raise typer.Exit()
+
+
+@cli.callback()
+def main(
+    ctx: typer.Context,
+    verbose: int | None = typer.Option(
+        None,
+        "--verbose",
+        "-v",
+        count=True,
+        callback=logging_callback,
+        help="Increase verbosity.",
+    ),
+    version: bool | None = typer.Option(
+        None,
+        "--version",
+        callback=version_callback,
+        help="Currently installed version.",
+    ),
+):
+    pass
 
 
 if __name__ == "__main__":
