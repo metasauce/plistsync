@@ -120,7 +120,6 @@ class PlexLibrarySectionCollection(
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
 
-
     @cached_property
     def locations(self) -> list[Path]:
         """To locations (on disk) of the section."""
