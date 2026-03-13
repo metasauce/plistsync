@@ -264,10 +264,11 @@ class PlexPlaylistCollection(PlaylistCollection[PlexTrack]):
                     break
 
             if t_data is None:
-                # SM: Maybe we should not raise here
-                raise ValueError(
-                    f"Could not find track data for track id {t.id} in playlist."
+                log.warning(
+                    f"Could not find track data for track id {t.id} in playlist. "
+                    "This should not happen, please consider opening an issue."
                 )
+                continue
 
             pl_item_id = cast(int, t_data.get("playlistItemID", -1))
             self.api.playlist.remove_track(self.id, pl_item_id)

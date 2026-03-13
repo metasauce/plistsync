@@ -231,7 +231,7 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
 
         # Realistically this should never be unset if we want to remove the track
         if not all(t.item_id for t in track):
-            raise ValueError("ItemID must be set in track should be removed!")
+            raise ValueError("ItemID must be set in every track we want to remove!")
 
         # Deletion is done via itemId (unique in playlist)
         self.api.playlist.remove_items(
