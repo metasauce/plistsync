@@ -1,7 +1,7 @@
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from functools import cached_property
 from pathlib import Path
-from typing import Any, overload
+from typing import overload
 
 from requests import HTTPError
 
@@ -17,7 +17,10 @@ from .track import PlexTrack
 
 
 class PlexLibrarySectionCollection(
-    LibraryCollection[PlexTrack], LocalLookup, GlobalLookup, TrackStream[PlexTrack]
+    LibraryCollection[PlexTrack, PlexPlaylistCollection],
+    TrackStream[PlexTrack],
+    LocalLookup[PlexTrack],
+    GlobalLookup[PlexTrack],
 ):
     """A collection of all tracks in a Plex library section.
 
@@ -141,7 +144,7 @@ class PlexLibrarySectionCollection(
     _fetched: bool = False
 
     @property
-    def tracks(self) -> Generator[PlexTrack, Any, None]:
+    def tracks(self) -> Iterable[PlexTrack]:
         """Iterate over the tracks in the collection."""
 
         if self._tracks is None or not self._fetched:

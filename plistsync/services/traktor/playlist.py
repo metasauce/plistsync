@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from .library import NMLLibraryCollection
 
 
-class NMLPlaylistCollection(PlaylistCollection, LocalLookup):
+class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
     """A Traktor NML playlist collection.
 
     Traktor playlists use file paths as the identifiers.
