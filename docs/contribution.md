@@ -45,6 +45,9 @@ mypy .
 
 # Strip output from notebooks (if modified)
 find . -name '*.ipynb' -exec nbstripout --keep-output {} +
+
+# Run mypy on notebooks
+./.github/workflows/mypy_notebooks.sh
 ```
 
 If this looks tedious you may alternatively install the

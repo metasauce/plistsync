@@ -1,11 +1,12 @@
 from pathlib import Path
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable
 
 import pytest
 from plistsync.services.plex.playlist import PlexPlaylistCollection
 from plistsync.services.plex.track import PlexTrack
 from tests.abc import CollectionTestBase, LibraryCollectionTestBase
 
+from plistsync.core.collection import LibraryCollection
 from plistsync.services.plex import PlexLibrarySectionCollection
 
 
@@ -50,7 +51,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
     def setup(self, plex_library_collection):
         self.collection = plex_library_collection
 
-    def create_collection(self) -> Iterator[PlexLibrarySectionCollection]:
+    def create_collection(self, *args, **kwargs) -> Iterable[LibraryCollection]:
         """Create a PlexLibrarySectionCollection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
@@ -83,9 +84,8 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
 
     def test_preload(self):
         """Test that preloading the library collection works."""
-        library_collection: PlexLibrarySectionCollection = next(
-            self.create_collection()
-        )
+        library_collection = next(iter(self.create_collection()))
+        assert isinstance(library_collection, PlexLibrarySectionCollection)
         library_collection.preload()
         assert library_collection._fetched is True, (
             "Library collection should be marked as fetched after preload()"
@@ -94,7 +94,6 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
             "Library collection should have tracks loaded after preload()"
         )
 
-        # Iter should yield tracks after preload
         tracks = list(library_collection.tracks)
         assert len(tracks) > 0, "Library collection should yield tracks after preload()"
 
@@ -103,7 +102,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         for library_collection in self.create_collection():
             locations = library_collection.locations
             assert isinstance(locations, Iterable), "Locations should be iterable"
-            assert len(locations) > 0, "Locations should not be empty"
+            assert len(list(locations)) > 0, "Locations should not be empty"
             assert all(isinstance(loc, Path) for loc in locations), (
                 "All locations should be Path instances"
             )
@@ -112,4 +111,4 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
         """Get playlist via path not allowed."""
         with pytest.raises(ValueError):
             for library_collection in self.create_collection():
-                library_collection.get_playlist(name="foo", id=121)  # type:ignore
+                library_collection.get_playlist(name="foo", id=121)
