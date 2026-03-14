@@ -48,7 +48,7 @@ dev = [
     { include-group = "typed" },
     "pre-commit>=4.5.1",
 ]
-lint = ["ruff>=0.14.11", "nbstripout>=0.9.1"]
+lint = ["ruff>=0.14.11", "nbstripout>=0.9.1", "nbconvert"]
 test = [
     "beets>=2.5.1",
     "pytest>=9.0.2",
