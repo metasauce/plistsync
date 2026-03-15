@@ -33,20 +33,19 @@ for match, similarity in matches:
 
 Single-track search is performed using the high-level {meth}`~plistsync.core.collection.Collection.match` method. This method returns tracks from the target collection that are similar (or identical) to the source track, prioritizing global ID matches, local ID matches, and metadata similarity in that order.
 
-Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You want to check if this track already exists in your Beets music collection, which maintains a large database of your music library. With the `match` method, you can automate this lookup efficiently:
+Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You now want to find this track it on spotify.
 
 ```python
 from plistsync.services.local import LocalTrack
-from plistsync.services.beets import BeetsCollection
+from plistsync.services.spotify import SpotifyLibraryCollection
 
 # This represents a single track on your local filesystem
 source_track = LocalTrack("./path_to_source_track.mp3")
 
-# BeetsCollection is an implementation of the Collection ABC, tailored to interact with a Beets database.
-# It supports TrackStream (you can iterate over its tracks) and lookups via global ID or local ID
-target_collection = BeetsCollection("./path_to_beets_db.db")
+# Access to spotify
+target_collection = SpotifyLibraryCollection()
 
-# Perform the match operation
+# Perform the match operation to find the source_track in the target_collection
 matches = target_collection.match(source_track)
 
 # Output the matches found
@@ -61,7 +60,7 @@ The similarity is calculated using the track's metadata and leveraging a levenst
 
 ### Advanced usage
 
-Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.InfoLookup` and {class}`~plistsync.core.collection.TrackStream` interfaces, which provide different methods for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific interface methods for more tailored search options.
+Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.InfoLookup` and {class}`~plistsync.core.collection.TrackStream` protocols, which provide different methodologies for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific protocols methods for more tailored search options.
 
 (full_collection_comparison)=
 
