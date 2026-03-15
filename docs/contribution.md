@@ -104,6 +104,7 @@ dev/debug.md
 
 ## Notes on AI usage
 
-We are not opposed to AI-generated contributions, but communication should be handled by a real person. We will ask you questions about your PR and you need to be able to make clear you understood the proposed changes. Also you need to be clearly disclosed upfront if the content is AI-generated.
+We are not opposed to AI-generated contributions, but communication should be handled by a real person. We will likely have questions about your PR, and we need you to understand the proposed changes in order to discuss with us what the implications are.
+If a contribution is mostly AI-generated, we also expect this information to be disclosed upfront.
 
 > We value human oversight and accountability, AI as a tool, not a contributor.

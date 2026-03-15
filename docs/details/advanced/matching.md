@@ -33,7 +33,7 @@ for match, similarity in matches:
 
 Single-track search is performed using the high-level {meth}`~plistsync.core.collection.Collection.match` method. This method returns tracks from the target collection that are similar (or identical) to the source track, prioritizing global ID matches, local ID matches, and metadata similarity in that order.
 
-Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You now want to find this track it on spotify.
+Imagine you have a track file on your local computer that you've recently bought and ripped from a CD. You now want to find this track on spotify.
 
 ```python
 from plistsync.services.local import LocalTrack
