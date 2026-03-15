@@ -548,7 +548,7 @@ class TrackApi:
             if total_size != 0:
                 log.debug(
                     f"Fetched {num_fetched} of {total_size} tracks"
-                    " from section {section_id}."
+                    f" from section {section_id}."
                 )
 
             yield from tracks

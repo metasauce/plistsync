@@ -114,6 +114,9 @@ class Operations(Generic[T]):
     def __getitem__(self, index: int) -> Op[T]:
         return self.ops[index]
 
+    def __iter__(self):
+        yield from self.iter()
+
 
 def batch_consecutive(
     ops: Iterable[Step[T]],

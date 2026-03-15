@@ -54,6 +54,8 @@ Understand the key abstractions and notation of `plistsync`. Learn about `Tracks
 ::::
 
 ::::{grid-item-card} Examples
+:link: examples/readme
+:link-type: doc
 
 Follow step-by-step guides to see `plistsync` in action. Great for hands-on learning and testing common workflows. TODO
 ::::

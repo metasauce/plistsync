@@ -67,6 +67,7 @@ jobs:
 
   verify-nbstripout:
     runs-on: [self-hosted, linux]
+    needs: changed-files
     if: needs.changed-files.outputs.any_python_changed == 'true'
     steps:
       - name: Checkout code

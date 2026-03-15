@@ -15,7 +15,10 @@ from .playlist import TidalPlaylistCollection
 from .track import TidalTrack
 
 
-class TidalLibraryCollection(LibraryCollection[TidalTrack], GlobalLookup):
+class TidalLibraryCollection(
+    LibraryCollection[TidalTrack, TidalPlaylistCollection],
+    GlobalLookup[TidalTrack],
+):
     """A collection of Tidal library items."""
 
     api: TidalApi

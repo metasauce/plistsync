@@ -22,7 +22,11 @@ if TYPE_CHECKING:
     from lxml.etree import _Element, _ElementTree
 
 
-class NMLLibraryCollection(LibraryCollection, TrackStream, LocalLookup):
+class NMLLibraryCollection(
+    LibraryCollection[NMLTrack, NMLPlaylistCollection],
+    TrackStream[NMLTrack],
+    LocalLookup[NMLTrack],
+):
     """A Traktor NML collection.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist

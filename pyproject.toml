@@ -129,7 +129,7 @@ fixable = ["ALL"]
     "W",
     "E501", # long lines
 ]
-"**/__main__.py" = ["D103"]
+"**__main__.py" = ["D103"]
 
 # ignore import order in init files
 # to allow dependency error handling
@@ -164,6 +164,9 @@ warn_unused_configs = true
 # We should enable these at some point
 # disallow_incomplete_defs = true
 # warn_return_any = true
+
+# Symlink is checked twice if not excluded here
+exclude = "(docs/examples)"
 
 [[tool.mypy.overrides]]
 module = ["nest_asyncio.*"]
