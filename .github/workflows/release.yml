@@ -103,7 +103,7 @@ jobs:
       - name: Get changelog entry
         id: changelog
         env:
-          CURRENT_VERSION: ${{ steps.check_version.outputs.current_version }}
+          CURRENT_VERSION: ${{ needs.check_version.outputs.current_version }}
         run: |
           NOTES=""
           if [ -f CHANGELOG.md ]; then
@@ -116,7 +116,11 @@ jobs:
               in_section { print }
             ' CHANGELOG.md)
           fi
-          echo "changelog=$NOTES"  >> $GITHUB_OUTPUT
+          {
+              echo "changelog<<EOF"
+              echo "$NOTES"
+              echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
