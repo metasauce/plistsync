@@ -5,19 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Upcoming
+## [0.5.0] - 2026-03-15
+
+This marks the first **public release** of `plistsync`, a major milestone for the project! 🎉
+
+While the library is now in a **very usable state** and suitable for real-world music library synchronization, we’re still actively refining the public API. As such, **breaking changes to function signatures, module structure, or core abstractions may occur without deprecation warnings** until we reach version `1.0.0`.
+
+We encourage early adopters to:
+
+- Experiment freely and share feedback (via GitHub Issues or Discussions)
+- Pin to this version if stability is critical
+- Expect occasional breaking changes as we iterate toward a stable `1.0.0` API
 
 ### Added
 
-- Traktor config option `backup_before_write`, (true by default, creates a backup of the nml file before each write).
-- `pyproject.toml` information updated (readme, license, authors, urls, classifiers).
-- Added support for batched remote operations, should allow to minify expensive network request.
-- Improved examples. They now live in the docs under `docs/examples` (full-fledged notebooks by us) and `docs/examples/community` (less restrictive, also simple python scripts by the community)
+- Traktor config option `backup_before_write` (enabled by default), which creates a backup of the NML file before each write operation.
+- `pyproject.toml` metadata enhancements: updated `readme`, `license`, `authors`, `project_urls`, and `classifiers` for better discoverability and packaging.
+- Support for **batched remote operations**, enabling efficient minification of expensive network requests (e.g., bulk playlist updates across services).
+- Improved examples: now hosted in `docs/examples` (full-fledged Jupyter notebooks by the core team) and `docs/examples/community` (community-contributed scripts, including simple CLI workflows).
 
 ### Changed
 
-- Unified `__repr__` format to ClassName(key=value)
-- For all services, the `get_playlist` method is now more consistent and always returns None if no playlist is found, independent of the used identifier. Added `get_playlist_or_raise` to get predictable behaviour and return Type.
+- Unified `__repr__` format across all core classes to `ClassName(key=value)` for consistent, debug-friendly output.
+- Standardized `get_playlist()` behavior across all services: now consistently returns `None` when no playlist is found, regardless of the lookup identifier used. Introduced `get_playlist_or_raise()` for predictable, exception-raising behavior when a playlist _must_ exist.
 
 ## [0.4.0] - 2026-03-07
 
@@ -116,8 +126,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation build issues.
 - ISRC lookup and API scope handling bugs.
 
----
-
 ## [0.1.0] - 2025-09-08
 
 ### Added
@@ -127,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation setup and first examples.
 - Basic CI/CD workflows.
 
+[0.5.0]: https://github.com/metasauce/plistsync/releases/tag/v0.5.0
 [0.4.0]: https://github.com/metasauce/plistsync/releases/tag/v0.4.0
 [0.3.0]: https://github.com/metasauce/plistsync/releases/tag/v0.3.0
 [0.2.0]: https://github.com/metasauce/plistsync/releases/tag/v0.2.0

@@ -101,3 +101,10 @@ Please ensure your code passes all checks before submitting a pull request.
 
 dev/debug.md
 ```
+
+## Notes on AI usage
+
+We are not opposed to AI-generated contributions, but communication should be handled by a real person. We will likely have questions about your PR, and we need you to understand the proposed changes in order to discuss with us what the implications are.
+If a contribution is mostly AI-generated, we also expect this information to be disclosed upfront.
+
+> We value human oversight and accountability, AI as a tool, not a contributor.

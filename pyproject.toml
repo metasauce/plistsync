@@ -1,6 +1,6 @@
 [project]
 name = "plistsync"
-version = "0.4.0"
+version = "0.5.0"
 requires-python = ">=3.11"
 dependencies = [
     "eyconf[cli]>=0.6.2",
@@ -18,12 +18,12 @@ authors = [
 ]
 keywords = ["music", "playlists", "sync", "transfer", "conversion", "matching"]
 classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [project.urls]
@@ -88,7 +88,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["plistsync"]
-include = ["plistsync/py.typed"] 
+include = ["plistsync/py.typed"]
 
 [tool.ruff]
 include = [
