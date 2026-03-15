@@ -61,7 +61,7 @@ from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
 
 R = TypeVar("R")
 P = ParamSpec("P")
-T = TypeVar("T", bound=Track, covariant=True)
+T = TypeVar("T", bound=Track, default=Track, covariant=True)
 
 
 @runtime_checkable

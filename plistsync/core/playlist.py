@@ -28,8 +28,10 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Generic, TypedDict
 
-from .collection import Collection, TrackStream, TypeVar
-from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
+from typing_extensions import TypeVar
+
+from .collection import Collection, TrackStream
+from .diff import DeleteOp, InsertOp, MoveOp, list_diff
 from .track import Track
 
 
@@ -41,7 +43,7 @@ class PlaylistInfo(TypedDict, total=False):
     # TODO: add more unified fields like owner, date_created etc
 
 
-T = TypeVar("T", bound=Track)
+T = TypeVar("T", bound=Track, default=Track)
 
 
 @dataclass(slots=True, frozen=True)
