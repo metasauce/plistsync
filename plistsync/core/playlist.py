@@ -147,7 +147,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         try:
             yield
             snapshot_after = self.get_snapshot()
-            self._apply_diff(snapshot_before, snapshot_after)
+            self._remote_edit(snapshot_before, snapshot_after)
         except Exception:
             self.tracks = snapshot_before.tracks
             self.name = snapshot_before.name
@@ -192,8 +192,57 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         """
         raise NotImplementedError()
 
-    def _apply_diff(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Apply minimal remote operations to match after state from before."""
+    # ---------------------- Abstract remote operations ---------------------- #
+
+    @property
+    @abstractmethod
+    def remote_associated(self) -> bool:
+        """Indicate if the playlist is already linked to a remote (online) playlist."""
+        ...
+
+    @abstractmethod
+    def _remote_create(self):
+        """Create the playlist online. Checks are handled in the public version."""
+        ...
+
+    @abstractmethod
+    def _remote_delete(self):
+        """Delete the playlist online."""
+        ...
+
+    @abstractmethod
+    def _remote_edit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Edit the playlist online."""
+        ...
+
+
+class IncrementalPlaylistCollection(PlaylistCollection[T], ABC):
+    """Playlist editor for services with single-track API operations.
+
+    Some music services only allow adding/removing one track
+    at a time. This class computes the diff between two playlist states and
+    translates it into the appropriate sequence of remote API calls.
+
+    Subclass this and implement:
+        - _remote_insert_track()  - Add one or multiple track(s)
+        - _remote_delete_track()  - Remove one or multiple track(s)
+        - _remote_update_metadata()  - Update name/description
+        - _track_key()  - Stable identifier for track equality
+
+    The base class handles diff computation, batching consecutive operations,
+    and rolling back on failure.
+
+    Use this when the service API doesn't support bulk playlist operations.
+    """
+
+    def _remote_edit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Apply minimal remote operations to match after state from before.
+
+        Computes the diff between before and after states, then translates
+        each change into the appropriate sequence of remote API calls.
+        Handles metadata updates (name, description) and track operations
+        (insert, delete, move) with automatic rollback on failure.
+        """
         new_name = after.name if before.name != after.name else None
         new_description = (
             after.description if before.description != after.description else None
@@ -228,24 +277,6 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
                         track=step.op.item,
                         tracks_before=step.list_before,
                     )
-
-    # ---------------------- Abstract remote operations ---------------------- #
-
-    @property
-    @abstractmethod
-    def remote_associated(self) -> bool:
-        """Indicate if the playlist is already linked to a remote (online) playlist."""
-        ...
-
-    @abstractmethod
-    def _remote_create(self):
-        """Create the playlist online. Checks are handled in the public version."""
-        ...
-
-    @abstractmethod
-    def _remote_delete(self):
-        """Delete the playlist online."""
-        ...
 
     @abstractmethod
     def _remote_insert_track(
