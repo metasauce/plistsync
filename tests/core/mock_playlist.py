@@ -1,8 +1,15 @@
+import random
 from typing import Any
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
+from plistsync.core.playlist import (
+    IncrementalPlaylistCollection,
+    PlaylistCollection,
+    PlaylistInfo,
+    Snapshot,
+)
+from tests.core.mock_track import MockTrack
 
 
-class MockPlaylist(PlaylistCollection):
+class MockPlaylist(PlaylistCollection[MockTrack]):
     """Mock PlaylistCollection implementation for testing."""
 
     def __init__(
@@ -23,6 +30,25 @@ class MockPlaylist(PlaylistCollection):
     @info.setter
     def info(self, value: PlaylistInfo):
         self._info = value
+
+    @property
+    def remote_associated(self):
+        return self._remote_associated
+
+    def _remote_edit(self, before: Snapshot[MockTrack], after: Snapshot[MockTrack]):
+        self.log.append(("edit",))
+
+    def _remote_create(self):
+        self.log.append(("remote_create",))
+        self._remote_associated = True
+
+    def _remote_delete(self):
+        self.log.append(("remote_delete",))
+        self._remote_associated = False
+
+
+class MockPlaylistIncremental(IncrementalPlaylistCollection[MockTrack], MockPlaylist):
+    """Mock IncrementalPlaylistCollection implementation for testing."""
 
     def _remote_delete_track(
         self,
@@ -53,18 +79,6 @@ class MockPlaylist(PlaylistCollection):
     ):
         self.log.append(("update_meta", new_name, new_description))
 
-    def _remote_create(self):
-        self.log.append(("remote_create",))
-        self._remote_associated = True
-
-    def _remote_delete(self):
-        self.log.append(("remote_delete",))
-        self._remote_associated = False
-
-    @property
-    def remote_associated(self):
-        return self._remote_associated
-
     @staticmethod
     def _track_key(track) -> str:
-        return track.global_ids["isrc"]  # Fixed to match test expectations
+        return track.global_ids.get("isrc", str(random.randbytes(10)))
