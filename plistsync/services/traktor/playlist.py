@@ -7,7 +7,11 @@ from uuid import uuid4
 from lxml.etree import Element, SubElement, _Element
 
 from plistsync.core.collection import LocalLookup
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
+from plistsync.core.playlist import (
+    PlaylistCollection,
+    PlaylistInfo,
+    Snapshot,
+)
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
@@ -162,24 +166,13 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
     # Remote methods are not really needed as we just replace the playlist
     # node in the library
 
-    def _remote_insert_track(self, *args, **kwargs) -> None:
-        return None
-
-    def _remote_delete_track(self, *args, **kwargs) -> None:
-        return None
-
-    def _remote_update_metadata(self, *args, **kwargs) -> None:
-        return None
-
-    def _apply_diff(
+    def _remote_edit(
         self,
         before: Snapshot[NMLPlaylistTrack],
         after: Snapshot[NMLPlaylistTrack],
     ) -> None:
         """Wrap apply diff so `edit`."""
-        super()._apply_diff(before, after)
-        # Instead of an incremental update we just rewrite everything
-        # here as this is easier and performance isnt really an issue
+
         self._overwrite_track_entries(after.tracks)
         self.remote_upsert()
 
@@ -248,10 +241,6 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
     def _remote_delete(self):
         """Remove in connected collection."""
         detach(self.root_node)
-
-    @staticmethod
-    def _track_key(track: NMLPlaylistTrack):
-        return track.path
 
     # --------------------------- LocalLookup protocol --------------------------- #
 

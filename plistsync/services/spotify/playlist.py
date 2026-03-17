@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Self
 
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo
+from plistsync.core.playlist import IncrementalPlaylistCollection, PlaylistInfo
 
 from .api_types import (
     PlaylistTracksBase,
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from .library import SpotifyLibraryCollection
 
 
-class SpotifyPlaylistCollection(PlaylistCollection[SpotifyPlaylistTrack]):
+class SpotifyPlaylistCollection(IncrementalPlaylistCollection[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
     library: SpotifyLibraryCollection

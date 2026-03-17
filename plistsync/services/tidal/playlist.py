@@ -3,7 +3,11 @@ from __future__ import annotations
 from collections.abc import Hashable
 from typing import TYPE_CHECKING, Self, cast
 
-from plistsync.core.playlist import PlaylistCollection, PlaylistInfo, Snapshot
+from plistsync.core.playlist import (
+    IncrementalPlaylistCollection,
+    PlaylistInfo,
+    Snapshot,
+)
 from plistsync.logger import log
 
 from .api import LookupDict
@@ -14,7 +18,7 @@ if TYPE_CHECKING:
     from .library import TidalLibraryCollection
 
 
-class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
+class TidalPlaylistCollection(IncrementalPlaylistCollection[TidalPlaylistTrack]):
     library: TidalLibraryCollection
 
     # When the playlist is associated with an online playlist, we have the response.
@@ -253,12 +257,12 @@ class TidalPlaylistCollection(PlaylistCollection[TidalPlaylistTrack]):
             description=new_description,
         )
 
-    def _apply_diff(
+    def _remote_edit(
         self,
         before: Snapshot[TidalPlaylistTrack],
         after: Snapshot[TidalPlaylistTrack],
     ) -> None:
-        super()._apply_diff(before, after)
+        super()._remote_edit(before, after)
         # After edit we refetch all tracks as their is no other
         # easy way to get the new item ids
         self._refetch_tracks()
