@@ -92,6 +92,8 @@ jobs:
       - name: Publish to PyPI
         run: uv publish
   create_release:
+    permissions:
+      contents: write
     runs-on: [self-hosted, linux]
     needs: [create_tag, build_and_publish, check_version]
     steps:
