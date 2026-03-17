@@ -92,9 +92,8 @@ html_theme_options = {
 html_css_files = [
     "css/custom.css",
 ]
-
 html_logo = "./_static/v2/ios_squircle_512.webp"
-
+html_favicon = "./_static/v2/ios_squircle_512.webp"
 
 # -- custom auto_summary() macro ---------------------------------------------
 
