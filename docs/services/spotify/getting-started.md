@@ -61,7 +61,7 @@ services:
 Once configured, authenticate `plistsync` with your Tidal account:
 
 ```bash
-plistsync spotify auth
+plistsync auth spotify
 ```
 
 This will start an interactive authentication flow:
@@ -75,9 +75,9 @@ This will start an interactive authentication flow:
 
 <div class="only-light">
 
-```{typer} plistsync.services.spotify.authenticate:spotify_cli
+```{typer} cli:app::spotify
 ---
-prog: plistsync spotify auth
+prog: plistsync auth spotify
 theme: light
 width: 80
 ---
@@ -87,9 +87,9 @@ width: 80
 
 <div class="only-dark">
 
-```{typer} plistsync.services.spotify.authenticate:spotify_cli
+```{typer} cli:app::spotify
 ---
-prog: plistsync spotify auth
+prog: plistsync auth spotify
 theme: dark
 width: 80
 ---

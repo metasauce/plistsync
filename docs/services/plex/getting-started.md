@@ -52,7 +52,7 @@ services:
 Once configured, authenticate `plistsync` with your Plex account:
 
 ```bash
-plistsync plex auth
+plistsync auth plex
 ```
 
 This will start an interactive authentication flow:
@@ -66,9 +66,9 @@ This will start an interactive authentication flow:
 
 <div class="only-light">
 
-```{typer} plistsync.services.plex.authenticate:plex_cli
+```{typer} cli:app::plex
 ---
-prog: plistsync plex auth
+prog: plistsync auth plex
 theme: light
 width: 80
 ---
@@ -78,9 +78,9 @@ width: 80
 
 <div class="only-dark">
 
-```{typer} plistsync.services.plex.authenticate:plex_cli
+```{typer} cli:app::plex
 ---
-prog: plistsync plex auth
+prog: plistsync auth plex
 theme: dark
 width: 80
 ---

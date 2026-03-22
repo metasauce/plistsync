@@ -61,7 +61,7 @@ services:
 Once configured, authenticate `plistsync` with your Tidal account:
 
 ```bash
-plistsync tidal auth
+plistsync auth tidal
 ```
 
 This will start an interactive authentication flow:
@@ -75,9 +75,9 @@ This will start an interactive authentication flow:
 
 <div class="only-light">
 
-```{typer} plistsync.services.tidal.authenticate:tidal_cli
+```{typer} cli:app::tidal
 ---
-prog: plistsync tidal auth
+prog: plistsync auth tidal
 theme: light
 width: 80
 ---
@@ -87,9 +87,9 @@ width: 80
 
 <div class="only-dark">
 
-```{typer} plistsync.services.tidal.authenticate:tidal_cli
+```{typer} cli:app::tidal
 ---
-prog: plistsync tidal auth
+prog: plistsync auth tidal
 theme: dark
 width: 80
 ---

@@ -11,12 +11,7 @@ from plistsync.errors import AuthenticationError
 from plistsync.logger import log
 from plistsync.utils.auth.redirect import BaseRedirectHandler
 
-plex_cli = typer.Typer(
-    rich_markup_mode="rich", help="Interact with Plex.", add_completion=False
-)
 
-
-@plex_cli.command()
 def auth(
     mode: Literal["forward", "polling"] = typer.Option(
         "forward",
