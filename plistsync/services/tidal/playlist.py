@@ -257,7 +257,7 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
             description=new_description,
         )
 
-    def _remote_edit(
+    def _remote_commit(
         self,
         before: Snapshot[TidalPlaylistTrack],
         after: Snapshot[TidalPlaylistTrack],

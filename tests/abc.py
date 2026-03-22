@@ -418,9 +418,9 @@ class MultiRequestPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
     ) -> MultiRequestPlaylistCollection:
         raise NotImplementedError
 
-    # -------------------------------- _remote_edit ------------------------------- #
+    # -------------------------------- _remote_commit ------------------------------- #
 
-    def test_remote_edit_noop_does_nothing(self) -> None:
+    def test_remote_commit_noop_does_nothing(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
 
@@ -439,7 +439,7 @@ class MultiRequestPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
         pl._remote_delete_track.assert_not_called()
         pl._remote_move_track.assert_not_called()
 
-    def test_remote_edit_updates_metadata_only(self) -> None:
+    def test_remote_commit_updates_metadata_only(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
 
@@ -458,7 +458,7 @@ class MultiRequestPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
         pl._remote_delete_track.assert_not_called()
         pl._remote_move_track.assert_not_called()
 
-    def test_remote_edit_inserts_track(self) -> None:
+    def test_remote_commit_inserts_track(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
         t4 = self.create_track(isrc="4")
