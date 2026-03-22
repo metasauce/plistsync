@@ -163,17 +163,18 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
         return int(entries) if entries.isdigit() else 0
 
     # ----------------------------- Remote operations ---------------------------- #
-    # Remote methods are not really needed as we just replace the playlist
-    # node in the library
+    # Traktor does not need many remote operations.
+    # Essentially all we do is to persist changes at the end into the nml file.
 
-    def _remote_edit(
+    def _remote_commit(
         self,
         before: Snapshot[NMLPlaylistTrack],
         after: Snapshot[NMLPlaylistTrack],
     ) -> None:
-        """Wrap apply diff so `edit`."""
+        """Persist current state to nml."""
 
         self._overwrite_track_entries(after.tracks)
+        # TODO: clean up remote_upsert abstraction, want to call public from private?
         self.remote_upsert()
 
     def _remote_create(self):

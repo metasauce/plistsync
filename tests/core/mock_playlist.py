@@ -1,7 +1,7 @@
 import random
 from typing import Any
 from plistsync.core.playlist import (
-    IncrementalPlaylistCollection,
+    MultiRequestPlaylistCollection,
     PlaylistCollection,
     PlaylistInfo,
     Snapshot,
@@ -35,8 +35,8 @@ class MockPlaylist(PlaylistCollection[MockTrack]):
     def remote_associated(self):
         return self._remote_associated
 
-    def _remote_edit(self, before: Snapshot[MockTrack], after: Snapshot[MockTrack]):
-        self.log.append(("edit",))
+    def _remote_commit(self, before: Snapshot[MockTrack], after: Snapshot[MockTrack]):
+        self.log.append(("remote_commit",))
 
     def _remote_create(self):
         self.log.append(("remote_create",))
@@ -47,7 +47,7 @@ class MockPlaylist(PlaylistCollection[MockTrack]):
         self._remote_associated = False
 
 
-class MockPlaylistIncremental(IncrementalPlaylistCollection[MockTrack], MockPlaylist):
+class MockPlaylistMultiRequest(MultiRequestPlaylistCollection[MockTrack], MockPlaylist):
     """Mock IncrementalPlaylistCollection implementation for testing."""
 
     def _remote_delete_track(

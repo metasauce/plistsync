@@ -14,7 +14,7 @@ from plistsync.core.collection import (
 )
 from plistsync.core.matching import Matches
 from plistsync.core.playlist import (
-    IncrementalPlaylistCollection,
+    MultiRequestPlaylistCollection,
     PlaylistCollection,
     Snapshot,
 )
@@ -309,7 +309,7 @@ class PlaylistCollectionTestBase(ABC):
         old_name = pl.name
 
         remote_edit_mock = Mock()
-        pl._remote_edit = remote_edit_mock
+        pl._remote_commit = remote_edit_mock
 
         with pl.remote_edit():
             pl.name = f"{old_name} (updated)"
@@ -327,7 +327,7 @@ class PlaylistCollectionTestBase(ABC):
         initial_description = pl.description
         initial_tracks = list(pl.tracks)
 
-        pl._remote_edit = Mock()
+        pl._remote_commit = Mock()
 
         with pytest.raises(ValueError):
             with pl.remote_edit():
@@ -342,7 +342,7 @@ class PlaylistCollectionTestBase(ABC):
         assert pl.tracks == initial_tracks
 
         # since we errored inside the context, diff application should not run
-        pl._remote_edit.assert_not_called()
+        pl._remote_commit.assert_not_called()
 
     # ------------------------------- remote_create ------------------------------ #
 
@@ -409,13 +409,13 @@ class PlaylistCollectionTestBase(ABC):
             mocked.assert_called_once_with()
 
 
-class IncrementalPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
+class MultiRequestPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
     @abstractmethod
     def create_playlist(
         self,
         *,
         remote_associated: bool = True,
-    ) -> IncrementalPlaylistCollection:
+    ) -> MultiRequestPlaylistCollection:
         raise NotImplementedError
 
     # -------------------------------- _remote_edit ------------------------------- #
@@ -432,7 +432,7 @@ class IncrementalPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
         before = Snapshot(name="n", description=None, tracks=[t1])
         after = Snapshot(name="n", description=None, tracks=[t1])
 
-        pl._remote_edit(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_not_called()
         pl._remote_insert_track.assert_not_called()
@@ -451,7 +451,7 @@ class IncrementalPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
         before = Snapshot(name="old", description="d1", tracks=[t1])
         after = Snapshot(name="new", description="d2", tracks=[t1])
 
-        pl._remote_edit(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_called_once_with("new", "d2")
         pl._remote_insert_track.assert_not_called()
@@ -474,7 +474,7 @@ class IncrementalPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
         before = Snapshot(name="n", description=None, tracks=[t4])
         after = Snapshot(name="n", description=None, tracks=[t1, t4])
 
-        pl._remote_edit(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_not_called()
         pl._remote_insert_track.assert_called_once_with(

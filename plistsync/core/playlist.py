@@ -15,8 +15,6 @@ the required methods.
 .. code-block:: python
 
     class MyPlaylistCollection(PlaylistCollection):
-
-
 """
 
 from __future__ import annotations
@@ -56,8 +54,29 @@ class Snapshot(Generic[T]):
 class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     """Abstract base class for playlist collections across music services.
 
-    Manages local track state and syncs changes to remote services via concrete
-    subclasses. Supports transactional edits through the `edit()` context manager.
+    Manages local track state and syncs changes to remote services.
+
+    It supports two ways to synchronize the local state of a playlist to its remote:
+        - via context manager `with remote_edit():`
+            where we create a snapshot before an after the context, so that we can
+            easily undo failed remote operations
+        - via final call to `remote_upsert()`
+            which checks the remote state and sets it to the current local state
+            (and might internally use the context manager)
+
+    Note:
+    The difference between this base class and IncrementalPlaylistCollection is that
+    here we focus on playlist creation/deletion and services where the playlist state
+    can be saved to remote via a single API call.
+
+    Subclass this and implement:
+        - info (getter / setter)  - Consistent interface for name and description
+        - remote_associated()     - Indicate whether the playlist exists on the remote
+        - _remote_create()        - Create this playlist on the remote
+        - _remote_delete()        - Delete this playlist from the remote
+        - _remote_commit()        - Sync current local state of playlist to the remote
+                                    (usually via single API call)
+
     """
 
     @property
@@ -136,6 +155,10 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         Captures snapshot before entering block. Applies diff to remote service
         on successful exit. Resets local state on error.
         """
+        # Main use case is for roll backs of IncrementalPlaylistCollection, where
+        # individual remote operations might fail.
+        # But we want a consistent interface, therefore we define it in this base class,
+        # even though roll-backs are an uncommon requirement for local changes.
         if not self.remote_associated:
             raise ValueError(
                 "remote_edit() is only supported for playlists that have "
@@ -147,7 +170,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         try:
             yield
             snapshot_after = self.get_snapshot()
-            self._remote_edit(snapshot_before, snapshot_after)
+            self._remote_commit(snapshot_before, snapshot_after)
         except Exception:
             self.tracks = snapshot_before.tracks
             self.name = snapshot_before.name
@@ -185,7 +208,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
 
     def remote_upsert(self):
         """
-        Alternate usage pattern, besides playlist.remote_edit().
+        Alternate usage pattern, besides `with playlist.remote_edit()`.
 
         - if does not exist, create_online()
         - if exists, then invoke remote_edit() wrapper.
@@ -211,31 +234,31 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         ...
 
     @abstractmethod
-    def _remote_edit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Edit the playlist online."""
+    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Write the current playlist state to its online version."""
         ...
 
 
-class IncrementalPlaylistCollection(PlaylistCollection[T], ABC):
-    """Playlist editor for services with single-track API operations.
-
-    Some music services only allow adding/removing one track
-    at a time. This class computes the diff between two playlist states and
-    translates it into the appropriate sequence of remote API calls.
+class MultiRequestPlaylistCollection(PlaylistCollection[T], ABC):
+    """Playlist for APIs where modifications have to be split into mulitple requests.
 
     Subclass this and implement:
-        - _remote_insert_track()  - Add one or multiple track(s)
-        - _remote_delete_track()  - Remove one or multiple track(s)
+        - _remote_insert_track()     - Add one or multiple track(s)
+        - _remote_delete_track()     - Remove one or multiple track(s)
         - _remote_update_metadata()  - Update name/description
-        - _track_key()  - Stable identifier for track equality
+        - _track_key()               - Stable identifier for track equality
 
-    The base class handles diff computation, batching consecutive operations,
+    This base class handles diff computation, batching consecutive operations,
     and rolling back on failure.
+    It also translates the diff between two playlist states into the appropriate
+    sequence of remote API calls.
 
-    Use this when the service API doesn't support bulk playlist operations.
+    Use this when the service API needs multiple calls to set a playlist to
+    a new state (Most services will need this. For example, adding tracks
+    usually has a different endpoint than changing a playlist's description.)
     """
 
-    def _remote_edit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
         """Apply minimal remote operations to match after state from before.
 
         Computes the diff between before and after states, then translates

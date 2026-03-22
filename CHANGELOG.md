@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auth commands are now available via `plistsync auth [service]` instead of `plistsync [service] auth`
 - Added `plistsync --version` command to show the currently installed version of the library
 - Renamed `_apply_diff` -> `_remote_commit` for clarity
-- Moved incremental-track abstract methods into a separate class (`IncrementalPlaylistCollection`). This separation allows services to use simpler implementations when the API supports full playlist updates without intermediate steps.
+- Split Playlist ABC into two classes: one for simple services, like filesystems, where states can be pushed via a single API call (`PlaylistCollection`) and one where multiple API calls are required (`MultiRequestPlaylistCollection`), e.g. when a playlists description cannot be pushed in the same call as track changes.
 
 ## [0.5.1] - 2026-03-16
 

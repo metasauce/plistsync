@@ -3,9 +3,9 @@ import pytest
 
 from plistsync.core.playlist import Snapshot
 from plistsync.core.track import GlobalTrackIDs
-from tests.abc import IncrementalPlaylistCollectionTestBase, PlaylistCollectionTestBase
+from tests.abc import MultiRequestPlaylistCollectionTestBase, PlaylistCollectionTestBase
 from .mock_track import MockTrack
-from .mock_playlist import MockPlaylist, MockPlaylistIncremental
+from .mock_playlist import MockPlaylist, MockPlaylistMultiRequest
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def make_playlist() -> Callable[..., MockPlaylist]:
 
 
 @pytest.fixture
-def make_incremental_playlist() -> Callable[..., MockPlaylist]:
+def make_multi_request_playlist() -> Callable[..., MockPlaylist]:
     def _make(
         *,
         name: str = "foo",
@@ -31,7 +31,7 @@ def make_incremental_playlist() -> Callable[..., MockPlaylist]:
         remote_associated: bool = True,
     ) -> MockPlaylist:
         tracks = [MockTrack(global_ids=gid) for gid in (ids or [])]
-        return MockPlaylistIncremental(
+        return MockPlaylistMultiRequest(
             name, tracks, remote_associated=remote_associated
         )
 
@@ -108,12 +108,12 @@ class TestPlaylistCollection:
     )
     def test_edit_tracks(
         self,
-        make_incremental_playlist,
+        make_multi_request_playlist,
         ids_before,
         ids_after,
         expected_log,
     ) -> None:
-        pl = make_incremental_playlist(ids=ids_before)
+        pl = make_multi_request_playlist(ids=ids_before)
         with pl.remote_edit():
             pl._tracks = [MockTrack(global_ids=ta) for ta in ids_after]
 
@@ -121,16 +121,16 @@ class TestPlaylistCollection:
         # Check log
         assert [(op, idx, t.global_ids) for (op, idx, t) in pl.log] == expected_log
 
-    def test_edit_metadata(self, make_incremental_playlist) -> None:
-        pl = make_incremental_playlist()
+    def test_edit_metadata(self, make_multi_request_playlist) -> None:
+        pl = make_multi_request_playlist()
 
         with pl.remote_edit():
             pl.name = "bar"
 
         assert pl.name == "bar"
 
-    def test_edit_rollback(self, make_incremental_playlist) -> None:
-        pl = make_incremental_playlist()
+    def test_edit_rollback(self, make_multi_request_playlist) -> None:
+        pl = make_multi_request_playlist()
 
         with pytest.raises(ValueError):
             with pl.remote_edit():
@@ -205,11 +205,11 @@ class TestMockPlaylistCollection(PlaylistCollectionTestBase):
             pl.name
 
 
-class TestMockPlaylistIncrementalCollection(IncrementalPlaylistCollectionTestBase):
+class TestMockPlaylistIncrementalCollection(MultiRequestPlaylistCollectionTestBase):
     def create_playlist(
         self, *, remote_associated: bool = True
-    ) -> MockPlaylistIncremental:
-        return MockPlaylistIncremental(
+    ) -> MockPlaylistMultiRequest:
+        return MockPlaylistMultiRequest(
             "pl",
             None,
             remote_associated=remote_associated,

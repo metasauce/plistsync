@@ -4,7 +4,7 @@ from collections.abc import Hashable
 from typing import TYPE_CHECKING, Self, cast
 
 from plistsync.core.playlist import (
-    IncrementalPlaylistCollection,
+    MultiRequestPlaylistCollection,
     PlaylistInfo,
     Snapshot,
 )
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from .library import TidalLibraryCollection
 
 
-class TidalPlaylistCollection(IncrementalPlaylistCollection[TidalPlaylistTrack]):
+class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]):
     library: TidalLibraryCollection
 
     # When the playlist is associated with an online playlist, we have the response.
@@ -262,7 +262,7 @@ class TidalPlaylistCollection(IncrementalPlaylistCollection[TidalPlaylistTrack])
         before: Snapshot[TidalPlaylistTrack],
         after: Snapshot[TidalPlaylistTrack],
     ) -> None:
-        super()._remote_edit(before, after)
+        super()._remote_commit(before, after)
         # After edit we refetch all tracks as their is no other
         # easy way to get the new item ids
         self._refetch_tracks()

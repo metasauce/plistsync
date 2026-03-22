@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Self, cast
 
-from plistsync.core.playlist import IncrementalPlaylistCollection, PlaylistInfo
+from plistsync.core.playlist import MultiRequestPlaylistCollection, PlaylistInfo
 from plistsync.logger import log
 
 from .api import PlexApi
@@ -24,7 +24,7 @@ class PlexPlaylistOnlineData:
     tracks_data: Sequence[PlexApiTrackResponse]
 
 
-class PlexPlaylistCollection(IncrementalPlaylistCollection[PlexTrack]):
+class PlexPlaylistCollection(MultiRequestPlaylistCollection[PlexTrack]):
     """
     A collection of all tracks in a Plex playlist.
 
