@@ -13,7 +13,11 @@ from plistsync.core.collection import (
     TrackStream,
 )
 from plistsync.core.matching import Matches
-from plistsync.core.playlist import PlaylistCollection, Snapshot
+from plistsync.core.playlist import (
+    MultiRequestPlaylistCollection,
+    PlaylistCollection,
+    Snapshot,
+)
 
 from unittest.mock import Mock, ANY
 
@@ -300,17 +304,18 @@ class PlaylistCollectionTestBase(ABC):
             with pl.remote_edit():
                 pass
 
-    def test_remote_edit_calls_apply_diff_on_success(self) -> None:
+    def test_remote_edit_calls_remote_edit_on_success(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         old_name = pl.name
 
-        pl._apply_diff = Mock()
+        remote_edit_mock = Mock()
+        pl._remote_commit = remote_edit_mock
 
         with pl.remote_edit():
             pl.name = f"{old_name} (updated)"
 
-        pl._apply_diff.assert_called_once()
-        before, after = pl._apply_diff.call_args.args
+        remote_edit_mock.assert_called_once()
+        before, after = remote_edit_mock.call_args.args
         assert isinstance(before, Snapshot)
         assert isinstance(after, Snapshot)
         assert before.name == old_name
@@ -322,7 +327,7 @@ class PlaylistCollectionTestBase(ABC):
         initial_description = pl.description
         initial_tracks = list(pl.tracks)
 
-        pl._apply_diff = Mock()
+        pl._remote_commit = Mock()
 
         with pytest.raises(ValueError):
             with pl.remote_edit():
@@ -337,7 +342,7 @@ class PlaylistCollectionTestBase(ABC):
         assert pl.tracks == initial_tracks
 
         # since we errored inside the context, diff application should not run
-        pl._apply_diff.assert_not_called()
+        pl._remote_commit.assert_not_called()
 
     # ------------------------------- remote_create ------------------------------ #
 
@@ -403,9 +408,19 @@ class PlaylistCollectionTestBase(ABC):
         else:
             mocked.assert_called_once_with()
 
-    # -------------------------------- _apply_diff ------------------------------- #
 
-    def test_apply_diff_noop_does_nothing(self) -> None:
+class MultiRequestPlaylistCollectionTestBase(PlaylistCollectionTestBase, ABC):
+    @abstractmethod
+    def create_playlist(
+        self,
+        *,
+        remote_associated: bool = True,
+    ) -> MultiRequestPlaylistCollection:
+        raise NotImplementedError
+
+    # -------------------------------- _remote_commit ------------------------------- #
+
+    def test_remote_commit_noop_does_nothing(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
 
@@ -417,14 +432,14 @@ class PlaylistCollectionTestBase(ABC):
         before = Snapshot(name="n", description=None, tracks=[t1])
         after = Snapshot(name="n", description=None, tracks=[t1])
 
-        pl._apply_diff(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_not_called()
         pl._remote_insert_track.assert_not_called()
         pl._remote_delete_track.assert_not_called()
         pl._remote_move_track.assert_not_called()
 
-    def test_apply_diff_updates_metadata_only(self) -> None:
+    def test_remote_commit_updates_metadata_only(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
 
@@ -436,14 +451,14 @@ class PlaylistCollectionTestBase(ABC):
         before = Snapshot(name="old", description="d1", tracks=[t1])
         after = Snapshot(name="new", description="d2", tracks=[t1])
 
-        pl._apply_diff(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_called_once_with("new", "d2")
         pl._remote_insert_track.assert_not_called()
         pl._remote_delete_track.assert_not_called()
         pl._remote_move_track.assert_not_called()
 
-    def test_apply_diff_inserts_track(self) -> None:
+    def test_remote_commit_inserts_track(self) -> None:
         pl = self.create_playlist(remote_associated=True)
         t1 = self.create_track(isrc="1")
         t4 = self.create_track(isrc="4")
@@ -459,7 +474,7 @@ class PlaylistCollectionTestBase(ABC):
         before = Snapshot(name="n", description=None, tracks=[t4])
         after = Snapshot(name="n", description=None, tracks=[t1, t4])
 
-        pl._apply_diff(before, after)
+        pl._remote_commit(before, after)
 
         pl._remote_update_metadata.assert_not_called()
         pl._remote_insert_track.assert_called_once_with(
