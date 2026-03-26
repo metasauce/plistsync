@@ -26,6 +26,8 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Generic, TypedDict
 
+from plistsync.errors import PlaylistAssociationError
+
 from .collection import Collection, TrackStream, TypeVar
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
@@ -133,7 +135,9 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
 
     @property
     def tracks(self) -> list[T]:
-        return self._tracks or []
+        if self._tracks is None:
+            self._tracks = []
+        return self._tracks
 
     @tracks.setter
     def tracks(self, value: list[T]) -> None:
@@ -160,11 +164,7 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         # But we want a consistent interface, therefore we define it in this base class,
         # even though roll-backs are an uncommon requirement for local changes.
         if not self.remote_associated:
-            raise ValueError(
-                "remote_edit() is only supported for playlists that have "
-                "already been linked to a remote. Call remote_create() first or "
-                "use remote_upsert()."
-            )
+            raise PlaylistAssociationError(already_associated=False)
 
         snapshot_before = self.get_snapshot()
         try:
@@ -195,14 +195,14 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
           Warn or Raise here if another playlist exists with the same name.
         """
         if self.remote_associated:
-            raise ValueError("This playlist is already associated online.")
+            raise PlaylistAssociationError(already_associated=True)
 
         return self._remote_create()
 
     def remote_delete(self):
         """Delete the playlist online."""
         if not self.remote_associated:
-            raise ValueError("Can only delete playlists that are associated online.")
+            raise PlaylistAssociationError(already_associated=False)
 
         return self._remote_delete()
 
