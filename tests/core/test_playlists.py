@@ -3,6 +3,7 @@ import pytest
 
 from plistsync.core.playlist import Snapshot
 from plistsync.core.track import GlobalTrackIDs
+from plistsync.errors import PlaylistAssociationError
 from tests.abc import MultiRequestPlaylistCollectionTestBase, PlaylistCollectionTestBase
 from .mock_track import MockTrack
 from .mock_playlist import MockPlaylist, MockPlaylistMultiRequest
@@ -132,6 +133,7 @@ class TestPlaylistCollection:
     def test_edit_rollback(self, make_multi_request_playlist) -> None:
         pl = make_multi_request_playlist()
 
+        # Raise any error to trigger rollback
         with pytest.raises(ValueError):
             with pl.remote_edit():
                 pl.name = "bar"
@@ -168,7 +170,7 @@ class TestPlaylistRemoteLifecycle:
     def test_create_raises_if_already_associated(self, make_playlist) -> None:
         pl = make_playlist(remote_associated=True)
 
-        with pytest.raises(ValueError, match="already associated"):
+        with pytest.raises(PlaylistAssociationError, match="already associated"):
             pl.remote_create()
 
     def test_delete(self, make_playlist) -> None:
@@ -182,7 +184,7 @@ class TestPlaylistRemoteLifecycle:
     def test_delete_raises_if_not_associated(self, make_playlist) -> None:
         pl = make_playlist(remote_associated=False)
 
-        with pytest.raises(ValueError, match="associated"):
+        with pytest.raises(PlaylistAssociationError, match="must be associated"):
             pl.remote_delete()
 
 

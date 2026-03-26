@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import sys
 import pytest
+from plistsync.errors import PlaylistAssociationError
 from plistsync.services.traktor import NMLLibraryCollection
 from plistsync.services.traktor import NMLPlaylistCollection
 from plistsync.services.traktor import NMLPath
@@ -243,7 +244,7 @@ class TestNMLPlaylistUpsert:
         assert not pl_collection.remote_associated
 
         # Second delete should trigger value error
-        with pytest.raises(ValueError):
+        with pytest.raises(PlaylistAssociationError):
             pl_collection.remote_delete()
 
 
