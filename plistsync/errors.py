@@ -79,3 +79,20 @@ def check_imports(
         raise DependencyError(
             service=service, missing_packages=missing, extra_name=extra_name
         )
+
+
+# ----------------------------- Playlist specific ---------------------------- #
+
+
+class PlaylistAssociationError(Exception):
+    """Raised when a playlist's association state is wrong for the operation."""
+
+    already_associated: bool
+
+    def __init__(self, *, already_associated: bool) -> None:
+        if already_associated:
+            super().__init__("Playlist is already associated with a remote.")
+        else:
+            super().__init__("Playlist must be associated with a remote.")
+
+        self.already_associated = already_associated

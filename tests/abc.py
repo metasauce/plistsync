@@ -21,6 +21,8 @@ from plistsync.core.playlist import (
 
 from unittest.mock import Mock, ANY
 
+from plistsync.errors import PlaylistAssociationError
+
 
 class TrackTestBase(ABC):
     """Base class for testing tracks.
@@ -300,7 +302,7 @@ class PlaylistCollectionTestBase(ABC):
     def test_remote_edit_raises_when_not_associated(self) -> None:
         pl = self.create_playlist(remote_associated=False)
 
-        with pytest.raises(ValueError, match="remote_edit\\(\\)"):
+        with pytest.raises(PlaylistAssociationError, match="must be associated"):
             with pl.remote_edit():
                 pass
 
@@ -365,7 +367,11 @@ class PlaylistCollectionTestBase(ABC):
         mocked = Mock(return_value=sentinel)
         pl._remote_create = mocked
 
-        ctx = pytest.raises(ValueError, match=match) if expect_raise else nullcontext()
+        ctx = (
+            pytest.raises(PlaylistAssociationError, match=match)
+            if expect_raise
+            else nullcontext()
+        )
         with ctx:
             result = pl.remote_create()
             if not expect_raise:
@@ -381,7 +387,7 @@ class PlaylistCollectionTestBase(ABC):
     @pytest.mark.parametrize(
         "remote_associated, expect_raise, match",
         [
-            (False, True, "associated"),
+            (False, True, "must be associated"),
             (True, False, ""),
         ],
     )
@@ -397,7 +403,11 @@ class PlaylistCollectionTestBase(ABC):
         mocked = Mock(return_value=sentinel)
         pl._remote_delete = mocked
 
-        ctx = pytest.raises(ValueError, match=match) if expect_raise else nullcontext()
+        ctx = (
+            pytest.raises(PlaylistAssociationError, match=match)
+            if expect_raise
+            else nullcontext()
+        )
         with ctx:
             result = pl.remote_delete()
             if not expect_raise:
