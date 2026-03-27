@@ -59,7 +59,7 @@ class TestPlaylistCollection(ABC):
     """
 
     Playlist: ClassVar[type[PlaylistCollection]]
-    supports_description = True
+    supports_description: ClassVar[bool]
 
     @abstractmethod
     def create_playlist(self) -> PlaylistCollection:

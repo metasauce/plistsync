@@ -159,6 +159,8 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
 
     def __len__(self) -> int:
         """Get the number of tracks in the playlist."""
+        if self.tracks is not None:
+            return len(self.tracks)
         entries = self.playlist_node.get("ENTRIES", "0")
         return int(entries) if entries.isdigit() else 0
 

@@ -9,6 +9,8 @@ class TestsTidalPlaylist(TestMultiRequestPlaylistCollection):
     Playlist = TidalPlaylistCollection
 
     def create_playlist(self) -> TidalPlaylistCollection:
-        return TidalPlaylistCollection(Mock(), "A name", "some description")
+        pl = TidalPlaylistCollection(Mock(), "A name", "some description")
+        pl._refetch_tracks = Mock()
+        return pl
 
-    # TODO: Add tests for remote_methods
+    # TODO: Add tests for remote_method implementations
