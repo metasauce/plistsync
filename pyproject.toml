@@ -40,6 +40,7 @@ tidal = ["requests_oauth2client>=1.8.0"]
 local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
+allservices = ["plistsync[traktor,spotify,tidal,local,beets,plex]"]
 
 [dependency-groups]
 dev = [

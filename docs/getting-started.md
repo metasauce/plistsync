@@ -16,21 +16,39 @@ You can install `plistsync` from [PyPi](https://pypi.org/project/plistsync/).
 
 :::{tab-item} pip
 :sync: pip
-
 ```bash
 pip install plistsync
 ```
-
 :::
 
 :::{tab-item} uv
 :sync: uv
-
 ```bash
 uv add plistsync
 ```
-
 :::
+
+::::
+
+To keep the package slim and flexible, all services (like spotify or tidal) are optional. But to get started, we recommend grabbing them:
+
+::::{tab-set}
+:sync-group: environment
+
+:::{tab-item} pip
+:sync: pip
+```bash
+pip install plistsync[allservices]
+```
+:::
+
+:::{tab-item} uv
+:sync: uv
+```bash
+uv add plistsync[allservices]
+```
+:::
+
 ::::
 
 :::{admonition} **Pre-v1.0.0**
