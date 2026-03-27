@@ -4,7 +4,7 @@ from tinytag import TinyTag
 
 from plistsync.services.local.collection import LocalCollection
 
-from ..conftest import set_tags
+from tests.conftest import set_tags
 
 
 def test_create(audio_files: Path):
