@@ -1,14 +1,14 @@
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 
-from plistsync.core.track import Track as TrackC
+from plistsync.core.track import Track
 
 
 class TestTrack(ABC):
     """Abstract base class for testing 'Track' implementations."""
 
     @abstractmethod
-    def create_track(self, *args, **kwargs) -> TrackC:
+    def create_track(self, *args, **kwargs) -> Track:
         """Create a track for testing.
 
         This method should create a track with some dummy data. Has to be implemented by the subclass.
