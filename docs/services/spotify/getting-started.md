@@ -32,20 +32,32 @@ uv add plistsync --extra spotify
 
 ### Spotify Account
 
-You'll need an active Spotify account. If you don't have one, sign up at [spotify.com](https://spotify.com).
+You'll need an active and paid [Spotify account](https://accounts.spotify.com/).
+
+```{note}
+Since February 2026, Spotify
+- no longer allows access to its API for free accounts
+- and limits us to 5 users per App, even for paid accounts.
+
+This means we can no longer provide working API credentials for plistsync users. You have to create you own credentials.
+```
 
 ### API Credentials
 
 To authenticate with Spotify's API, you need to obtain API credentials:
 
 1. Visit the [Spotify Developer Portal](https://developer.spotify.com/)
-2. Log in with your Spotify account
+2. Log in with your paid Spotify account
 3. Create a new application
-4. Generate your `client_id` (and optionally `client_secret`)
+4. Generate your `client_id` and `client_secret`
+
+![Create an app](assets/spotify_credentials_1.webp)
+
+![Configure the app's callback, and get `client_id` and `client_secret`](assets/spotify_credentials_2.webp)
 
 ## Configuration
 
-Enable Tidal in your `plistsync` configuration file:
+Enable Spotify in your `plistsync` configuration file:
 
 ```yaml
 # ./config/config.yaml
@@ -58,7 +70,7 @@ services:
 
 ## Authentication
 
-Once configured, authenticate `plistsync` with your Tidal account:
+Once configured, authenticate `plistsync` with your Spotify account:
 
 ```bash
 plistsync auth spotify
@@ -66,8 +78,8 @@ plistsync auth spotify
 
 This will start an interactive authentication flow:
 
-1. You'll be prompted to open a browser to Tidal's authorization page
-2. Log in with your Tidal credentials
+1. You'll be prompted to open a browser to Spotify's authorization page
+2. Log in with your Spotify credentials
 3. Grant `plistsync` the requested permissions
 4. This will save an authentication token in the `config` folder
 
