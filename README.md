@@ -1,5 +1,6 @@
 [![Python checks](https://github.com/metasauce/plistsync/actions/workflows/python.yml/badge.svg?branch=main)](https://github.com/metasauce/plistsync/actions/workflows/python.yml)
 [![PyPI - Version](https://img.shields.io/pypi/v/plistsync)](https://pypi.org/project/plistsync/)
+[![Documentation](https://app.readthedocs.org/projects/plistsync/badge/?version=latest&style=flat)](https://docs.plistsync.com)
 
 <p align="center">
     <h1 align="center">plistsync</h1>
@@ -61,6 +62,7 @@ See the [LICENSE](LICENSE) file for the full terms.
 
 If you enjoy this project, there are a few ways you can support us:
 
+- To add Apple Music support, we are currently looking for someone to support us with an Apple Developer Account. (Apple only allows access to its MusicKit API via a paid Developer Account. If you are a Dev and willing to help us out, please get in touch 🫶)
 - Contribute code: Pull requests, bug reports, and feature suggestions are always welcome!
 - Spread the word: Share the project with friends or on social media.
 - Donate: Every contribution helps fuel more coffee-powered coding sessions!
