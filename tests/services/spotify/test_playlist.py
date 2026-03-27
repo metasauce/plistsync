@@ -3,7 +3,7 @@ from plistsync.services.spotify.playlist import SpotifyPlaylistCollection
 from tests.abc.playlist import TestMultiRequestPlaylistCollection
 
 
-class TestspotifyPlaylist(TestMultiRequestPlaylistCollection):
+class TestSpotifyPlaylist(TestMultiRequestPlaylistCollection):
     """Unit tests for the spotify playlist collection."""
 
     Playlist = SpotifyPlaylistCollection
