@@ -20,7 +20,7 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
@@ -81,11 +81,33 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
 
     """
 
+    @abstractmethod
+    def __init__(
+        self,
+        title: str,
+        description: str | None = None,
+        tracks: Sequence[Track] | None = None,
+    ) -> None:
+        """Initialize the playlist.
+
+        This should create a local object that is **not** linked
+        to the service (yet).
+
+        Parameters
+        ----------
+        title : str
+            The name of the playlist.
+        description : str, optional
+            An optional description of the playlist.
+        tracks : Sequence[Track], optional
+            Initial list of tracks to include in the playlist.
+        """
+        ...
+
     @property
     @abstractmethod
     def info(self) -> PlaylistInfo:
-        """
-        Get this playlist's information.
+        """Get this playlist's information.
 
         Subclasses need return a reference, so that the setters for name
         etc. that are defined here, write back.
