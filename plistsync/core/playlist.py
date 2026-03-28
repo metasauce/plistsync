@@ -376,11 +376,19 @@ class MultiRequestPlaylistCollection(PlaylistCollection[T], ABC):
             to work with old_ and nex_idx consistently across services)
         """
         # Remove from old position
-        self._remote_delete_track(old_idx, track, tracks_before)
+        self._remote_delete_track(
+            idx=old_idx,
+            track=track,
+            tracks_before=tracks_before,
+        )
         tracks_before.pop(old_idx)
         # Insert at new position (note: new_idx may have shifted due to pop)
         adjusted_new_idx = new_idx if new_idx > old_idx else new_idx
-        self._remote_insert_track(adjusted_new_idx, track, tracks_before)
+        self._remote_insert_track(
+            idx=adjusted_new_idx,
+            track=track,
+            tracks_before=tracks_before,
+        )
         tracks_before.insert(adjusted_new_idx, track)
 
     @abstractmethod

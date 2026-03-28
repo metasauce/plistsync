@@ -6,7 +6,7 @@ from plistsync.core.playlist import (
     PlaylistInfo,
     Snapshot,
 )
-from tests.core.mock_track import MockTrack
+from .mock_track import MockTrack
 
 
 class MockPlaylist(PlaylistCollection[MockTrack]):
@@ -20,7 +20,7 @@ class MockPlaylist(PlaylistCollection[MockTrack]):
     ):
         self._info: PlaylistInfo = {"name": name}
         self.log: list[tuple[Any, ...]] = []
-        self._tracks = tracks or []
+        self._tracks = tracks
         self._remote_associated = remote_associated
 
     @property

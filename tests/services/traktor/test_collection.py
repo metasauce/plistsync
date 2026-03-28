@@ -8,7 +8,7 @@ from plistsync.services.traktor import NMLPlaylistCollection
 from plistsync.services.traktor import NMLPath
 from plistsync.services.traktor.track import NMLPlaylistTrack
 from plistsync.services.traktor.utility import xpath_string_escape
-from tests.abc import CollectionTestBase, LibraryCollectionTestBase
+from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
 from lxml.etree import _Element
 

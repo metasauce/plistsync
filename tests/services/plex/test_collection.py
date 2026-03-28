@@ -4,7 +4,7 @@ from collections.abc import Iterable
 import pytest
 from plistsync.services.plex.playlist import PlexPlaylistCollection
 from plistsync.services.plex.track import PlexTrack
-from tests.abc import CollectionTestBase, LibraryCollectionTestBase
+from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
 from plistsync.core.collection import LibraryCollection
 from plistsync.services.plex import PlexLibrarySectionCollection
