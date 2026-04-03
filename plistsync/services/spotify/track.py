@@ -97,5 +97,8 @@ class SpotifyPlaylistTrack(SpotifyTrack):
         self.added_by = data_or_track.get("added_by", None)
         self.is_local = data_or_track.get("is_local", False)
 
+        if data_or_track.get("track", None) is None:
+            raise ValueError("No track in Response Data!")
+
         # TODO: Episode handling?
         super().__init__(data_or_track["track"])  # type: ignore[arg-type]

@@ -66,7 +66,7 @@ class SpotifyPlaylistCollection(MultiRequestPlaylistCollection[SpotifyPlaylistTr
                 SpotifyPlaylistTrack(
                     item,
                 )
-                for item in tracks_obj_items
+                for item in tracks_obj_items if item.get("track") is not None
             ]
         else:
             pl._tracks = None  # set to None to fetch on access
@@ -147,6 +147,7 @@ class SpotifyPlaylistCollection(MultiRequestPlaylistCollection[SpotifyPlaylistTr
         self._tracks = [
             SpotifyPlaylistTrack(item)
             for item in self.api.playlist._load_tracks(self.online_data[1])
+            if item.get("track") is not None
         ]
         return self._tracks
 
