@@ -33,11 +33,46 @@ from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
 
+class PlaylistIDs(TypedDict, total=False):
+    """Unique identifiers for a playlist.
+
+    Each identifier in this object uniquely identifies a playlist
+    within a specific service. While it is unlikely that multiple
+    IDs are set at the same time, this may be possible in the future.
+    """
+
+    spotify_id: str
+    """Spotify ID of the playlist.
+
+    Unique within the Spotify service.
+    """
+
+    tidal_id: str
+    """Tidal playlist ID.
+
+    Unique within the Tidal service.
+    """
+
+
 class PlaylistInfo(TypedDict, total=False):
-    """Unified information a playlist can have, independent of its service."""
+    """Unified metadata for a playlist, independent of any specific service.
+
+    This object captures descriptive information about a playlist that
+    is consistent across services or platforms.
+
+    Unlike `PlaylistIDs`, which uniquely identify a playlist, `PlaylistInfo`
+    contains human-readable metadata such as the playlist's name, description,
+    and other relevant attributes.
+
+    Fields may be partially populated depending on the source service.
+    """
 
     name: str
+    """The display name of the playlist."""
+
     description: str | None
+    """Optional textual description of the playlist."""
+
     # TODO: add more unified fields like owner, date_created etc
 
 
