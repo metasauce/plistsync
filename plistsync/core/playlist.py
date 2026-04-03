@@ -20,7 +20,7 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
@@ -116,15 +116,12 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
 
     """
 
+    # --------------------------- Required (protocol) ---------------------------- #
+
     @property
     @abstractmethod
     def info(self) -> PlaylistInfo:
-        """
-        Get this playlist's information.
-
-        Subclasses need return a reference, so that the setters for name
-        etc. that are defined here, write back.
-        """
+        """Get this playlist's information."""
         ...
 
     @info.setter
@@ -132,6 +129,26 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def info(self, value: PlaylistInfo):
         """Set playlist information."""
         ...
+
+    @property
+    @abstractmethod
+    def tracks(self) -> list[T]:
+        """Get the list of tracks in the playlist."""
+        ...
+
+    @tracks.setter
+    @abstractmethod
+    def tracks(self, value: list[T]) -> None:
+        """Set the list of tracks in the playlist."""
+        ...
+
+    @property
+    @abstractmethod
+    def ids(self) -> PlaylistIDs:
+        """Get the unique identifiers of the playlist."""
+        ...
+
+    # ----------------------------- Usability helpers ---------------------------- #
 
     @property
     def name(self) -> str:
@@ -160,23 +177,16 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         info.update({"description": value})
         self.info = info
 
+    def get_snapshot(self) -> Snapshot[T]:
+        """Get a snapshot of the current state of the playlist."""
+        return Snapshot(
+            name=self.name,
+            description=self.description,
+            tracks=deepcopy(self.tracks),
+        )
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
-
-    # -------------------------------- Tracks -------------------------------- #
-
-    # Services can decide how to populate this helper
-    _tracks: list[T] | None = None
-
-    @property
-    def tracks(self) -> list[T]:
-        if self._tracks is None:
-            self._tracks = []
-        return self._tracks
-
-    @tracks.setter
-    def tracks(self, value: list[T]) -> None:
-        self._tracks = value
 
     def __len__(self) -> int:
         """Use .tracks, but instances may override to use lookup data."""
@@ -212,14 +222,6 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
             self.description = snapshot_before.description
             # TODO: maybe we want a online rollback too
             raise
-
-    def get_snapshot(self) -> Snapshot[T]:
-        """Get a snapshot of the current state of the playlist."""
-        return Snapshot(
-            name=self.name,
-            description=self.description,
-            tracks=deepcopy(self.tracks),
-        )
 
     def remote_create(self):
         """
@@ -272,6 +274,52 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
         """Write the current playlist state to its online version."""
         ...
+
+
+class OfflinePlaylist(PlaylistCollection[Track]):
+    """A offline (in memory) playlist with no remote synchronization.
+
+    This class provides a concrete implementation of `PlaylistCollection` for
+    managing playlists in memory without any connection to online music services.
+    It is useful for testing, temporary playlist manipulation, or as an intermediate
+    representation during playlist conversions.
+    """
+
+    _tracks: list[Track]
+    _info: PlaylistInfo
+    _ids: PlaylistIDs
+
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[Track] | None = None,
+    ) -> None:
+        self._info = PlaylistInfo(
+            name=name,
+            description=description,
+        )
+        self._tracks = list(tracks or [])
+
+    @property
+    def ids(self) -> PlaylistIDs:
+        return self._ids
+
+    @property
+    def info(self) -> PlaylistInfo:
+        return self._info
+
+    @info.setter
+    def info(self, value: PlaylistInfo) -> None:
+        self._info = value
+
+    @property
+    def tracks(self) -> list[Track]:
+        return list(self._tracks)
+
+    @tracks.setter
+    def tracks(self, value: list[Track]) -> None:
+        self._tracks = value
 
 
 class MultiRequestPlaylistCollection(PlaylistCollection[T], ABC):
