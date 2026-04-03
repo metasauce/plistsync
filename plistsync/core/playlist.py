@@ -24,9 +24,7 @@ from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, TypedDict
-
-from plistsync.errors import PlaylistAssociationError
+from typing import Generic, Self, TypedDict
 
 from .collection import Collection, TrackStream, TypeVar
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
@@ -88,32 +86,18 @@ class Snapshot(Generic[T]):
     tracks: list[T]
 
 
-class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
-    """Abstract base class for playlist collections across music services.
+class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
+    """Abstract base class defining the core playlist interface.
 
-    Manages local track state and syncs changes to remote services.
+    This class provides a minimal protocol for playlist-like objects without
+    assuming any specific storage model (local files, remote APIs, in-memory, etc.).
+    It defines the essential properties that all playlists must support:
+    metadata access (`info`, `name`, `description`), track list access (`tracks`),
+    and unique identifiers (`ids`).
 
-    It supports two ways to synchronize the local state of a playlist to its remote:
-        - via context manager `with remote_edit():`
-            where we create a snapshot before an after the context, so that we can
-            easily undo failed remote operations
-        - via final call to `remote_upsert()`
-            which checks the remote state and sets it to the current local state
-            (and might internally use the context manager)
-
-    Note:
-    The difference between this base class and IncrementalPlaylistCollection is that
-    here we focus on playlist creation/deletion and services where the playlist state
-    can be saved to remote via a single API call.
-
-    Subclass this and implement:
-        - info (getter / setter)  - Consistent interface for name and description
-        - remote_associated()     - Indicate whether the playlist exists on the remote
-        - _remote_create()        - Create this playlist on the remote
-        - _remote_delete()        - Delete this playlist from the remote
-        - _remote_commit()        - Sync current local state of playlist to the remote
-                                    (usually via single API call)
-
+    Concrete implementations should subclass this and implement the abstract
+    properties. Use this as a base when building playlist abstractions for
+    specific music services or local file formats.
     """
 
     # --------------------------- Required (protocol) ---------------------------- #
@@ -189,94 +173,10 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
 
     def __len__(self) -> int:
-        """Use .tracks, but instances may override to use lookup data."""
         return len(self.tracks)
 
-    # --------------------------- Remote Operations -------------------------- #
 
-    @contextmanager
-    def remote_edit(self):
-        """Transactional playlist editor with automatic rollback.
-
-        Only callable if the playlist is already linked.
-        (.remote_associated == True)
-
-        Captures snapshot before entering block. Applies diff to remote service
-        on successful exit. Resets local state on error.
-        """
-        # Main use case is for roll backs of IncrementalPlaylistCollection, where
-        # individual remote operations might fail.
-        # But we want a consistent interface, therefore we define it in this base class,
-        # even though roll-backs are an uncommon requirement for local changes.
-        if not self.remote_associated:
-            raise PlaylistAssociationError(already_associated=False)
-
-        snapshot_before = self.get_snapshot()
-        try:
-            yield
-            snapshot_after = self.get_snapshot()
-            self._remote_commit(snapshot_before, snapshot_after)
-        except Exception:
-            self.tracks = snapshot_before.tracks
-            self.name = snapshot_before.name
-            self.description = snapshot_before.description
-            # TODO: maybe we want a online rollback too
-            raise
-
-    def remote_create(self):
-        """
-        Create the playlist online.
-
-        - if self.id: raise "is already associated online"
-        - Depending on config (TODO config option DEBUG | INFO | WARN | Raise )
-          Warn or Raise here if another playlist exists with the same name.
-        """
-        if self.remote_associated:
-            raise PlaylistAssociationError(already_associated=True)
-
-        return self._remote_create()
-
-    def remote_delete(self):
-        """Delete the playlist online."""
-        if not self.remote_associated:
-            raise PlaylistAssociationError(already_associated=False)
-
-        return self._remote_delete()
-
-    def remote_upsert(self):
-        """
-        Alternate usage pattern, besides `with playlist.remote_edit()`.
-
-        - if does not exist, create_online()
-        - if exists, then invoke remote_edit() wrapper.
-        """
-        raise NotImplementedError()
-
-    # ---------------------- Abstract remote operations ---------------------- #
-
-    @property
-    @abstractmethod
-    def remote_associated(self) -> bool:
-        """Indicate if the playlist is already linked to a remote (online) playlist."""
-        ...
-
-    @abstractmethod
-    def _remote_create(self):
-        """Create the playlist online. Checks are handled in the public version."""
-        ...
-
-    @abstractmethod
-    def _remote_delete(self):
-        """Delete the playlist online."""
-        ...
-
-    @abstractmethod
-    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Write the current playlist state to its online version."""
-        ...
-
-
-class OfflinePlaylist(PlaylistCollection[Track]):
+class OfflinePlaylist(Playlist[Track]):
     """A offline (in memory) playlist with no remote synchronization.
 
     This class provides a concrete implementation of `PlaylistCollection` for
@@ -322,7 +222,122 @@ class OfflinePlaylist(PlaylistCollection[Track]):
         self._tracks = value
 
 
-class MultiRequestPlaylistCollection(PlaylistCollection[T], ABC):
+class ServicePlaylist(Generic[T], Playlist[T], ABC):
+    """Abstract base class for playlists synchronized with remote music services.
+
+    Extends `Playlist` with methods to manage the lifecycle and state synchronization
+    between a local representation and its remote counterpart (e.g., on Spotify, Tidal).
+    By convention, every `ServicePlaylist` instance corresponds to an existing remote
+    playlist. If the remote playlist is deleted, the local instance should be discarded
+    in favor of an `OfflinePlaylist` to retain the data.
+
+    Provides two synchronization strategies:
+      - `remote_edit()` – transactional edits with automatic local rollback
+      - `remote_update()` – bulk update by comparing remote and local snapshots
+    """
+
+    # --------------------------- Required (protocol) ---------------------------- #
+    # TODO: Finalize naming!!
+
+    @abstractmethod
+    @classmethod
+    def get_or_create_from_ids(cls, ids: PlaylistIDs | None = None) -> Self:
+        """Create or retrieve a service playlist using remote identifiers.
+
+        This factory method attempts to locate an existing remote playlist using
+        the provided `ids`. If a match is found, the remote playlist is returned
+        with its current remote state. Otherwise, a new (empty) playlist is created
+        on the remote service.
+        """
+        ...
+
+    @abstractmethod
+    def _remote_delete(self):
+        """Delete the playlist on the service."""
+        ...
+
+    @abstractmethod
+    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Write the current playlist state to its online version."""
+        ...
+
+    # ----------------------------- Usability helpers ---------------------------- #
+
+    def remote_delete(self) -> OfflinePlaylist:
+        """Delete the playlist from the remote service and return an offline copy.
+
+        Removes the playlist from the connected remote service and returns a new
+        `OfflinePlaylist` instance containing the playlist's metadata and tracks
+        as they existed before deletion. This allows the data to be preserved or
+        migrated elsewhere even after the remote resource is gone.
+        """
+
+        offline = OfflinePlaylist(self.name, self.description, self.tracks)
+        self._remote_delete()
+        return offline
+
+    def remote_update(self):
+        """Update the playlist on the remote service.
+
+        Creates the playlist if it doesn't exist, or updates it to match the
+        current local state.
+
+        Performance Note
+        ----------------
+        Less efficient than `remote_edit()` for changes, as it retrieves the
+        full remote state before committing. Use `remote_edit()` for better
+        performance/fewer API requests.
+        """
+        truth = self.get_or_create_from_ids(self.ids)
+        if truth.ids != self.ids:
+            # We should normally only get the playlist here, create
+            # should normallynot happen.
+            # TODO: decicde if we want to raise here
+            # if yes we should properly implement the error
+            raise ValueError
+
+        snapshot_before = truth.get_snapshot()
+        snapshot_after = self.get_snapshot()
+        self._remote_commit(snapshot_before, snapshot_after)
+
+    @contextmanager
+    def remote_edit(self):
+        """Context manager for transactional playlist edits with automatic rollback.
+
+        Enables safe modifications to a remote playlist by capturing the current
+        state before entering the block. On successful exit, commits the changes
+        to the remote service. If an exception occurs, restores the local state
+        to its pre-edit condition.
+
+        Usage
+        -----
+        ```python
+        with playlist.remote_edit():
+            playlist.tracks.append(new_track)
+            playlist.name = "Updated Name"
+        # Changes committed to remote on success
+        # Local state restored on error (remote rollback not implemented)
+        ```
+        """
+        # Main use case is for roll backs of IncrementalPlaylistCollection, where
+        # individual remote operations might fail.
+        # But we want a consistent interface, therefore we define it in this base class,
+        # even though roll-backs are an uncommon requirement for local changes.
+
+        snapshot_before = self.get_snapshot()
+        try:
+            yield
+            snapshot_after = self.get_snapshot()
+            self._remote_commit(snapshot_before, snapshot_after)
+        except Exception:
+            self.tracks = snapshot_before.tracks
+            self.name = snapshot_before.name
+            self.description = snapshot_before.description
+            # TODO: maybe we want a online rollback too
+            raise
+
+
+class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
     """Playlist for APIs where modifications have to be split into mulitple requests.
 
     Subclass this and implement:
