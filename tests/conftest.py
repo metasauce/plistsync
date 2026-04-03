@@ -93,8 +93,12 @@ def audio_files_nested(plist_config: tuple[Path, Path]):
 
     yield dest
 
-    # Clean up the copied files
-    shutil.rmtree(dest)
+    # Clean up the copied files - only remove nested subdirectory, not dest itself
+    # since it's shared with the session-scoped audio_files fixture
+    try:
+        shutil.rmtree(dest / "nested")
+    except Exception:
+        pass
 
 
 def set_tags(file_dir: Path | list[Path], tags: dict[str, Any]):

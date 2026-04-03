@@ -84,7 +84,7 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
             plist_data = self.data[0]
             return PlaylistInfo(
                 name=plist_data["attributes"]["name"],
-                description=plist_data["attributes"].get("description", ""),
+                description=plist_data["attributes"].get("description", None),
             )
         else:
             return self.data
@@ -97,7 +97,7 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
             self.data[0]["attributes"]["description"] = value.get("description") or ""
         else:
             self.data["name"] = value.get("name", self.name)
-            self.data["description"] = value.get("description") or ""
+            self.data["description"] = value.get("description")
 
     @property
     def id(self) -> str | None:

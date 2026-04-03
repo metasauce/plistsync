@@ -1,4 +1,3 @@
-from typing import Any
 from plistsync.core.track import Track, TrackInfo, GlobalTrackIDs, LocalTrackIDs
 
 
@@ -27,30 +26,13 @@ class MockTrack(Track):
         )
 
     @property
+    def info(self) -> TrackInfo:
+        return self._info
+
+    @property
     def global_ids(self) -> GlobalTrackIDs:
         return self._global_ids
 
     @property
     def local_ids(self) -> LocalTrackIDs:
         return self._local_ids
-
-    @property
-    def info(self) -> TrackInfo:
-        return self._info
-
-    def serialize(self) -> dict[str, Any]:
-        return {
-            "title": self.title,
-            "artists": self.artists,
-            "global_ids": dict(self.global_ids),
-            "local_ids": dict(self.local_ids),
-        }
-
-    @classmethod
-    def deserialize(cls, data: dict[str, Any]) -> "MockTrack":
-        return cls(
-            title=data["title"],
-            artists=data["artists"],
-            global_ids=data.get("global_ids", {}),
-            local_ids=data.get("local_ids", {}),
-        )

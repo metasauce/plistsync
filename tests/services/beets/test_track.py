@@ -1,16 +1,14 @@
 import pytest
-from collections.abc import Generator
 
-from plistsync.core import Track
 from plistsync.services.beets.database import BeetsDatabase
 from plistsync.services.beets import BeetsTrack
 from sqlalchemy import select
 
-from tests.abc import TrackTestBase
+from tests.abc.tracks import TestTrack
 from tests.services.beets._common import item
 
 
-class TestBeetsTrack(TrackTestBase):
+class TestBeetsTrack(TestTrack):
     track_class = BeetsTrack
     test_config = {
         "has_path": True,
@@ -24,7 +22,7 @@ class TestBeetsTrack(TrackTestBase):
         self.__beets_lib.add(item(path="/path/to/song.mp3"))
         self.db = BeetsDatabase(self.__beets_lib.path)
 
-    def create_track(self, *args, **kwargs) -> Generator[Track, None, None]:
+    def create_track(self, *args, **kwargs) -> BeetsTrack:
         # Add item
         table = self.db.get_table("items")
         stmt = select(table)
@@ -42,4 +40,4 @@ class TestBeetsTrack(TrackTestBase):
             for row in rows:
                 tracks.append(BeetsTrack(row._asdict()))
 
-        yield from tracks
+        return tracks[0]

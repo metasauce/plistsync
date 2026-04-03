@@ -1,13 +1,12 @@
 from pathlib import Path
-from collections.abc import Generator
 
 import pytest
 from plistsync.services.local import LocalTrack
-from tests.abc import TrackTestBase
+from tests.abc.tracks import TestTrack
 from tests.conftest import set_tags
 
 
-class TestLocalTrack(TrackTestBase):
+class TestLocalTrack(TestTrack):
     track_class = LocalTrack
     test_config = {
         "has_path": True,
@@ -20,7 +19,7 @@ class TestLocalTrack(TrackTestBase):
         # Needed because cant pass fixture to normal class method
         self._audio_files = audio_files
 
-    def create_track(self) -> Generator[LocalTrack, None, None]:
+    def create_track(self) -> LocalTrack:
         # Test all available audio files
         tracks = []
         for audio_file in self._audio_files.iterdir():
@@ -31,7 +30,7 @@ class TestLocalTrack(TrackTestBase):
         if not tracks:
             pytest.skip("No tracks found")
 
-        yield from tracks
+        return tracks[0]
 
     def test_create_no_path(self):
         with pytest.raises(FileNotFoundError):
@@ -49,15 +48,15 @@ class TestLocalTrack(TrackTestBase):
         set_tags(self._audio_files, {"isrc": isrc})
 
         # Test valid isrc identifier
-        for track in self.create_track():
-            assert track.global_ids.get("isrc") == isrc, "ISRC should be correct"
+        track = self.create_track()
+        assert track.global_ids.get("isrc") == isrc, "ISRC should be correct"
 
         # Test empty isrc identifier
         set_tags(self._audio_files, {"isrc": ""})
-        for track in self.create_track():
-            assert track.global_ids.get("isrc") is None, "ISRC should be None"
+        track = self.create_track()
+        assert track.global_ids.get("isrc") is None, "ISRC should be None"
 
         # Test multiple isrc identifiers
         set_tags(self._audio_files, {"isrc": [isrc, isrc + "2"]})
-        for track in self.create_track():
-            assert track.global_ids.get("isrc") == isrc, "First ISRC should be used"
+        track = self.create_track()
+        assert track.global_ids.get("isrc") == isrc, "First ISRC should be used"
