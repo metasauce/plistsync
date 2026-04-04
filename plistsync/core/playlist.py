@@ -51,6 +51,12 @@ class PlaylistIDs(TypedDict, total=False):
     Unique within the Tidal service.
     """
 
+    plex_id: int
+    """Plex ratingKey
+
+    Unique within a plex server.
+    """
+
 
 class PlaylistInfo(TypedDict, total=False):
     """Unified metadata for a playlist, independent of any specific service.

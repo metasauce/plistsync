@@ -37,10 +37,7 @@ class PlexLibrarySectionCollection(
     id: int
     api: PlexApi
 
-    def __init__(
-        self,
-        section_name_or_id: str | int,
-    ):
+    def __init__(self, section_name_or_id: str | int = "Music"):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
         Parameters
@@ -72,10 +69,9 @@ class PlexLibrarySectionCollection(
             if pl_data.get("playlistType") != "audio":
                 continue
             playlists.append(
-                PlexPlaylistCollection.from_response_data(
+                PlexPlaylistCollection(
                     library=self,
-                    playlist_data=pl_data,
-                    tracks_data=[],  # fetch later
+                    data=pl_data,
                 )
             )
         playlists = sorted(playlists, key=lambda p: p.name.lower())
@@ -110,9 +106,9 @@ class PlexLibrarySectionCollection(
             return None
 
         try:
-            return PlexPlaylistCollection.from_response_data(
+            return PlexPlaylistCollection(
                 library=self,
-                playlist_data=self.api.playlist.get(id),
+                data=self.api.playlist.get(id),
                 tracks_data=self.api.playlist.get_items(id),
             )
         except HTTPError as e:
