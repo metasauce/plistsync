@@ -6,7 +6,6 @@ from plistsync.services.plex.playlist import PlexPlaylistCollection
 from plistsync.services.plex.track import PlexTrack
 from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
-from plistsync.core.collection import LibraryCollection
 from plistsync.services.plex import PlexLibrarySectionCollection
 
 
@@ -16,21 +15,22 @@ class TestPlexPlaylistCollection(CollectionTestBase):
     library_collection: PlexLibrarySectionCollection
 
     @pytest.fixture(autouse=True)
-    def setup(self, plex_library_collection):
-        self.library_collection = plex_library_collection
+    def setup(self, plex_library_collection_mock):
+        self.library_collection = plex_library_collection_mock
 
     def create_collection(self) -> Iterable[PlexPlaylistCollection]:
         """Create a PlexLibrarySectionCollection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
         """
-        yield PlexPlaylistCollection(
-            self.library_collection,
+        pl = PlexPlaylistCollection.create_new(
             "foo",
-            tracks=[
-                PlexTrack({"ratingKey": "10637"}),
-            ],
+            library=self.library_collection,
         )
+        pl.tracks = [
+            PlexTrack({"ratingKey": "10637"}),
+        ]
+        yield pl
 
     def create_sample_track(self):
         """Create a sample track for testing matches within collections.
@@ -48,10 +48,10 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
     collection_class = PlexLibrarySectionCollection
 
     @pytest.fixture(autouse=True)
-    def setup(self, plex_library_collection):
-        self.collection = plex_library_collection
+    def setup(self, plex_library_collection_mock):
+        self.collection = plex_library_collection_mock
 
-    def create_collection(self, *args, **kwargs) -> Iterable[LibraryCollection]:
+    def create_collection(self, *args, **kwargs):
         """Create a PlexLibrarySectionCollection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.

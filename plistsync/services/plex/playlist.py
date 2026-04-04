@@ -176,9 +176,10 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
         )
         self._refetch_tracks()
 
-        # we always insert at the end, move to the right spot
-        for i, t in enumerate(track):
-            self._remote_move_track(-1 - i, idx, t, tracks_before)
+        if idx != len(tracks_before):
+            # we always insert at the end, move to the right spot
+            for i, t in enumerate(track):
+                self._remote_move_track(-1 - i, idx, t, tracks_before)
 
     def _remote_delete_track(
         self,

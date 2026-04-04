@@ -146,12 +146,13 @@ def mock_plex_api_with_data(mock_plex_api: Mock, audio_files: Path) -> Mock:
     mock_plex_api.playlist.fetch_playlists.return_value = [playlist_data]
     mock_plex_api.playlist.fetch_playlist.return_value = playlist_data
     mock_plex_api.playlist.fetch_playlist_items.return_value = [track_data]
+    mock_plex_api.playlist.create.return_value = playlist_data
 
     return mock_plex_api
 
 
 @pytest.fixture
-def plex_library_collection(monkeypatch, mock_plex_api_with_data):
+def plex_library_collection_mock(monkeypatch, mock_plex_api_with_data):
     """Fixture for a PlexLibrarySectionCollection with mocked API."""
     from plistsync.services.plex import PlexLibrarySectionCollection
 

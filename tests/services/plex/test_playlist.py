@@ -1,14 +1,19 @@
-from unittest.mock import Mock
+import pytest
+from plistsync.services.plex.library import PlexLibrarySectionCollection
 from plistsync.services.plex.playlist import PlexPlaylistCollection
-from tests.abc.playlist import TestMultiRequestPlaylistCollection
+from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 
 
-class TestSpotifyPlaylist(TestMultiRequestPlaylistCollection):
-    """Unit tests for the spotify playlist collection."""
+class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):
+    """Unit tests for the plex playlist collection."""
 
-    Playlist = PlexPlaylistCollection
+    @pytest.fixture(autouse=True)
+    def setup(self, plex_library_collection_mock: PlexLibrarySectionCollection):
+        self.library = plex_library_collection_mock
 
     def create_playlist(self) -> PlexPlaylistCollection:
-        return PlexPlaylistCollection(Mock(), "A name", "some description")
+        return PlexPlaylistCollection.create_new(
+            "A name", "some description", None, self.library
+        )
 
     # TODO: Add tests for remote_method implementations
