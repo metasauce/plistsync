@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from time import sleep
 from typing import Any, ClassVar, Literal, cast
 
@@ -10,9 +9,9 @@ from requests.structures import CaseInsensitiveDict
 from plistsync.logger import log
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
-    BearerToken,
-    BearerTokenSession,
     InvalidTokenError,
+    Oauth2Token,
+    TokenSession,
 )
 
 from .api_types import (
@@ -44,7 +43,7 @@ LookupDict = dict[tuple[str, str], T_Included]
 MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
 
 
-class TidalApiSession(BearerTokenSession):
+class TidalApiSession(TokenSession):
     """A request Session configured for Tidal.
 
     Automatically attaches the auth token and refreshes
@@ -62,10 +61,9 @@ class TidalApiSession(BearerTokenSession):
     def __init__(
         self,
         client_id: str,
-        token: BearerToken | None = None,
-        token_path: Path | None = None,
+        token: Oauth2Token,
     ):
-        super().__init__(token, token_path)
+        super().__init__(token)
         self.client_id = client_id
 
     @classmethod
@@ -76,8 +74,9 @@ class TidalApiSession(BearerTokenSession):
         config = Config()
         return cls(
             config.tidal.client_id,
-            None,
-            token_path=config.get_dir() / "tidal_token.json",
+            Oauth2Token.from_file(
+                config.get_dir() / "tidal_token.json",
+            ),
         )
 
     def _refresh_token(self) -> None:

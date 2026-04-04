@@ -6,14 +6,14 @@ json.
 
 import json
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime
-from functools import wraps
 from pathlib import Path
 from typing import (
     Any,
     ClassVar,
+    Generic,
     Self,
+    TypeVar,
 )
 
 import requests
@@ -21,50 +21,99 @@ from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import BearerToken as BearerTokenOauth2Client
 from requests_oauth2client.tokens import ExpiredAccessToken
 
-from plistsync.config import Config
-from plistsync.errors import ConfigurationError
 
+class Token(ABC):
+    """Abstract base class for bearer tokens."""
 
-class BearerToken:
-    """Handles serialization and deserialization of token data."""
+    file_path: Path | None
+    """Path where the token should be persisted. None for memory-only tokens."""
 
-    def __init__(self, token: BearerTokenOauth2Client):
-        self.token = token
+    def __init__(self, file_path: Path | None) -> None:
+        self.file_path = file_path
+
+    @abstractmethod
+    def as_dict(self) -> dict[str, Any]:
+        """Get the token data as a dictionary."""
+        ...
 
     @classmethod
+    @abstractmethod
     def from_dict(cls, token_dict: dict[str, Any]) -> Self:
-        """Create a BearerToken instance from a dictionary."""
+        """Create token from dict."""
+        ...
+
+    @abstractmethod
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        """Prepare the request to use the authentication."""
+        ...
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if the token is expired."""
+        return False
+
+    @classmethod
+    def from_file(cls, file_path: str | Path) -> Self:
+        """Create token instance from file."""
+        try:
+            with open(file_path) as f:
+                token_dict = json.load(f)
+            token = cls.from_dict(token_dict)
+            token.file_path = Path(file_path)
+            return token
+        except Exception as e:
+            raise InvalidTokenError(None) from e
+
+    def save(self):
+        """Persist token to :attr:`file_path`. Raises if file_path is None."""
+        if self.file_path is None:
+            raise ValueError("Cannot save token: file_path is None")
+        with open(self.file_path, "w") as f:
+            json.dump(self.as_dict(), f)
+
+
+class Oauth2Token(Token):
+    """Handles serialization and deserialization of token data."""
+
+    client: BearerTokenOauth2Client
+
+    def __init__(
+        self,
+        client: BearerTokenOauth2Client,
+        file_path: Path | None,
+    ) -> None:
+        super().__init__(file_path)
+        self.client = client
+
+    @staticmethod
+    def deserialize_dict(token_dict: dict[str, Any]) -> dict[str, Any]:
         if "expires_at" in token_dict:
             expires_at = token_dict.pop("expires_at")
             # Convert to datetime if it's a string
             if isinstance(expires_at, str):
                 expires_at = datetime.fromisoformat(expires_at)
             token_dict["expires_at"] = expires_at
-        return cls(BearerTokenOauth2Client(**token_dict))
+        return token_dict
+
+    def as_dict(self) -> dict[str, Any]:
+        """Get the token data as a dictionary."""
+        d = self.client.as_dict()
+        if self.client.expires_at is not None:
+            d["expires_at"] = self.client.expires_at.isoformat()
+        d.pop("expires_in", None)
+        return d
 
     @classmethod
-    def from_file(cls, file_path: str | Path) -> Self:
-        """Load token data from a JSON file."""
-        try:
-            with open(file_path) as f:
-                token_dict = json.load(f)
-            return cls.from_dict(token_dict)
-        except Exception as e:
-            raise InvalidTokenError(None) from e
+    def from_dict(cls, token_dict: dict[str, Any]) -> Self:
+        """Create a BearerToken instance from a dictionary."""
+        return cls(BearerTokenOauth2Client(cls.deserialize_dict(token_dict)), None)
 
-    def save(self, file_path: str | Path):
-        """Save token data to a JSON file."""
-        with open(file_path, "w") as f:
-            json.dump(self.as_dict(), f)
+    def update(self, token_data: dict[str, Any]) -> None:
+        """Update the token data in place."""
+        self.client = BearerTokenOauth2Client(**{**self.client.as_dict(), **token_data})
 
     def __call__(self, *args, **kwargs):
-        """Make the instance callable to add the Authorization header.
-
-        Usage:
-            token = BearerToken(...)
-            response = requests.get(url, auth=token)
-        """
-        return self.token(*args, **kwargs)
+        return self.client(*args, **kwargs)
 
     def __repr__(self):
         def mask(k: str, v: Any):
@@ -82,22 +131,10 @@ class BearerToken:
         res += ", ".join([f"{k}={mask(k, v)}" for k, v in self.as_dict().items()])
         return res + ")"
 
-    def as_dict(self) -> dict[str, Any]:
-        """Get the token data as a dictionary."""
-        d = self.token.as_dict()
-        if self.token.expires_at is not None:
-            d["expires_at"] = self.token.expires_at.isoformat()
-        d.pop("expires_in", None)
-        return d
-
-    def update(self, token_data: dict[str, Any]) -> None:
-        """Update the token data in place."""
-        self.token = BearerTokenOauth2Client(**{**self.token.as_dict(), **token_data})
-
     @property
     def is_expired(self) -> bool:
         """Check if the token is expired."""
-        expires_at = self.token.as_dict().get("expires_at")
+        expires_at = self.client.as_dict().get("expires_at")
         if expires_at is None:
             return False
         # Convert expires_at to datetime if it's a timestamp
@@ -107,7 +144,7 @@ class BearerToken:
 
 
 class InvalidTokenError(Exception):
-    def __init__(self, token: BearerToken | None):
+    def __init__(self, token: Token | None):
         if token:
             self.message = f"Invalid token: {token}"
         else:
@@ -115,7 +152,10 @@ class InvalidTokenError(Exception):
         super().__init__(self.message)
 
 
-class BearerTokenSession(requests.Session, ABC):
+T = TypeVar("T", bound=Token)
+
+
+class TokenSession(Generic[T], requests.Session, ABC):
     """A request session configured to use a bearer token.
 
     This session manages authentication for API requests by automatically
@@ -123,11 +163,8 @@ class BearerTokenSession(requests.Session, ABC):
     refresh when expired or rejected by the server.
     """
 
-    token: BearerToken
-    """The current bearer token used for authentication."""
-
-    token_path: Path | None
-    """Optional path to persist the token after refresh."""
+    token: T
+    """The current token used for authentication."""
 
     status_codes_expired: ClassVar[list[int]] = []
     """HTTP status codes indicating an expired/invalid token."""
@@ -137,21 +174,12 @@ class BearerTokenSession(requests.Session, ABC):
 
     def __init__(
         self,
-        token: BearerToken | None,
-        token_path: Path | None,
+        token: T,
     ) -> None:
         """Initialize the session with a token or token file."""
         super().__init__()
 
-        if token is None and token_path is not None:
-            token = BearerToken.from_file(token_path)
-        elif token is not None:
-            pass  # Use provided token
-        else:
-            raise ValueError("Either token or token path must be given!")
-
         self.token = token
-        self.token_path = token_path
 
     def request(
         self, method: str | bytes, url: str | bytes, *args, **kwargs
@@ -209,143 +237,13 @@ class BearerTokenSession(requests.Session, ABC):
     def refresh_token(self) -> None:
         """Refresh the token and persist it."""
         self._refresh_token()
-        if self.token_path is not None:
-            self.token.save(self.token_path)
-
-
-def requires_bearer_token(
-    config_key: str = "tidal",
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Add tidal token to function.
-
-    This decorator will load the token from the file if it exists. If the token does not
-    exist it will throw an error. If the token is expired, it will refresh the token.
-
-    Raises
-    ------
-    ConfigurationError
-        If the Tidal config is not available.
-    InvalidToken
-        If the token is not found or invalid.
-
-    Usage
-    -----
-
-    .. code-block:: python
-
-        @requires_bearer_token("tidal")
-        async def needs_tidal_token(token: BearerToken):
-            return token
-
-    Attention
-    ---------
-    This decorator will not work for generator functions. If you need to use the
-    `requires_bearer_token_generator` decorator.
-
-    Note: If you want to use this decorator in a route make sure to catch the
-    errors and redirect to the login route.
-
-    """
-
-    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if "token" in kwargs:
-                return await func(*args, **kwargs)
-
-            token = get_bearer_token(config_key)
-            # Pass the token as a keyword argument
-            return await func(*args, token=token, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def requires_bearer_token_generator(
-    config_key: str = "tidal",
-) -> Callable[
-    [Callable[..., AsyncGenerator[Any, None]]], Callable[..., AsyncGenerator[Any, None]]
-]:
-    """Add tidal token to generator function.
-
-    This decorator will load the token from the file if it exists. If the token does not
-    exist it will throw an error. If the token is expired, it will refresh the token.
-
-    Raises
-    ------
-    ConfigurationError
-        If the Tidal config is not available.
-    InvalidToken
-        If the token is not found or invalid.
-
-    Usage
-    -----
-
-    ```python
-    @requires_bearer_token_generator("tidal")
-    async def needs_bearer_token(token: BearerToken):
-        return token
-    ```
-
-    Attention
-    ---------
-    This decorator is for generator functions. If you need to use the
-    `requires_bearer_token` decorator.
-
-    Note: If you want to use this decorator in a route make sure to catch the
-    errors and redirect to the login route.
-    """
-
-    def decorator(
-        func: Callable[..., AsyncGenerator[Any, None]],
-    ) -> Callable[..., AsyncGenerator[Any, None]]:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any):
-            token = get_bearer_token()
-            # Pass the token as a keyword argument
-            async for res in func(*args, token=token, **kwargs):
-                yield res
-
-        return wrapper
-
-    return decorator
-
-
-def get_bearer_token(config_key: str = "tidal") -> BearerToken:
-    """Get the Tidal token.
-
-    Raises
-    ------
-    ConfigurationError
-        If the Tidal config is not available.
-    InvalidToken
-        If the token is not found or invalid.
-
-    """
-
-    # Check if the config is available
-    config = Config()
-    service_config = getattr(config, config_key, None)
-    if not service_config or not service_config.enabled:
-        raise ConfigurationError(
-            f"{config_key.capitalize()} config not available or {config_key}"
-            "integration disabled!",
-            config_key,
-        )
-
-    token_file = config.get_dir() / f"{config_key}_token.json"
-    try:
-        token = BearerToken.from_file(token_file)
-    except Exception as e:
-        raise InvalidTokenError(None) from e
-
-    return token
+        if self.token.file_path is not None:
+            self.token.save()
 
 
 __all__ = [
-    "BearerToken",
-    "requires_bearer_token",
-    "requires_bearer_token_generator",
-    "get_bearer_token",
+    "Token",
+    "Oauth2Token",
+    "TokenSession",
+    "InvalidTokenError",
 ]

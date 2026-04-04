@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import Counter
-from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
@@ -11,9 +10,9 @@ from requests.structures import CaseInsensitiveDict
 from plistsync.logger import log
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
-    BearerToken,
-    BearerTokenSession,
     InvalidTokenError,
+    Oauth2Token,
+    TokenSession,
 )
 
 from .api_types import (
@@ -30,7 +29,7 @@ if TYPE_CHECKING:
     )
 
 
-class SpotifyApiSession(BearerTokenSession):
+class SpotifyApiSession(TokenSession[Oauth2Token]):
     """A requests Session configured for Spotify.
 
     Automatically attaches the auth token and refreshes
@@ -48,10 +47,9 @@ class SpotifyApiSession(BearerTokenSession):
     def __init__(
         self,
         client_id: str,
-        token: BearerToken | None = None,
-        token_path: Path | None = None,
+        token: Oauth2Token,
     ):
-        super().__init__(token, token_path)
+        super().__init__(token)
         self.client_id = client_id
         self.headers["Accept"] = "application/json"
 
@@ -62,8 +60,9 @@ class SpotifyApiSession(BearerTokenSession):
         config = Config()
         return cls(
             config.spotify.client_id,
-            None,
-            token_path=config.get_dir() / "spotify_token.json",
+            Oauth2Token.from_file(
+                config.get_dir() / "spotify_token.json",
+            ),
         )
 
     def _refresh_token(self) -> None:

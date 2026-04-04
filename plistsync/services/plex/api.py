@@ -7,7 +7,6 @@ happens on in the playlist.
 
 from __future__ import annotations
 
-import json
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property
@@ -17,8 +16,8 @@ from urllib.parse import quote
 
 import requests
 
-from plistsync.config import Config, ConfigurationError, PlexConfig
 from plistsync.logger import log
+from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
 
 from .api_types import (
     PlexApiConnection,
@@ -31,79 +30,130 @@ from .api_types import (
 )
 
 
-def _read_token(path: Path) -> str:
-    if not path.exists():
-        raise ConfigurationError(
-            f"Plex token file not found at {path}! "
-            "Please run `plistsync plex auth` to authenticate."
-        )
-    with open(path) as f:
-        data = json.load(f)
-    token = data.get("X-Plex-Token")
-    if token is None:
-        raise ConfigurationError(
-            "Plex token not found! Please run `plistsync plex auth` to authenticate."
-        )
-    return token
+class PlexToken(Token):
+    x_plex_token: str
+    validated: bool
+
+    def __init__(self, x_plex_token: str, file_path: Path | None):
+        super().__init__(file_path)
+        self.x_plex_token = x_plex_token
+        self.validated = False
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"X-Plex-Token": self.x_plex_token}
+
+    @classmethod
+    def from_dict(cls, token_dict):
+        return cls(token_dict["X-Plex-Token"], None)
+
+    def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
+        """Prepare the request to use the authentication."""
+        request.headers["X-Plex-Token"] = self.x_plex_token
+        return request
 
 
-class PlexApiSession(requests.Session):
+class PlexApiSession(TokenSession[PlexToken]):
     """A requests Session configured for Plex API requests.
 
     Automatically attaches the Plex auth token and refreshes
     it as needed. Use for making multiple requests to the Plex API.
     """
 
-    token_valid: bool
     server_url: str
 
     def __init__(
         self,
         product: str,
-        client_identifier: str,
-        token: str,
+        client_id: str,
         server_url: str,
+        token: PlexToken,
     ) -> None:
         """Initialize the PlexApiSession."""
-        super().__init__()
-        self.token_valid = False
+        super().__init__(token)
         self.headers["Accept"] = "application/json"
-        self.headers["X-Plex-Client-Identifier"] = client_identifier
+        self.headers["X-Plex-Client-Identifier"] = client_id
         self.headers["X-Plex-Product"] = product
-        self.headers["X-Plex-Token"] = token
         self.server_url = server_url
 
-    def _validate_token(self) -> None:
-        """Validate the Plex token by making a test request.
+    @classmethod
+    def from_config(cls):
+        from plistsync.config import Config, ConfigurationError
 
-        According to Plex API docs, one should use the /api/v2/user endpoint
-        to validate tokens.
+        plex_config = Config().plex
+
+        def _resolve_server_name(server_name: str):
+            # we need a temporary session for plex.tv, but later want one that uses the
+            # local server name
+            log.info(
+                f"Looking up server ip for '{server_name}', this might take a bit. "
+                "To speed this up, use a server_url in stead of server_name."
+            )
+            temp_session = cls(
+                plex_config.app_name,
+                plex_config.client_identifier,
+                "https://plex.tv",
+                PlexToken.from_file(plex_config.token_path),
+            )
+
+            conns = PlexApi.get_server_connections_for_name(temp_session, server_name)
+            return PlexApi.get_valid_connection(temp_session, conns).get("uri", "")
+
+        # priority of server url sources:
+        server_url: str
+        if plex_config.server_url:
+            server_url = plex_config.server_url
+        elif plex_config.server_name:
+            server_url = _resolve_server_name(plex_config.server_name)
+        else:
+            raise ConfigurationError(
+                "Specify either plex.server_url or plex.server_name."
+            )
+
+        return cls(
+            plex_config.app_name,
+            plex_config.client_identifier,
+            server_url,
+            PlexToken.from_file(plex_config.token_path),
+        )
+
+    def _validate_token(self) -> None:
+        """Validate token.
+
+        More of a validate here as it is not possible
+        to refresh with the current flow.
         """
         try:
             response = super().request("GET", f"{self.server_url}/api/v2/user")
             if response.status_code == 401:
-                raise ConfigurationError(
-                    "Plex token not valid anymore! "
-                    "Run `plistsync plex auth` to refresh it."
-                )
-            self.token_valid = True
+                raise InvalidTokenError(self.token)
+            self.token.validated = True
         except requests.exceptions.RequestException as e:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Plex token validation failed due to network error: {str(e)}"
             ) from e
 
-    def request(self, *args, **kwargs) -> requests.Response:
-        """Override request to add Plex auth token and headers."""
-        # On the first request, check that the token is valid
-        if not self.token_valid:
+    def request(
+        self, method: str | bytes, url: str | bytes, *args, **kwargs
+    ) -> requests.Response:
+        """Request with Plex auth token and headers."""
+        if not self.token.validated:
             self._validate_token()
 
-        try:
-            return super().request(*args, **kwargs)
-        except requests.exceptions.RequestException as e:
-            raise ConfigurationError(
-                f"Plex API request failed due to network error: {str(e)}"
-            ) from e
+        log.debug("Request: %s", url)
+        res = super().request(
+            method,
+            url,
+            *args,
+            **kwargs,
+        )
+        res.raise_for_status()
+        return res
+
+    def _refresh_token(self) -> None:
+        return
+
+    def _handle_rate_limit(self, *a, **k) -> None:
+        return
 
 
 class PlexApi:
@@ -121,50 +171,12 @@ class PlexApi:
     track: TrackApi
     converts: ConvertsApi
 
-    def __init__(
-        self,
-        server_url: str | None = None,
-        server_name: str | None = None,
-    ) -> None:
-        self.plex_config: PlexConfig = Config().plex
-
-        def _resolve_server_name(server_name):
-            # we need a temporary session for plex.tv, but later want one that uses the
-            # local server name
-            log.info(
-                f"Looking up server ip for '{server_name}', this might take a bit. "
-                "To speed this up, use a server_url in stead of server_name."
-            )
-            temp_session = PlexApiSession(
-                self.plex_config.app_name,
-                self.plex_config.client_identifier,
-                _read_token(self.plex_config.token_path),
-                "https://plex.tv",
-            )
-            conns = self.get_server_connections_for_name(temp_session, server_name)
-            return self.get_valid_connection(temp_session, conns).get("uri", "")
-
-        # priority of server url sources:
-        if server_url:
-            pass
-        elif server_name:
-            server_url = _resolve_server_name(server_name)
-        elif self.plex_config.server_url:
-            server_url = self.plex_config.server_url
-        elif self.plex_config.server_name:
-            server_url = _resolve_server_name(self.plex_config.server_name)
-        else:
-            raise ValueError(
-                "Specify either server_url or server_name (in your config or as kwarg)."
-            )
+    def __init__(self, session: PlexApiSession | None = None) -> None:
+        if session is None:
+            session = PlexApiSession.from_config()
 
         # create permanent session for remaining requests
-        self.session = PlexApiSession(
-            self.plex_config.app_name,
-            self.plex_config.client_identifier,
-            _read_token(self.plex_config.token_path),
-            server_url,
-        )
+        self.session = session
         self.playlist = PlaylistApi(self)
         self.track = TrackApi(self.session)
         self.converts = ConvertsApi(self.session, self)
