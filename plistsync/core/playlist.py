@@ -57,6 +57,12 @@ class PlaylistIDs(TypedDict, total=False):
     Unique within a plex server.
     """
 
+    traktor_id: str
+    """Traktor uuid
+
+    Unique within a single nml file.
+    """
+
 
 class PlaylistInfo(TypedDict, total=False):
     """Unified metadata for a playlist, independent of any specific service.

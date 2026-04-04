@@ -76,6 +76,12 @@ class SpotifyConfig(OptionalService):
 
 @dataclass
 class TraktorConfig(OptionalService):
+    path: Annotated[
+        str,
+        "The absolute path to the nml file you want to use as your default"
+        "traktor library.",
+    ] = field(default="/replace/me/with/a/path/to/nml.nml")
+    # TODO: Find dynamic way to get path to traktor collection file
     backup_before_write: Annotated[
         bool,
         "Create a backup of the libraries nml file before every write.",

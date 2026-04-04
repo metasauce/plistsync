@@ -39,7 +39,10 @@ class NMLLibraryCollection(
     path: Path
     tree: _ElementTree
 
-    def __init__(self, path: Path | str):
+    def __init__(self, path: Path | str | None = None):
+        if path is None:
+            path = Config().traktor.path
+
         if isinstance(path, str):
             path = Path(path)
 

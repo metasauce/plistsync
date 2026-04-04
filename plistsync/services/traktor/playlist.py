@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -8,8 +7,9 @@ from lxml.etree import Element, SubElement, _Element
 
 from plistsync.core.collection import LocalLookup
 from plistsync.core.playlist import (
-    PlaylistCollection,
+    PlaylistIDs,
     PlaylistInfo,
+    ServicePlaylist,
     Snapshot,
 )
 from plistsync.core.track import LocalTrackIDs
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from .library import NMLLibraryCollection
 
 
-class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
+class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
     """A Traktor NML playlist collection.
 
     Traktor playlists use file paths as the identifiers.
@@ -37,51 +37,29 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
 
     library: NMLLibraryCollection
 
-    # Root node to the playlist (not necessarly attached to the library)
+    # Root node to the playlist (should always be attached to the library)
     root_node: _Element  # <Node TYPE="PLAYLIST">
 
     def __init__(
         self,
-        library: NMLLibraryCollection | str | Path,
-        name: str | _Element,
+        library: NMLLibraryCollection,
+        root_node: _Element,
     ):
-        """Initialize the NMLPlaylistCollection.
-
-        Parameter
-        ---------
-        library_collection : NMLCollection | str | Path
-            The root collection from which the playlists are derived.
-        name : str | _Element
-            The name of the playlist to create. If root node is given,
-            as _Element it is used.
-        """
-
-        if isinstance(library, (str, Path)):
-            from .library import NMLLibraryCollection
-
-            self.library = NMLLibraryCollection(library)
-        else:
-            self.library = library
-
-        if isinstance(name, str):
-            s_name = sanitize_plist_name(name)
-            if s_name != name:
-                log.warning(
-                    f"Playlist name changed from `{name}` to `{s_name}`"
-                    " to avoid issues with Traktor.",
-                )
-            root_node = self._create_playlist_node(s_name)
-        else:
-            # Use node directly
-            root_node = name
-
+        """Create a new instance of a traktor playlist given its xml element."""
+        self.library = library
         self.root_node = root_node
 
     @staticmethod
-    def _create_playlist_node(name: str) -> _Element:
+    def _create_root_node(name: str) -> _Element:
         """Create a new playlist root node."""
+        s_name = sanitize_plist_name(name)
+        if s_name != name:
+            log.warning(
+                f"Playlist name changed from `{name}` to `{s_name}`"
+                " to avoid issues with Traktor.",
+            )
         root_node = Element("NODE", {"TYPE": "PLAYLIST"})
-        root_node.set("NAME", name)
+        root_node.set("NAME", s_name)
         # Add <Playlist> list node
         node = SubElement(root_node, "PLAYLIST")
         node.set("TYPE", "LIST")
@@ -90,14 +68,14 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
         root_node.append(node)
         return root_node
 
-    # ----------------------- Properties and info logic ---------------------- #
-
     @property
     def playlist_node(self) -> _Element:
         node = self.root_node.find("PLAYLIST")
         if node is not None:
             return node
         raise ValueError("Root node has no 'PLAYLIST' node")
+
+    # ----------------------- Required (Playlist protocol) ----------------------- #
 
     @property
     def info(self) -> PlaylistInfo:
@@ -108,6 +86,25 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
     @info.setter
     def info(self, value: PlaylistInfo):
         self.root_node.set("NAME", value.get("name", ""))
+
+    @property
+    def tracks(self) -> list[NMLPlaylistTrack]:
+        """Return the tracks in this playlist.
+
+        Might load them from the API if not already loaded.
+        """
+        if self._tracks is None:
+            return self._fetch_tracks()
+        return self._tracks
+
+    @tracks.setter
+    def tracks(self, value: list[NMLPlaylistTrack]):
+        self._tracks = value
+
+    @property
+    def ids(self) -> PlaylistIDs:
+        """Unique identifiers of the playlist."""
+        return PlaylistIDs(traktor_id=self.uuid)
 
     @property
     def uuid(self) -> str:
@@ -123,11 +120,80 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
         """Set the uuid of the playlist."""
         self.playlist_node.set("UUID", value)
 
-    # ------------------------------ Tracks Loading ------------------------------ #
+    # -------------------- Required (ServicePlaylist protocol) ------------------- #
 
-    def _fetch_tracks(self):
-        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
-        self._tracks = [NMLPlaylistTrack(entry) for entry in entries]
+    @classmethod
+    def create_new(
+        cls,
+        name: str,
+        description: str | None = None,
+        tracks: list[NMLPlaylistTrack] | None = None,
+        library: NMLLibraryCollection | None = None,
+    ):
+        if library is None:
+            library = NMLLibraryCollection()
+
+        root_node = cls._create_root_node(name)
+
+        # Insert under playlists root
+        subnodes = library.tree.xpath(
+            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
+        )
+        if len(subnodes) == 0:
+            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
+        subnodes_el = subnodes[0]
+        subnodes_el.append(root_node)
+
+        # Increment count in library
+        count_raw = subnodes_el.get("COUNT", "0")
+        try:
+            count = int(count_raw)
+        except ValueError:
+            log.warning(f"Invalid SUBNODES COUNT value: {count_raw!r}, treating as 0")
+            count = 0
+        subnodes_el.set("COUNT", str(count + 1))
+
+        pl = cls(library, root_node)
+
+        with pl.remote_edit():
+            # Description not supported
+            # pl.description = description
+            if tracks:
+                pl.tracks = tracks
+
+        return pl
+
+    @classmethod
+    def get_by_ids(
+        cls,
+        ids: PlaylistIDs,
+        library: NMLLibraryCollection | None = None,
+    ):
+        if library is None:
+            library = NMLLibraryCollection()
+
+        if ids and (traktor_id := ids.get("traktor_id")):
+            maybe_root_node = library._get_playlist_root_node_by_uuid(traktor_id)
+            if maybe_root_node is not None:
+                return cls(
+                    library,
+                    maybe_root_node,
+                )
+
+        raise ValueError("Playlist not found!")
+
+    def _remote_delete(self):
+        """Remove in connected collection."""
+        detach(self.root_node)
+
+    def _remote_commit(
+        self,
+        before: Snapshot[NMLPlaylistTrack],
+        after: Snapshot[NMLPlaylistTrack],
+    ) -> None:
+        """Persist current state to nml."""
+
+        self._overwrite_track_entries(after.tracks)
 
     def _overwrite_track_entries(self, tracks: list[NMLPlaylistTrack]) -> None:
         """Rewrite the <ENTRY> list in the underlying XML to match `tracks`."""
@@ -143,107 +209,12 @@ class NMLPlaylistCollection(PlaylistCollection[NMLPlaylistTrack], LocalLookup):
 
         self.playlist_node.set("ENTRIES", str(len(tracks)))
 
-    @property
-    def tracks(self) -> list[NMLPlaylistTrack]:
-        """Return the tracks in this playlist.
+    # ---------------------------- Track lazy loading ---------------------------- #
 
-        Might load them from the API if not already loaded.
-        """
-        if self._tracks is None:
-            self._fetch_tracks()
-        return self._tracks  # type: ignore[return-value]
-
-    @tracks.setter
-    def tracks(self, value: list[NMLPlaylistTrack]):
-        self._tracks = value
-
-    def __len__(self) -> int:
-        """Get the number of tracks in the playlist."""
-        if self.tracks is not None:
-            return len(self.tracks)
-        entries = self.playlist_node.get("ENTRIES", "0")
-        return int(entries) if entries.isdigit() else 0
-
-    # ----------------------------- Remote operations ---------------------------- #
-    # Traktor does not need many remote operations.
-    # Essentially all we do is to persist changes at the end into the nml file.
-
-    def _remote_commit(
-        self,
-        before: Snapshot[NMLPlaylistTrack],
-        after: Snapshot[NMLPlaylistTrack],
-    ) -> None:
-        """Persist current state to nml."""
-
-        self._overwrite_track_entries(after.tracks)
-        # TODO: clean up remote_upsert abstraction, want to call public from private?
-        self.remote_upsert()
-
-    def _remote_create(self):
-        """Create the playlist in the nml collection.
-
-        Will recreate the playlist even if it exsits
-        """
-
-        # Insert under playlists root
-        subnodes = self.library.tree.xpath(
-            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
-        )
-        if len(subnodes) == 0:
-            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
-        subnodes_el = subnodes[0]
-
-        detach(self.root_node)
-        subnodes_el.append(self.root_node)
-
-        # Increment count
-        count_raw = subnodes_el.get("COUNT", "0")
-        try:
-            count = int(count_raw)
-        except ValueError:
-            log.warning(f"Invalid SUBNODES COUNT value: {count_raw!r}, treating as 0")
-            count = 0
-        subnodes_el.set("COUNT", str(count + 1))
-
-    @property
-    def remote_associated(self) -> bool:
-        root_node = self.library._get_playlist_root_node_by_uuid(self.uuid)
-        if root_node is None:
-            return False
-        return True
-
-    def remote_upsert(self):
-        """Insert or replace a playlist node in this NML library.
-
-        - Prefer matching by UUID (stable identity)
-        - Otherwise append under $ROOT/SUBNODES
-
-        This updates the in-memory XML tree only. Call .write() to persist.
-        """
-
-        try:
-            matching_node = self.library._get_playlist_root_node_by_uuid(self.uuid)
-        except ValueError:
-            matching_node = None
-
-        if matching_node is not None:
-            parent = matching_node.getparent()
-            if parent is None:
-                raise ValueError("Existing playlist node has no parent; cannot replace")
-
-            # Remove the existing node
-            # and replace with new playlist root node
-            pos = parent.index(matching_node)
-            detach(self.root_node)
-            if self.root_node != matching_node:
-                parent.remove(matching_node)
-            parent.insert(pos, self.root_node)
-        else:
-            self._remote_create()
-
-    def _remote_delete(self):
-        """Remove in connected collection."""
-        detach(self.root_node)
+    def _fetch_tracks(self):
+        entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
+        self._tracks = [NMLPlaylistTrack(entry) for entry in entries]
+        return self._tracks
 
     # --------------------------- LocalLookup protocol --------------------------- #
 
