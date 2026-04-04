@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `PlaylistAssociationError` for playlist remote association checks, replacing `ValueError` with clearer messages and an `already_associated` attribute for programmatic inspection.
 - Added `allservices` dependency group to allow a loaded pip install with batteries included.
 
+### Fixed
+
+- In rare cases, spotify playlists can contain invalid items, which do not appear in the web interface (but through the api). We now filter and remove them.
+
 ## [0.5.1] - 2026-03-16
 
 ### Fixed

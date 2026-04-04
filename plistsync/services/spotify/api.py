@@ -75,7 +75,7 @@ class SpotifyApiSession(requests.Session):
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
         if remaining > 0:
-            log.warning(f"Rate limit exceeded. Retrying after {remaining} seconds.")
+            log.debug(f"Rate limit exceeded. Retrying after {remaining} seconds.")
             sleep(remaining)
         else:
             raise Exception(
@@ -193,7 +193,7 @@ class PlaylistApi:
         force: bool = False,
     ) -> list[SpotifyApiPlaylistTrack]:
         """Resolve the track pagination."""
-        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore[assignment]
+        all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore [assignment]
 
         next_page = data.get("next")
         if force:
@@ -205,11 +205,13 @@ class PlaylistApi:
                 "GET",
                 next_page,
             ).json()
+
             all_items.extend(tracks.get("items", []))
             next_page = tracks.get("next")
 
-        # Check here if every item has the `track` field set to the right response?
-        # i.e. not None, and only Track Type? Problem: we cannot use instance checks.
+        # Some playlists contain invalid elements, where the repsonse
+        # does not adhere to the schema.
+        all_items = [t for t in all_items if t.get("track") is not None]
 
         return all_items
 
