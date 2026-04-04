@@ -10,7 +10,7 @@ from plistsync.core.collection import (
 )
 from plistsync.logger import log
 
-from .api import TidalApi, extract_tidal_playlist_id
+from .api import TidalApi, TidalApiSession, extract_tidal_playlist_id
 from .playlist import TidalPlaylistCollection
 from .track import TidalTrack
 
@@ -23,9 +23,9 @@ class TidalLibraryCollection(
 
     api: TidalApi
 
-    def __init__(self) -> None:
+    def __init__(self, session: TidalApiSession | None = None) -> None:
         super().__init__()
-        self.api = TidalApi()
+        self.api = TidalApi(session)
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 

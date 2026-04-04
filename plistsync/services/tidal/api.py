@@ -5,15 +5,13 @@ from typing import Any, ClassVar, Literal, cast
 
 import requests
 from requests.structures import CaseInsensitiveDict
-from requests_oauth2client import ExpiredAccessToken
 
-from plistsync.config import Config
 from plistsync.logger import log
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
-    BearerToken,
     InvalidTokenError,
-    get_bearer_token,
+    Oauth2Token,
+    TokenSession,
 )
 
 from .api_types import (
@@ -45,19 +43,41 @@ LookupDict = dict[tuple[str, str], T_Included]
 MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
 
 
-class TidalApiSession(requests.Session):
+class TidalApiSession(TokenSession):
     """A request Session configured for Tidal.
 
     Automatically attaches the auth token and refreshes
     it as needed. Use for making multiple requests to the API.
     """
 
-    token: BearerToken
+    # Used in BearerTokenSession
+    status_codes_expired: ClassVar[list[int]] = [401]
+    status_codes_rate_limit: ClassVar[list[int]] = [429]
+
     server_url: ClassVar[str] = "https://openapi.tidal.com/v2"
 
-    def __init__(self):
-        super().__init__()
-        self.token = get_bearer_token("tidal")
+    client_id: str
+
+    def __init__(
+        self,
+        client_id: str,
+        token: Oauth2Token,
+    ):
+        super().__init__(token)
+        self.client_id = client_id
+
+    @classmethod
+    def from_config(cls):
+        """Initialize a tidal api from configutation file."""
+        from plistsync.config import Config
+
+        config = Config()
+        return cls(
+            config.tidal.client_id,
+            Oauth2Token.from_file(
+                config.get_dir() / "tidal_token.json",
+            ),
+        )
 
     def _refresh_token(self) -> None:
         """Refresh the Tidal token.
@@ -66,13 +86,13 @@ class TidalApiSession(requests.Session):
         It will update the token in place.
         """
         log.debug("Refreshing expired Tidal token...")
-        tidal_config = Config().tidal
-        res = super().request(
+        res = requests.Session.request(
+            self,
             "POST",
             "https://auth.tidal.com/v1/oauth2/token",
             data={
                 "grant_type": "refresh_token",
-                "client_id": tidal_config.client_id,
+                "client_id": self.client_id,
                 "refresh_token": self.token.as_dict()["refresh_token"],
             },
         )
@@ -84,7 +104,6 @@ class TidalApiSession(requests.Session):
 
         token_data = res.json()
         self.token.update(token_data)
-        self.token.save(Config.get_dir() / "tidal_token.json")
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
@@ -104,49 +123,19 @@ class TidalApiSession(requests.Session):
 
         Slightly different from the normal request, this will raise the status code!
         """
-        if self.token.is_expired:
-            self._refresh_token()
-
         # Prepend API base URL if not a full URL
         if isinstance(url, str) and not url.startswith("http"):
             url = self.server_url + url
 
-        # Always use our Spotify token for authentication
-        kwargs["auth"] = self.token
-
-        # Calling requests again can in theory
-        # create a infinite recursion but
-        # should not happen in practice (fingers crossed)
-        # we can add some max retry logic if this ever
-        # is an issue
-        try:
-            log.debug("Request: %s", url)
-            res = super().request(
-                method,
-                url,
-                *args,
-                **kwargs,
-            )
-            res.raise_for_status()
-            return res
-        except ExpiredAccessToken:
-            # Avoid leaking via ExpiredAccessToken by extra try with raise from None
-            try:
-                self._refresh_token()
-                return self.request(method, url, *args, **kwargs)
-            except Exception as e:
-                raise e from None
-        except requests.HTTPError as e:
-            # Handle rate limiting
-            if e.response.status_code == 429:
-                self._handle_rate_limit(e.response.headers)
-                return self.request(method, url, *args, **kwargs)
-
-            # Handle token expiration
-            if e.response.status_code == 401:
-                self._refresh_token()
-                return self.request(method, url, *args, **kwargs)
-            raise e
+        log.debug("Request: %s", url)
+        res = super().request(
+            method,
+            url,
+            *args,
+            **kwargs,
+        )
+        res.raise_for_status()
+        return res
 
     def get_paginated(
         self,
@@ -299,8 +288,11 @@ class TidalApi:
     playlist: TidalPlaylistApi
     user: TidalUserApi
 
-    def __init__(self):
-        self.session = TidalApiSession()
+    def __init__(self, session: TidalApiSession | None = None):
+        if session is None:
+            session = TidalApiSession.from_config()
+
+        self.session = session
         self.tracks = TidalTrackApi(self.session)
         self.playlist = TidalPlaylistApi(self.session)
         self.user = TidalUserApi(self.session)

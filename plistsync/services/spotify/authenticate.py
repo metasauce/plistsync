@@ -13,7 +13,7 @@ from plistsync.config import Config
 from plistsync.errors import AuthenticationError
 from plistsync.logger import log
 from plistsync.utils import build_url
-from plistsync.utils.auth.bearer_token import BearerToken
+from plistsync.utils.auth.bearer_token import Oauth2Token
 
 SCOPES = " ".join(
     [
@@ -114,7 +114,7 @@ def auth(
     token_data = response.json()
 
     # Create BearerToken instance and save it
-    token = BearerToken.from_dict(token_data)
-    f_path = Config.get_dir() / "spotify_token.json"
-    token.save(f_path)
-    typer.echo(f"Authentication successful! Spotify token saved to {f_path}.")
+    token = Oauth2Token.from_dict(token_data)
+    token.file_path = Config.get_dir() / "spotify_token.json"
+    token.save()
+    typer.echo(f"Authentication successful! Spotify token saved to {token.file_path}.")

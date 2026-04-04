@@ -40,8 +40,6 @@ class PlexLibrarySectionCollection(
     def __init__(
         self,
         section_name_or_id: str | int,
-        server_url: str | None = None,
-        server_name: str | None = None,
     ):
         """Initialize the PlexLibraryCollection from plex given a section id.
 
@@ -49,10 +47,8 @@ class PlexLibrarySectionCollection(
         ----------
         section_name_or_id : str | int
             The Name or ID of the Plex library section to fetch.
-        server_url : str, optional
-            The server for this collection. If not specified, loaded from config.
         """
-        self.api = PlexApi(server_url=server_url, server_name=server_name)
+        self.api = PlexApi()
         self.id = self.api.converts.section_name_to_id(section_name_or_id)
 
     def preload(self, force_reload=False) -> None:
