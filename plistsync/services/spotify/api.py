@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 import requests
 from requests.structures import CaseInsensitiveDict
-from requests_oauth2client import ExpiredAccessToken
 
-from plistsync.config import Config
 from plistsync.logger import log
 from plistsync.utils import chunk_list
 from plistsync.utils.auth.bearer_token import (
     BearerToken,
+    BearerTokenSession,
     InvalidTokenError,
-    get_bearer_token,
 )
 
 from .api_types import (
@@ -31,20 +30,41 @@ if TYPE_CHECKING:
     )
 
 
-class SpotifyApiSession(requests.Session):
+class SpotifyApiSession(BearerTokenSession):
     """A requests Session configured for Spotify.
 
     Automatically attaches the auth token and refreshes
     it as needed. Use for making multiple requests to the API.
     """
 
-    token: BearerToken
+    # Used in BearerTokenSession
+    status_codes_expired: ClassVar[list[int]] = [401]
+    status_codes_rate_limit: ClassVar[list[int]] = [429]
+
     server_url: ClassVar[str] = "https://api.spotify.com/v1"
 
-    def __init__(self):
-        super().__init__()
+    client_id: str
+
+    def __init__(
+        self,
+        client_id: str,
+        token: BearerToken | None = None,
+        token_path: Path | None = None,
+    ):
+        super().__init__(token, token_path)
+        self.client_id = client_id
         self.headers["Accept"] = "application/json"
-        self.token = get_bearer_token("spotify")
+
+    @classmethod
+    def from_config(cls):
+        from plistsync.config import Config
+
+        config = Config()
+        return cls(
+            config.spotify.client_id,
+            None,
+            token_path=config.get_dir() / "spotify_token.json",
+        )
 
     def _refresh_token(self) -> None:
         """Validate the spotify token by making a test request.
@@ -53,12 +73,11 @@ class SpotifyApiSession(requests.Session):
         to validate tokens.
         """
         log.debug("Refreshing expired Spotify token...")
-        spotify_config = Config().spotify
         res = requests.post(
             "https://accounts.spotify.com/api/token",
             data={
                 "grant_type": "refresh_token",
-                "client_id": spotify_config.client_id,
+                "client_id": self.client_id,
                 "refresh_token": self.token.as_dict()["refresh_token"],
             },
         )
@@ -70,7 +89,6 @@ class SpotifyApiSession(requests.Session):
 
         token_data = res.json()
         self.token.update(token_data)
-        self.token.save(Config.get_dir() / "spotify_token.json")
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
@@ -90,48 +108,19 @@ class SpotifyApiSession(requests.Session):
 
         Slightly different from the normal request, this will raise the status code!
         """
-        if self.token.is_expired:
-            self._refresh_token()
-
         # Prepend spotify API base URL if not a full URL
         if isinstance(url, str) and not url.startswith("http"):
             url = self.server_url + url
 
-        # Always use our Spotify token for authentication
-        kwargs["auth"] = self.token
-
-        # Calling requests again can in theory
-        # create a infinite recursion but
-        # should not happen in practice (fingers crossed)
-        # we can add some max retry logic if this ever
-        # is an issue
-        try:
-            res = super().request(
-                method,
-                url,
-                *args,
-                **kwargs,
-            )
-            res.raise_for_status()
-            return res
-        except ExpiredAccessToken:
-            # Avoid leaking via ExpiredAccessToken by extra try with raise from None
-            try:
-                self._refresh_token()
-                return self.request(method, url, *args, **kwargs)
-            except Exception as e:
-                raise e from None
-        except requests.HTTPError as e:
-            # Handle rate limiting
-            if e.response.status_code == 429:
-                self._handle_rate_limit(e.response.headers)
-                return self.request(method, url, *args, **kwargs)
-
-            # Handle token expiration
-            if e.response.status_code == 401:
-                self._refresh_token()
-                return self.request(method, url, *args, **kwargs)
-            raise e
+        log.debug("Request: %s", url)
+        res = super().request(
+            method,
+            url,
+            *args,
+            **kwargs,
+        )
+        res.raise_for_status()
+        return res
 
 
 class SpotifyApi:
@@ -143,8 +132,11 @@ class SpotifyApi:
     track: TrackApi
     user: UserApi
 
-    def __init__(self):
-        self.session = SpotifyApiSession()
+    def __init__(self, session: SpotifyApiSession | None = None):
+        if session is None:
+            session = SpotifyApiSession.from_config()
+
+        self.session = session
         self.playlist = PlaylistApi(self.session, self)
         self.user = UserApi(self.session, self)
         self.track = TrackApi(self.session)
