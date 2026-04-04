@@ -21,8 +21,12 @@ class MockServicePlaylist(
         super().__init__(*args, **kwargs)
 
     @classmethod
-    def get_or_create_from_ids(cls, ids: PlaylistIDs | None = None):
+    def get_by_ids(cls, ids: PlaylistIDs | None = None):
         return cls(name="name", description="description")
+
+    @classmethod
+    def create_new(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))
@@ -42,8 +46,12 @@ class MockMultiRequestServicePlaylist(
         super().__init__(*args, **kwargs)
 
     @classmethod
-    def get_or_create_from_ids(cls, ids: PlaylistIDs | None = None):
+    def get_by_ids(cls, ids: PlaylistIDs | None = None):
         return cls(name="name", description="description")
+
+    @classmethod
+    def create_new(cls, *args, **kwargs):
+        return cls(*args, **kwargs)
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))
