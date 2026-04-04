@@ -88,6 +88,7 @@ class AddedBy(TypedDict):
     uri: str
 
 
+# TODO: fix deprication and rename from Track to Item
 class SpotifyApiPlaylistTrack(TypedDict):
     """Track item within a playlist."""
 
