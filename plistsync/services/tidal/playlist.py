@@ -43,8 +43,8 @@ class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
             if track_data := data_lookup.get((item["type"], item["id"])):
                 tracks.append(
                     TidalPlaylistTrack(
-                        track_data[0],
-                        data_lookup=track_data[1],
+                        track_data,
+                        data_lookup=data_lookup,
                         meta=item.get("meta", {}),
                     )
                 )
@@ -81,7 +81,7 @@ class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         """Get basic info about the playlist."""
         return PlaylistInfo(
             name=self.data["attributes"]["name"],
-            description=self.data["attributes"].get("description", None),
+            description=self.data["attributes"].get("description", None) or None,
         )
 
     @info.setter
