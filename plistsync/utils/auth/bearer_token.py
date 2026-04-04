@@ -106,7 +106,7 @@ class Oauth2Token(Token):
     @classmethod
     def from_dict(cls, token_dict: dict[str, Any]) -> Self:
         """Create a BearerToken instance from a dictionary."""
-        return cls(BearerTokenOauth2Client(cls.deserialize_dict(token_dict)), None)
+        return cls(BearerTokenOauth2Client(**cls.deserialize_dict(token_dict)), None)
 
     def update(self, token_data: dict[str, Any]) -> None:
         """Update the token data in place."""
