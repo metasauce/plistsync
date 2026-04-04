@@ -200,6 +200,7 @@ class OfflinePlaylist(Playlist[Track]):
             description=description,
         )
         self._tracks = list(tracks or [])
+        self._ids = PlaylistIDs()
 
     @property
     def ids(self) -> PlaylistIDs:
@@ -215,7 +216,7 @@ class OfflinePlaylist(Playlist[Track]):
 
     @property
     def tracks(self) -> list[Track]:
-        return list(self._tracks)
+        return self._tracks
 
     @tracks.setter
     def tracks(self, value: list[Track]) -> None:
@@ -239,8 +240,8 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     # --------------------------- Required (protocol) ---------------------------- #
     # TODO: Finalize naming!!
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def get_or_create_from_ids(cls, ids: PlaylistIDs | None = None) -> Self:
         """Create or retrieve a service playlist using remote identifiers.
 
@@ -294,6 +295,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
             # should normallynot happen.
             # TODO: decicde if we want to raise here
             # if yes we should properly implement the error
+            # - create test
             raise ValueError
 
         snapshot_before = truth.get_snapshot()
