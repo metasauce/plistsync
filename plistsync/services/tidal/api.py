@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from time import sleep
+import time
 from typing import Any, ClassVar, Literal, cast
 
 import requests
@@ -108,8 +108,8 @@ class TidalApiSession(TokenSession):
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))
         if remaining > 0:
-            log.warning(f"Rate limit exceeded. Retrying after {remaining} seconds.")
-            sleep(remaining)
+            log.debug(f"Rate limit exceeded. Retrying after {remaining} seconds.")
+            time.sleep(remaining)
         else:
             raise Exception(
                 "Rate limit handling failed: Retry-After header is missing or invalid"
