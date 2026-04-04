@@ -672,7 +672,7 @@ class TidalPlaylistApi:
         ids: list[str],
         item_type: str = "tracks",
         position_before: str | None = None,
-    ) -> requests.Response:
+    ):
         """Add items to a playlist.
 
         If position before is provided, add items before the given
@@ -682,25 +682,34 @@ class TidalPlaylistApi:
         if item_type not in ["tracks", "videos"]:
             raise ValueError('item_type must be either "tracks" or "videos"')
 
-        # Build the data array
-        data: list[dict[str, str]] = []
-        for item_id in ids:
-            item_data = {
-                "id": item_id,
-                "type": item_type,
-            }
-            data.append(item_data)
+        # Api does not like the request with empty list
+        if len(ids) == 0:
+            return
 
-        # Build the payload
-        payload: dict[str, Any] = {"data": data}
+        # max batch size is 20 (see tidal api docs, in the json schema)
+        batch_size = 20
+        for i in range(0, len(ids), batch_size):
+            batch = ids[i : i + batch_size]
 
-        # Add meta if position_before is specified
-        if position_before:
-            payload["meta"] = {"positionBefore": position_before}
+            # Build the data array
+            data: list[dict[str, str]] = []
+            for item_id in batch:
+                item_data = {
+                    "id": item_id,
+                    "type": item_type,
+                }
+                data.append(item_data)
 
-        return self.session.request(
-            "POST", f"/playlists/{playlist_id}/relationships/items", json=payload
-        )
+            # Build the payload
+            payload: dict[str, Any] = {"data": data}
+
+            # Add meta if position_before is specified
+            if position_before:
+                payload["meta"] = {"positionBefore": position_before}
+
+            _res = self.session.request(
+                "POST", f"/playlists/{playlist_id}/relationships/items", json=payload
+            )
 
     def reorder_items(
         self,
@@ -754,23 +763,32 @@ class TidalPlaylistApi:
         if item_type not in ["tracks", "videos"]:
             raise ValueError('item_type must be either "tracks" or "videos"')
 
-        data: list[dict[str, Any]] = []
-        for item_id in item_ids:
-            item_data = {
-                "id": item_id[0],
-                "meta": {"itemId": item_id[1]},
-                "type": item_type,
-            }
-            data.append(item_data)
+        # Api does not like the request with empty list
+        if len(item_ids) == 0:
+            return
 
-        # Build the payload
-        payload: dict[str, Any] = {"data": data}
+        # max batch size is 20 (see tidal api docs, in the json schema)
+        batch_size = 20
+        for i in range(0, len(item_ids), batch_size):
+            batch = item_ids[i : i + batch_size]
 
-        return self.session.request(
-            "DELETE",
-            f"/playlists/{playlist_id}/relationships/items",
-            json=payload,
-        )
+            data: list[dict[str, Any]] = []
+            for item_id in batch:
+                item_data = {
+                    "id": item_id[0],
+                    "meta": {"itemId": item_id[1]},
+                    "type": item_type,
+                }
+                data.append(item_data)
+
+            # Build the payload
+            payload: dict[str, Any] = {"data": data}
+
+            _res = self.session.request(
+                "DELETE",
+                f"/playlists/{playlist_id}/relationships/items",
+                json=payload,
+            )
 
 
 class TidalUserApi:

@@ -135,6 +135,7 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         tracks_before: list[TidalPlaylistTrack],
     ) -> None:
         track_ids = [t.id for t in track] if isinstance(track, list) else [track.id]
+
         if idx >= len(tracks_before):
             self.api.playlist.add_items(
                 playlist_id=self.id,
