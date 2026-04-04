@@ -5,16 +5,21 @@ json.
 """
 
 import json
+from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
 from typing import (
     Any,
+    ClassVar,
     Self,
 )
 
+import requests
+from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import BearerToken as BearerTokenOauth2Client
+from requests_oauth2client.tokens import ExpiredAccessToken
 
 from plistsync.config import Config
 from plistsync.errors import ConfigurationError
@@ -40,9 +45,12 @@ class BearerToken:
     @classmethod
     def from_file(cls, file_path: str | Path) -> Self:
         """Load token data from a JSON file."""
-        with open(file_path) as f:
-            token_dict = json.load(f)
-        return cls.from_dict(token_dict)
+        try:
+            with open(file_path) as f:
+                token_dict = json.load(f)
+            return cls.from_dict(token_dict)
+        except Exception as e:
+            raise InvalidTokenError(None) from e
 
     def save(self, file_path: str | Path):
         """Save token data to a JSON file."""
@@ -105,6 +113,104 @@ class InvalidTokenError(Exception):
         else:
             self.message = "Token not found. Have you created a token?"
         super().__init__(self.message)
+
+
+class BearerTokenSession(requests.Session, ABC):
+    """A request session configured to use a bearer token.
+
+    This session manages authentication for API requests by automatically
+    attaching bearer tokens to outgoing requests and handling token
+    refresh when expired or rejected by the server.
+    """
+
+    token: BearerToken
+    """The current bearer token used for authentication."""
+
+    token_path: Path | None
+    """Optional path to persist the token after refresh."""
+
+    status_codes_expired: ClassVar[list[int]] = []
+    """HTTP status codes indicating an expired/invalid token."""
+
+    status_codes_rate_limit: ClassVar[list[int]] = []
+    """HTTP status codes indicating rate limiting."""
+
+    def __init__(
+        self,
+        token: BearerToken | None,
+        token_path: Path | None,
+    ) -> None:
+        """Initialize the session with a token or token file."""
+        super().__init__()
+
+        if token is None and token_path is not None:
+            token = BearerToken.from_file(token_path)
+        elif token is not None:
+            pass  # Use provided token
+        else:
+            raise ValueError("Either token or token path must be given!")
+
+        self.token = token
+        self.token_path = token_path
+
+    def request(
+        self, method: str | bytes, url: str | bytes, *args, **kwargs
+    ) -> requests.Response:
+        """Send a request with token authentication.
+
+        Automatically handles token expiration and server-side token
+        rejection by refreshing and retrying once per failure mode.
+        """
+
+        if self.token.is_expired:
+            self._refresh_token()
+
+        # Always use token in auth
+        kwargs["auth"] = self.token
+
+        # Calling requests again can in theory
+        # create a infinite recursion but
+        # should not happen in practice (fingers crossed)
+        # we can add some max retry logic if this ever
+        # is an issue
+        try:
+            res = super().request(
+                method,
+                url,
+                *args,
+                **kwargs,
+            )
+        except ExpiredAccessToken:
+            self._refresh_token()
+            return self.request(method, url, *args, **kwargs)
+
+        if res.status_code in self.status_codes_expired:
+            self.refresh_token()
+            return self.request(method, url, *args, **kwargs)
+        elif res.status_code in self.status_codes_rate_limit:
+            self._handle_rate_limit(res.headers)
+            return self.request(method, url, *args, **kwargs)
+
+        return res
+
+    @abstractmethod
+    def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
+        """Handle a rate limit response from the server."""
+        ...
+
+    @abstractmethod
+    def _refresh_token(self) -> None:
+        """Fetch a new token from the API.
+
+        Implementations should update the token inplace.
+        """
+        ...
+
+    def refresh_token(self) -> None:
+        """Refresh the token and persist it."""
+        self._refresh_token()
+        if self.token_path is not None:
+            self.token.save(self.token_path)
 
 
 def requires_bearer_token(
