@@ -208,6 +208,9 @@ class PlaylistApi:
             all_items.extend(tracks.get("items", []))
             next_page = tracks.get("next")
 
+        # Check here if every item has the `track` field set to the right response?
+        # i.e. not None, and only Track Type? Problem: we cannot use instance checks.
+
         return all_items
 
     def create(
