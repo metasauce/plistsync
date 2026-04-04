@@ -45,7 +45,7 @@ class TestPlaylistBase(ABC):
     mocks any methods that are not required by the base implementation!
     """
 
-    supports_description: ClassVar[bool]
+    supports_description: ClassVar[bool] = True
 
     @abstractmethod
     def create_playlist(self) -> Playlist:
@@ -76,9 +76,9 @@ class TestPlaylistBase(ABC):
         len_before = len(playlist.tracks)
         for t in dummy_tracks:
             playlist.tracks.append(t)
-        assert len(dummy_tracks) - len_before == 5
+        assert len(dummy_tracks) + len_before == len(playlist.tracks)
         assert len(dummy_tracks) + len_before == len(playlist)
-        assert playlist.tracks == dummy_tracks
+        assert playlist.tracks[-5:] == dummy_tracks
 
         # Test overwrite
         playlist.tracks = dummy_tracks
