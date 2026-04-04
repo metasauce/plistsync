@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from collections.abc import Hashable
-from typing import TYPE_CHECKING, Self, cast
+from typing import TYPE_CHECKING, cast
 
 from plistsync.core.playlist import (
-    MultiRequestPlaylistCollection,
+    MultiRequestServicePlaylist,
+    PlaylistIDs,
     PlaylistInfo,
     Snapshot,
 )
@@ -18,34 +19,23 @@ if TYPE_CHECKING:
     from .library import TidalLibraryCollection
 
 
-class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]):
+class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
     library: TidalLibraryCollection
 
-    # When the playlist is associated with an online playlist, we have the response.
-    # Otherwise, we have at least a name via PlaylistInfo.
-    data: tuple[PlaylistResource, LookupDict] | PlaylistInfo
+    data: PlaylistResource
+
+    _tracks: None | list[TidalPlaylistTrack] = None  # None indicates fetch on access
 
     def __init__(
         self,
         library: TidalLibraryCollection,
-        name: str,
-        description: str | None = None,
-        tracks: list[TidalPlaylistTrack] | None = None,
-    ) -> None:
-        self.library = library
-        self._tracks = tracks or []  # do not set to None, we do not want to fetch!
-        self.data = PlaylistInfo(name=name, description=description or "")
-
-    @classmethod
-    def from_response_data(
-        cls,
-        library: TidalLibraryCollection,
         data: PlaylistResource,
         data_lookup: LookupDict,
-    ) -> Self:
+    ):
         """Create a TidalPlaylistCollection from a PlaylistResource response."""
-        plist = cls(library, name=data["attributes"]["name"])
-        plist.data = (data, data_lookup)  # now self.online_data and len is available
+        self.library = library
+        self.data = data  # now self.online_data and len is available
+        self.lookup = data_lookup
 
         # we might have track data provided
         tracks: list[TidalPlaylistTrack] = []
@@ -64,90 +54,41 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
                     " tracks of playlist '{data['attributes']['name']}'"
                 )
 
-        if len(tracks) == len(plist):
-            plist._tracks = tracks  # consistent, use provided track data.
+        expected_length = 0
+        # Use numberOfItems attribute if available
+        if "numberOfItems" in self.data["attributes"]:
+            expected_length = self.data["attributes"]["numberOfItems"]
+        # Fallback to relationship data length (always present)
         else:
-            plist._tracks = None  # will fetch on first access to .tracks
+            expected_length = len(
+                self.data.get("relationships", {}).get("items", {}).get("data", [])
+            )
 
-        return plist
-
-    # ----------------------- Properties and info logic ---------------------- #
+        if len(tracks) == expected_length:
+            # consistent: use provided track data
+            self._tracks = tracks
+        else:
+            self._tracks = None
 
     @property
     def api(self):
         return self.library.api
 
+    # ----------------------- Required (Playlist protocol) ----------------------- #
+
     @property
     def info(self) -> PlaylistInfo:
         """Get basic info about the playlist."""
-        if isinstance(self.data, tuple):
-            plist_data = self.data[0]
-            return PlaylistInfo(
-                name=plist_data["attributes"]["name"],
-                description=plist_data["attributes"].get("description", None),
-            )
-        else:
-            return self.data
+        return PlaylistInfo(
+            name=self.data["attributes"]["name"],
+            description=self.data["attributes"].get("description", None),
+        )
 
     @info.setter
     def info(self, value: PlaylistInfo) -> None:
         """Set basic info about the playlist."""
-        if isinstance(self.data, tuple):
-            self.data[0]["attributes"]["name"] = value.get("name", self.name)
-            self.data[0]["attributes"]["description"] = value.get("description") or ""
-        else:
-            self.data["name"] = value.get("name", self.name)
-            self.data["description"] = value.get("description")
-
-    @property
-    def id(self) -> str | None:
-        """Tidal Playlist ID.
-
-        None if not associated with an online playlist.
-        """
-        if data := self.online_data:
-            return data[0]["id"]
-        return None
-
-    # ---------------------------- Track lazy loading ---------------------------- #
-
-    @property
-    def online_data(self) -> tuple[PlaylistResource, LookupDict] | None:
-        """Get the online playlist data, if available.
-
-        None if this playlist is not associated with playlist online.
-        """
-        if isinstance(self.data, tuple):
-            return self.data
-        return None
-
-    def _refetch_tracks(self) -> list[TidalPlaylistTrack]:
-        """Refetch the tracks from the online playlist.
-
-        Only works if the playlist is online.
-        """
-        if not self.online_data:
-            raise ValueError("Cannot refetch tracks for offline playlist")
-
-        items, items_lookup = self.api.playlist.get_items(self.online_data[0]["id"])
-        tracks = []
-        for item in items:
-            # item is PlaylistsItemsResourceIdentifier
-            if track_resource := items_lookup.get((item["type"], item["id"])):
-                tracks.append(
-                    TidalPlaylistTrack(
-                        track_resource,
-                        data_lookup=items_lookup,
-                        meta=item.get("meta", {}),
-                    )
-                )
-            else:
-                log.warning(
-                    f"Track with id '{item['id']}' not found in cached"
-                    " tracks of playlist '{data['attributes']['name']}'"
-                )
-        self._tracks = tracks
-        return self._tracks
+        self.data["attributes"]["name"] = value.get("name", self.name)
+        self.data["attributes"]["description"] = value.get("description") or ""
 
     @property
     def tracks(self) -> list[TidalPlaylistTrack]:
@@ -163,42 +104,61 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
     def tracks(self, value: list[TidalPlaylistTrack]) -> None:
         self._tracks = value
 
-    def __len__(self) -> int:
-        """Return the number of tracks in the playlist."""
-        if self.online_data:
-            # Use numberOfItems attribute if available
-            attrs = self.online_data[0]["attributes"]
-            if "numberOfItems" in attrs:
-                return attrs["numberOfItems"]
-            # Fallback to relationship data length (always present)
-            return len(
-                self.online_data[0]
-                .get("relationships", {})
-                .get("items", {})
-                .get("data", [])
-            )
-        return len(self._tracks or [])
-
-    # ----------------------------- Remote operations ---------------------------- #
+    @property
+    def ids(self) -> PlaylistIDs:
+        """Unique identifiers of the playlist."""
+        return PlaylistIDs(tidal_id=self.data["id"])
 
     @property
-    def remote_associated(self):
-        return self.online_data is not None
+    def id(self) -> str:
+        """Tidal Playlist ID."""
+        return self.data["id"]
 
-    def _remote_create(self):
-        self.data = self.api.playlist.create(self.name, self.description or "")
-        if self._tracks:
-            self.api.playlist.add_items(
-                self.data[0]["id"],  # type: ignore[literal-required]
-                ids=[t.id for t in self._tracks],
+    # -------------------- Required (ServicePlaylist protocol) ------------------- #
+
+    @classmethod
+    def create_new(
+        cls,
+        name: str,
+        description: str | None = None,
+        tracks: list[TidalPlaylistTrack] | None = None,
+        library: TidalLibraryCollection | None = None,
+    ):
+        if library is None:
+            library = TidalLibraryCollection()
+
+        pl = cls(
+            library,
+            *library.api.playlist.create(name, description or ""),
+        )
+
+        if tracks:
+            with pl.remote_edit():
+                pl.tracks = tracks
+
+        return pl
+
+    @classmethod
+    def get_by_ids(
+        cls,
+        ids: PlaylistIDs,
+        library: TidalLibraryCollection | None = None,
+    ):
+        if library is None:
+            library = TidalLibraryCollection()
+
+        if ids and (tidal_id := ids.get("tidal_id")):
+            return cls(
+                library,
+                *library.api.playlist.get(id=tidal_id),
             )
-        self._refetch_tracks()
+
+        raise ValueError("Playlist not found!")
 
     def _remote_delete(self):
-        if self.id is None:
-            raise ValueError("Playlist must be online to call remote delete!")
         self.api.playlist.delete(self.id)
-        self.data = self.info
+
+    # -------------- Required (MultiRequestServicePlaylist protocol) ------------- #
 
     def _remote_insert_track(
         self,
@@ -206,8 +166,6 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
         track: TidalPlaylistTrack | list[TidalPlaylistTrack],
         tracks_before: list[TidalPlaylistTrack],
     ) -> None:
-        if not self.id:
-            raise ValueError("Id must be set to call remote insert!")
         track_ids = [t.id for t in track] if isinstance(track, list) else [track.id]
         if idx >= len(tracks_before):
             self.api.playlist.add_items(
@@ -227,9 +185,6 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
         track: TidalPlaylistTrack | list[TidalPlaylistTrack],
         tracks_before: list[TidalPlaylistTrack],
     ) -> None:
-        if not self.id:
-            raise ValueError("Id must be set to call remote delete!")
-
         if not isinstance(track, list):
             track = [track]
 
@@ -248,9 +203,6 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
         new_name: str | None = None,
         new_description: str | None = None,
     ) -> None:
-        if not self.id:
-            raise ValueError("Id must be set to call remote delete!")
-
         self.api.playlist.update(
             id=self.id,
             name=new_name,
@@ -270,3 +222,31 @@ class TidalPlaylistCollection(MultiRequestPlaylistCollection[TidalPlaylistTrack]
     @staticmethod
     def _track_key(track: TidalPlaylistTrack) -> Hashable:
         return track.id  # Maybe we want item_id here
+
+    # ---------------------------- Track lazy loading ---------------------------- #
+
+    def _refetch_tracks(self) -> list[TidalPlaylistTrack]:
+        """Refetch the tracks from the online playlist.
+
+        Only works if the playlist is online.
+        """
+
+        items, items_lookup = self.api.playlist.get_items(self.data["id"])
+        tracks = []
+        for item in items:
+            # item is PlaylistsItemsResourceIdentifier
+            if track_resource := items_lookup.get((item["type"], item["id"])):
+                tracks.append(
+                    TidalPlaylistTrack(
+                        track_resource,
+                        data_lookup=items_lookup,
+                        meta=item.get("meta", {}),
+                    )
+                )
+            else:
+                log.warning(
+                    f"Track with id '{item['id']}' not found in cached"
+                    " tracks of playlist '{data['attributes']['name']}'"
+                )
+        self._tracks = tracks
+        return self._tracks

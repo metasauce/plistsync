@@ -10,7 +10,7 @@ from plistsync.core.collection import (
 )
 from plistsync.logger import log
 
-from .api import TidalApi, TidalApiSession, extract_tidal_playlist_id
+from .api import TidalApi, extract_tidal_playlist_id
 from .playlist import TidalPlaylistCollection
 from .track import TidalTrack
 
@@ -23,19 +23,19 @@ class TidalLibraryCollection(
 
     api: TidalApi
 
-    def __init__(self, session: TidalApiSession | None = None) -> None:
-        super().__init__()
-        self.api = TidalApi(session)
+    def __init__(self) -> None:
+        self.api = TidalApi()
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 
     @property
     def playlists(self) -> Iterable[TidalPlaylistCollection]:
+        """Get all playlists of the current user.
+
+        This can take quite some time, as it fetches all playlists and their tracks.
+        """
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
-        return [
-            TidalPlaylistCollection.from_response_data(self, pl, lookup)
-            for pl in playlists
-        ]
+        return [TidalPlaylistCollection(self, pl, lookup) for pl in playlists]
 
     @overload
     def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
@@ -82,9 +82,7 @@ class TidalLibraryCollection(
             return None
 
         try:
-            return TidalPlaylistCollection.from_response_data(
-                self, *self.api.playlist.get(id)
-            )
+            return TidalPlaylistCollection(self, *self.api.playlist.get(id))
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
