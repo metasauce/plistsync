@@ -124,7 +124,9 @@ class TestPlaylistBase(ABC):
         playlist.description = "new_description"
 
         # Should be copies
-        keys = ["name", "description", "tracks"]
+        keys = {"name", "description", "tracks"}
+        if not self.supports_description:
+            keys.remove("description")
         for key in keys:
             assert id(getattr(playlist, key)) != id(getattr(snapshot, key))
 

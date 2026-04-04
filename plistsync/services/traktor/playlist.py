@@ -40,6 +40,8 @@ class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
     # Root node to the playlist (should always be attached to the library)
     root_node: _Element  # <Node TYPE="PLAYLIST">
 
+    _tracks: list[NMLPlaylistTrack] | None = None
+
     def __init__(
         self,
         library: NMLLibraryCollection,
