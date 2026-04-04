@@ -156,12 +156,12 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
         playlist._remote_delete.assert_called_once()
 
     def test_remote_update(self, playlist: ServicePlaylist):
-        playlist.get_or_create_from_ids = Mock(return_value=playlist)
+        playlist.get_by_ids = Mock(return_value=playlist)
         playlist._remote_commit = Mock()
 
         playlist.remote_update()
 
-        playlist.get_or_create_from_ids.assert_called_once_with(playlist.ids)
+        playlist.get_by_ids.assert_called_once_with(playlist.ids)
         playlist._remote_commit.assert_called_once()
 
     def test_remote_edit(self, playlist: ServicePlaylist):

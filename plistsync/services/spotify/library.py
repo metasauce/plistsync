@@ -39,7 +39,7 @@ class SpotifyLibraryCollection(
         This can take quite some time, as it fetches all playlists and their tracks.
         """
         return [
-            SpotifyPlaylistCollection.from_response_data(
+            SpotifyPlaylistCollection(
                 self,
                 playlist,
             )
@@ -91,7 +91,7 @@ class SpotifyLibraryCollection(
 
         #  Direct ID lookup (fastest path)
         try:
-            return SpotifyPlaylistCollection.from_response_data(
+            return SpotifyPlaylistCollection(
                 self,
                 self.api.playlist.get(id),
             )

@@ -239,16 +239,26 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
 
     # --------------------------- Required (protocol) ---------------------------- #
     # TODO: Finalize naming!!
+    # SM: I would like to drop the remote prefix
 
     @classmethod
     @abstractmethod
-    def get_or_create_from_ids(cls, ids: PlaylistIDs | None = None) -> Self:
-        """Create or retrieve a service playlist using remote identifiers.
+    def create_new(
+        cls,
+        name: str,
+        description: str | None = None,
+        tracks: list[T] | None = None,
+    ) -> Self:
+        """Create a service playlist."""
+
+    @classmethod
+    @abstractmethod
+    def get_by_ids(cls, ids: PlaylistIDs) -> Self:
+        """Retrieve a service playlist using remote identifiers.
 
         This factory method attempts to locate an existing remote playlist using
         the provided `ids`. If a match is found, the remote playlist is returned
-        with its current remote state. Otherwise, a new (empty) playlist is created
-        on the remote service.
+        with its current remote state. If not should raise!
         """
         ...
 
@@ -289,7 +299,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         full remote state before committing. Use `remote_edit()` for better
         performance/fewer API requests.
         """
-        truth = self.get_or_create_from_ids(self.ids)
+        truth = self.get_by_ids(self.ids)
         if truth.ids != self.ids:
             # We should normally only get the playlist here, create
             # should normallynot happen.
