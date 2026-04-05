@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Self, overload
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
@@ -134,13 +134,34 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
 
         return pl
 
+    @overload
     @classmethod
     def get_by_ids(
         cls,
-        ids: PlaylistIDs | str,
+        *,
+        id: str,
+        library: SpotifyLibraryCollection | None = None,
+    ) -> Self: ...
+
+    @overload
+    @classmethod
+    def get_by_ids(
+        cls,
+        *,
+        ids: PlaylistIDs,
+        library: SpotifyLibraryCollection | None = None,
+    ) -> Self: ...
+
+    @classmethod
+    def get_by_ids(
+        cls,
+        ids: PlaylistIDs | None = None,
+        id: str | None = None,
         # PS: I think since this is a service specific method, we should also allow
         # convenient lookup via id directly. and consider to include this type
         # in the abc method
+        # SM: We could also use the same overload pattern from the library here
+        # Makes things a bit verbose tho
         library: SpotifyLibraryCollection | None = None,
     ) -> Self:
         if library is None:

@@ -24,9 +24,9 @@ from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, Self, TypedDict
+from typing import Generic, Self, TypedDict, TypeVar
 
-from .collection import Collection, LibraryCollection, TrackStream, TypeVar
+from .collection import Collection, LibraryCollection, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
@@ -241,7 +241,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     Extends `Playlist` with methods to manage the lifecycle and state synchronization
     between a local representation and its remote counterpart (e.g., on Spotify, Tidal).
     By convention, every `ServicePlaylist` instance corresponds to an existing remote
-    playlist, and has a library and api associated. If the remote playlist is deleted,
+    playlist, and has a library and/or api associated. If the remote playlist is deleted,
     the local instance should be discarded in favor of an `OfflinePlaylist` to retain
     the data.
 
@@ -255,17 +255,22 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     # SM: I would like to drop the remote prefix
     # PS: Let's drop them. Because we are separating this on class level now,
     # it beomces clear enough imo.
+    # SM: check
 
     @classmethod
     @abstractmethod
     def create_new(
         # PS: `create` ?
+        # SM: check
         cls,
         name: str,
         description: str | None = None,
         tracks: list[T] | None = None,
         library: LibraryCollection | None = None,
         # PS: I would like to include the library convention in the ABC. how to type it?
+        # SM: I think this mnight be a bit difficult as not every playlist will need
+        # a library. I would omit it for now and add it only if every service can use
+        # that pattern
     ) -> Self:
         """Create a service playlist."""
 
@@ -273,6 +278,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     @abstractmethod
     def get_by_ids(cls, ids: PlaylistIDs) -> Self:
         # PS:  `get_by_id` ? -> only one of the ids is actually used, see also spotify.
+        # SM: check
         """Retrieve a service playlist using remote identifiers.
 
         This factory method attempts to locate an existing remote playlist using
@@ -283,7 +289,10 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
 
     # PS: One thing I could not infer is our recommended pattern to create
     # a service playlist from an offline playlist. What helper methods do we want?
-
+    # SM: We have the create_new method which can be used easily for this. We should
+    # create a helper tho. Maybe just `from_offline` or a simple `from_other` as in
+    # theory this needs not be limited to offline playlists
+    # think spotify->tidal
     @abstractmethod
     def _remote_delete(self):
         """Delete the playlist on the service."""
@@ -304,8 +313,6 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
-        # PS: neat, loving this convention!
-
         offline = OfflinePlaylist(self.name, self.description, self.tracks)
         self._remote_delete()
         return offline
@@ -335,6 +342,11 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
             # Then we would need a mechanic to set the relevant service id per subclass.
             # Q i cant answer 100%: would this check prevent syncing between users on
             # same service? (I think it wont)
+
+            # SM: Yeah this is just a placeholder here. For me the question is:
+            # - do we even want to raise if the ids change?
+            # Instead of raising we could also just overwrite the id with the new one
+            # and maybe output a warning
             raise ValueError
 
         snapshot_before = truth.get_snapshot()
