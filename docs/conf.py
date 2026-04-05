@@ -35,6 +35,7 @@ extensions = [
     "myst_nb",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "sphinx_togglebutton",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
