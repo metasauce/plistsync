@@ -24,9 +24,11 @@ from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, Self, TypedDict, TypeVar
+from typing import Generic, Self, TypedDict
 
-from .collection import Collection, LibraryCollection, TrackStream
+from typing_extensions import TypeVar
+
+from .collection import Collection, Library, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
@@ -189,7 +191,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
 
 
 class OfflinePlaylist(Playlist[Track]):
-    """A offline (in memory) playlist with no remote synchronization.
+    """A offline (in memory) playlist with no service synchronization.
 
     This class provides a concrete implementation of `Playlist` for
     managing playlists in memory without any connection to online music services.
@@ -236,63 +238,24 @@ class OfflinePlaylist(Playlist[Track]):
 
 
 class ServicePlaylist(Generic[T], Playlist[T], ABC):
-    """Abstract base class for playlists synchronized with remote music services.
+    """Abstract base class for playlists synchronized with music services.
 
     Extends `Playlist` with methods to manage the lifecycle and state synchronization
-    between a local representation and its remote counterpart (e.g., on Spotify, Tidal).
-    By convention, every `ServicePlaylist` instance corresponds to an existing remote
-    playlist, and has a library and/or api associated. If the remote playlist is deleted,
-    the local instance should be discarded in favor of an `OfflinePlaylist` to retain
-    the data.
+    between a in memory representation and its service counterpart (e.g., on Spotify,
+    Tidal). By convention, every `ServicePlaylist` instance corresponds to an existing
+    "remote" playlist, and has a library and/or api associated. If the "remote" playlist
+    is deleted, the specific "ServicePlaylist" instance should be discarded in favor of
+    an `OfflinePlaylist` to retain the data.
 
     Provides two synchronization strategies:
-      - `remote_edit()` – transactional edits with automatic local rollback
-      - `remote_update()` – bulk update by comparing remote and local snapshots
+      - `edit()` – transactional edits with automatic local rollback
+      - `update()` – bulk update by comparing remote and local snapshots
     """
 
+    library: Library[Track, Self]
+
     # --------------------------- Required (protocol) ---------------------------- #
-    # TODO: Finalize naming!!
-    # SM: I would like to drop the remote prefix
-    # PS: Let's drop them. Because we are separating this on class level now,
-    # it beomces clear enough imo.
-    # SM: check
 
-    @classmethod
-    @abstractmethod
-    def create_new(
-        # PS: `create` ?
-        # SM: check
-        cls,
-        name: str,
-        description: str | None = None,
-        tracks: list[T] | None = None,
-        library: LibraryCollection | None = None,
-        # PS: I would like to include the library convention in the ABC. how to type it?
-        # SM: I think this mnight be a bit difficult as not every playlist will need
-        # a library. I would omit it for now and add it only if every service can use
-        # that pattern
-    ) -> Self:
-        """Create a service playlist."""
-
-    @classmethod
-    @abstractmethod
-    def get_by_ids(cls, ids: PlaylistIDs) -> Self:
-        # PS:  `get_by_id` ? -> only one of the ids is actually used, see also spotify.
-        # SM: check
-        """Retrieve a service playlist using remote identifiers.
-
-        This factory method attempts to locate an existing remote playlist using
-        the provided `ids`. If a match is found, the remote playlist is returned
-        with its current remote state. If not should raise!
-        """
-        ...
-
-    # PS: One thing I could not infer is our recommended pattern to create
-    # a service playlist from an offline playlist. What helper methods do we want?
-    # SM: We have the create_new method which can be used easily for this. We should
-    # create a helper tho. Maybe just `from_offline` or a simple `from_other` as in
-    # theory this needs not be limited to offline playlists
-    # think spotify->tidal
     @abstractmethod
     def _remote_delete(self):
         """Delete the playlist on the service."""
@@ -305,7 +268,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
 
     # ----------------------------- Usability helpers ---------------------------- #
 
-    def remote_delete(self) -> OfflinePlaylist:
+    def delete(self) -> OfflinePlaylist:
         """Delete the playlist from the remote service and return an offline copy.
 
         Removes the playlist from the connected remote service and returns a new
@@ -317,7 +280,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         self._remote_delete()
         return offline
 
-    def remote_update(self):
+    def update(self):
         """Update the playlist on the remote service.
 
         Creates the playlist if it doesn't exist, or updates it to match the
@@ -325,36 +288,17 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
 
         Performance Note
         ----------------
-        Less efficient than `remote_edit()` for changes, as it retrieves the
-        full remote state before committing. Use `remote_edit()` for better
+        Less efficient than `edit()` for changes, as it retrieves the full remote state
+        before committing. Use the `edit()` context manager for better
         performance/fewer API requests.
         """
-        truth = self.get_by_ids(self.ids)
-        if truth.ids != self.ids:
-            # We should normally only get the playlist here, create
-            # should normally not happen.
-            # TODO: decicde if we want to raise here
-            # if yes we should properly implement the error
-            # - create test
-
-            # PS: I think its more complicated. I would limit the check to one service
-            # at a time, because the id on other services should be allowed to change.
-            # Then we would need a mechanic to set the relevant service id per subclass.
-            # Q i cant answer 100%: would this check prevent syncing between users on
-            # same service? (I think it wont)
-
-            # SM: Yeah this is just a placeholder here. For me the question is:
-            # - do we even want to raise if the ids change?
-            # Instead of raising we could also just overwrite the id with the new one
-            # and maybe output a warning
-            raise ValueError
-
+        truth = self.library.get_playlist_or_raise(ids=self.ids)
         snapshot_before = truth.get_snapshot()
         snapshot_after = self.get_snapshot()
         self._remote_commit(snapshot_before, snapshot_after)
 
     @contextmanager
-    def remote_edit(self):
+    def edit(self):
         """Context manager for transactional playlist edits with automatic rollback.
 
         Enables safe modifications to a remote playlist by capturing the current
@@ -365,7 +309,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         Usage
         -----
         ```python
-        with playlist.remote_edit():
+        with playlist.edit():
             playlist.tracks.append(new_track)
             playlist.name = "Updated Name"
         # Changes committed to remote on success

@@ -79,8 +79,9 @@ def main(
             type=bool,
             default=True,
         ):
-            plex_playlist = PlexPlaylistCollection(plex_library, playlist_name)
-            plex_playlist.remote_upsert()
+            plex_playlist = PlexPlaylistCollection.create(
+                name=playlist_name, library=plex_library
+            )
         else:
             raise typer.Exit(-1)
 
@@ -90,8 +91,9 @@ def main(
             type=bool,
             default=True,
         ):
-            traktor_playlist = NMLPlaylistCollection(traktor_library, playlist_name)
-            traktor_playlist.remote_upsert()
+            traktor_playlist = NMLPlaylistCollection.create(
+                name=playlist_name, library=traktor_library
+            )
         else:
             raise typer.Exit(-1)
 
@@ -112,7 +114,7 @@ def main(
     log.info(
         f"Adding {len(missing_in_traktor)} tracks from Plex to Traktor playlist..."
     )
-    with traktor_playlist.remote_edit():
+    with traktor_playlist.edit():
         for p in missing_in_traktor:
             # For traktor, PlaylistTracks are essentially only file paths, so
             # we do not need a lookup.
@@ -123,7 +125,7 @@ def main(
 
     # Traktor to plex
     log.info(f"Adding {len(missing_in_plex)} tracks from Traktor to Plex playlist...")
-    with plex_playlist.remote_edit():
+    with plex_playlist.edit():
         for p in missing_in_plex:
             p_for_plex = path_rewrite.invert.apply(p)
             plex_track = plex_library.find_by_local_ids({"file_path": p_for_plex})

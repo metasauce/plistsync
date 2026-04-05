@@ -23,7 +23,7 @@ class TestPlexPlaylistCollection(CollectionTestBase):
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
         """
-        pl = PlexPlaylistCollection.create_new(
+        pl = PlexPlaylistCollection.create(
             "foo",
             library=self.library_collection,
         )

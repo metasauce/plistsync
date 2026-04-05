@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
@@ -101,8 +102,8 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[PlexTrack]) -> None:
-        self._tracks = value
+    def tracks(self, value: Sequence[PlexTrack]) -> None:
+        self._tracks = list(value)
 
     @property
     def ids(self) -> PlaylistIDs:
@@ -115,47 +116,6 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
         return int(self.data["ratingKey"])
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
-
-    @classmethod
-    def create_new(
-        cls,
-        name: str,
-        description: str | None = None,
-        tracks: list[PlexTrack] | None = None,
-        library: PlexLibrarySectionCollection | None = None,
-    ) -> Self:
-        if library is None:
-            library = PlexLibrarySectionCollection()
-
-        pl = cls(
-            library,
-            library.api.playlist.create(name),
-        )
-
-        with pl.remote_edit():
-            pl.description = description
-            if tracks:
-                pl.tracks = tracks
-
-        return pl
-
-    @classmethod
-    def get_by_ids(
-        cls,
-        ids: PlaylistIDs,
-        library: PlexLibrarySectionCollection | None = None,
-    ) -> Self:
-        if library is None:
-            library = PlexLibrarySectionCollection()
-
-        plex_id = (ids or {}).get("plex_id")
-        if plex_id is not None:
-            return cls(
-                library,
-                library.api.playlist.get(plex_id),
-            )
-
-        raise ValueError("Playlist not found!")
 
     def _remote_delete(self):
         self.api.playlist.delete(self.id)

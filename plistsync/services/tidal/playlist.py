@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from typing import TYPE_CHECKING, cast
 
 from plistsync.core.playlist import (
@@ -13,7 +13,7 @@ from plistsync.logger import log
 
 from .api import LookupDict
 from .api_types import PlaylistResource
-from .track import TidalPlaylistTrack
+from .track import TidalPlaylistTrack, TidalTrack
 
 if TYPE_CHECKING:
     from .library import TidalLibraryCollection
@@ -101,8 +101,15 @@ class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[TidalPlaylistTrack]) -> None:
-        self._tracks = value
+    def tracks(self, value: Sequence[TidalTrack]) -> None:
+        def convert(t: TidalPlaylistTrack | TidalTrack):
+            # convert tracks to playlist tracks
+            if isinstance(t, TidalPlaylistTrack):
+                return t
+            else:
+                return TidalPlaylistTrack(t)
+
+        self._tracks = list(map(convert, value))
 
     @property
     def ids(self) -> PlaylistIDs:
@@ -115,45 +122,6 @@ class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         return self.data["id"]
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
-
-    @classmethod
-    def create_new(
-        cls,
-        name: str,
-        description: str | None = None,
-        tracks: list[TidalPlaylistTrack] | None = None,
-        library: TidalLibraryCollection | None = None,
-    ):
-        if library is None:
-            library = TidalLibraryCollection()
-
-        pl = cls(
-            library,
-            *library.api.playlist.create(name, description or ""),
-        )
-
-        if tracks:
-            with pl.remote_edit():
-                pl.tracks = tracks
-
-        return pl
-
-    @classmethod
-    def get_by_ids(
-        cls,
-        ids: PlaylistIDs,
-        library: TidalLibraryCollection | None = None,
-    ):
-        if library is None:
-            library = TidalLibraryCollection()
-
-        if ids and (tidal_id := ids.get("tidal_id")):
-            return cls(
-                library,
-                *library.api.playlist.get(id=tidal_id),
-            )
-
-        raise ValueError("Playlist not found!")
 
     def _remote_delete(self):
         self.api.playlist.delete(self.id)

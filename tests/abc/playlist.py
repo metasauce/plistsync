@@ -144,7 +144,7 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
         """remote_delete returns an OfflinePlaylist with current state."""
         playlist._remote_delete = Mock()
 
-        offline = playlist.remote_delete()
+        offline = playlist.delete()
 
         # Should return an OfflinePlaylist
         assert offline.__class__.__name__ == "OfflinePlaylist"
@@ -158,19 +158,19 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
         playlist._remote_delete.assert_called_once()
 
     def test_remote_update(self, playlist: ServicePlaylist):
-        playlist.get_by_ids = Mock(return_value=playlist)
+        playlist.get = Mock(return_value=playlist)
         playlist._remote_commit = Mock()
 
-        playlist.remote_update()
+        playlist.update()
 
-        playlist.get_by_ids.assert_called_once_with(playlist.ids)
+        playlist.get.assert_called_once_with(ids=playlist.ids)
         playlist._remote_commit.assert_called_once()
 
     def test_remote_edit(self, playlist: ServicePlaylist):
         """remote_edit commits changes when no exception occurs."""
         playlist._remote_commit = Mock()
 
-        with playlist.remote_edit():
+        with playlist.edit():
             pass
 
         playlist._remote_commit.assert_called_once()
@@ -181,7 +181,7 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
 
         playlist.name = "a name"
         with pytest.raises(ValueError, match="test"):
-            with playlist.remote_edit():
+            with playlist.edit():
                 playlist.name = "another name"
                 raise ValueError("test")
 

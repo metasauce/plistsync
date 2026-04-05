@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import overload
 
 from requests import HTTPError
@@ -6,8 +6,9 @@ from requests import HTTPError
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
     GlobalLookup,
-    LibraryCollection,
+    Library,
 )
+from plistsync.core.playlist import PlaylistIDs
 from plistsync.logger import log
 
 from .api import SpotifyApi, extract_spotify_playlist_id
@@ -16,7 +17,7 @@ from .track import SpotifyTrack
 
 
 class SpotifyLibraryCollection(
-    LibraryCollection[SpotifyTrack, SpotifyPlaylistCollection],
+    Library[SpotifyTrack, SpotifyPlaylistCollection],
     GlobalLookup[SpotifyTrack],
 ):
     """A collection representing the full spotify library.
@@ -47,16 +48,30 @@ class SpotifyLibraryCollection(
         ]
 
     @overload
-    def get_playlist(self, *, name: str) -> SpotifyPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, name: str | None = None
+    ) -> SpotifyPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, id: str) -> SpotifyPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, ids: PlaylistIDs | None = None
+    ) -> SpotifyPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, url: str) -> SpotifyPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, id: str | None = None
+    ) -> SpotifyPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, uri: str) -> SpotifyPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, url: str | None = None
+    ) -> SpotifyPlaylistCollection | None: ...
+    @overload
+    def get_playlist(
+        self, *, uri: str | None = None
+    ) -> SpotifyPlaylistCollection | None: ...
 
     def get_playlist(
         self,
+        *,
+        ids: PlaylistIDs | None = None,
         name: str | None = None,
         id: str | None = None,
         url: str | None = None,
@@ -68,10 +83,11 @@ class SpotifyLibraryCollection(
 
         Returns None if not found.
         """
+        if sum(arg is not None for arg in [ids, name, id, url]) != 1:
+            raise ValueError("Exactly one of name, id, ids, or url must be provided")
 
-        if sum(arg is not None for arg in [name, id, url, uri]) != 1:
-            raise ValueError("Exactly one of name, id, url, or uri must be provided")
-
+        if ids and (spotify_id := ids.get("spotify_id")):
+            id = spotify_id
         if url is not None:
             id = extract_spotify_playlist_id(url)
         if uri is not None:
@@ -98,6 +114,23 @@ class SpotifyLibraryCollection(
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[SpotifyTrack] | None = None,
+    ):
+        pl = SpotifyPlaylistCollection(
+            self,
+            self.api.playlist.create(name, description or ""),
+        )
+
+        if tracks:
+            with pl.edit():
+                pl.tracks = list(tracks)
+
+        return pl
 
     # --------------------------- GlobalLookup protocol -------------------------- #
 

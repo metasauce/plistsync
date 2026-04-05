@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Self, overload
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
@@ -15,7 +16,7 @@ from .api_types import (
     SpotifyApiPlaylistResponseSimplified,
     SpotifyApiPlaylistTrack,
 )
-from .track import SpotifyPlaylistTrack
+from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 if TYPE_CHECKING:
     from .library import SpotifyLibraryCollection
@@ -25,7 +26,6 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
     """A collection representing a spotify playlist."""
 
     library: SpotifyLibraryCollection
-
     data: SpotifyApiPlaylistResponseBase
     tracks_data: PlaylistTracksBase
 
@@ -98,8 +98,15 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[SpotifyPlaylistTrack]) -> None:
-        self._tracks = value
+    def tracks(self, value: Sequence[SpotifyTrack]) -> None:
+        def convert(t: SpotifyPlaylistTrack | SpotifyTrack):
+            # convert tracks to playlist tracks
+            if isinstance(t, SpotifyPlaylistTrack):
+                return t
+            else:
+                return SpotifyPlaylistTrack(t)
+
+        self._tracks = list(map(convert, value))
 
     @property
     def ids(self) -> PlaylistIDs:
@@ -111,72 +118,6 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
         return self.data["id"]
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
-
-    @classmethod
-    def create_new(
-        cls,
-        name: str,
-        description: str | None = None,
-        tracks: list[SpotifyPlaylistTrack] | None = None,
-        library: SpotifyLibraryCollection | None = None,
-    ):
-        if library is None:
-            library = SpotifyLibraryCollection()
-
-        pl = cls(
-            library,
-            library.api.playlist.create(name, description or ""),
-        )
-
-        if tracks:
-            with pl.remote_edit():
-                pl.tracks = tracks
-
-        return pl
-
-    @overload
-    @classmethod
-    def get_by_ids(
-        cls,
-        *,
-        id: str,
-        library: SpotifyLibraryCollection | None = None,
-    ) -> Self: ...
-
-    @overload
-    @classmethod
-    def get_by_ids(
-        cls,
-        *,
-        ids: PlaylistIDs,
-        library: SpotifyLibraryCollection | None = None,
-    ) -> Self: ...
-
-    @classmethod
-    def get_by_ids(
-        cls,
-        ids: PlaylistIDs | None = None,
-        id: str | None = None,
-        # PS: I think since this is a service specific method, we should also allow
-        # convenient lookup via id directly. and consider to include this type
-        # in the abc method
-        # SM: We could also use the same overload pattern from the library here
-        # Makes things a bit verbose tho
-        library: SpotifyLibraryCollection | None = None,
-    ) -> Self:
-        if library is None:
-            library = SpotifyLibraryCollection()
-
-        if isinstance(ids, str):
-            ids = PlaylistIDs(spotify_id=ids)
-
-        if ids and (spotify_id := ids.get("spotify_id")):
-            return cls(
-                library,
-                library.api.playlist.get(spotify_id, False),
-            )
-
-        raise ValueError("Playlist not found!")
 
     def _remote_delete(self):
         self.api.playlist.delete(self.id)

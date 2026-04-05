@@ -17,16 +17,16 @@ class TestsTidalPlaylist(TestServicePlaylistBase):
         self.library = collection
 
     def create_playlist(self) -> NMLPlaylistCollection:
-        return NMLPlaylistCollection.create_new("A name", library=self.library)
+        return NMLPlaylistCollection.create("A name", library=self.library)
 
 
 class TestTidalPlaylistIntegration:
     """Real tests against a live nml collection."""
 
     # TODO: Migrate tests from test_collection!
-    def test_create_new(self, collection: NMLLibraryCollection):
+    def test_create(self, collection: NMLLibraryCollection):
         count_before = len(list(collection._playlist_nodes()))
-        pl_collection = NMLPlaylistCollection.create_new("New PL", library=collection)
+        pl_collection = NMLPlaylistCollection.create("New PL", library=collection)
 
         assert len(list(collection._playlist_nodes())) == count_before + 1
         # and it's retrievable via public API
@@ -34,7 +34,7 @@ class TestTidalPlaylistIntegration:
         assert fetched.name == "New PL"
         assert fetched.uuid == pl_collection.uuid
 
-    def test_create_new_invalid_subnodes_count(
+    def test_create_invalid_subnodes_count(
         self, collection: NMLLibraryCollection, caplog
     ) -> None:
         subnodes_el = collection.tree.xpath(
@@ -43,18 +43,18 @@ class TestTidalPlaylistIntegration:
         subnodes_el.set("COUNT", "not-an-int")
 
         with caplog.at_level(logging.WARNING):
-            NMLPlaylistCollection.create_new("New PL", library=collection)
+            NMLPlaylistCollection.create("New PL", library=collection)
 
         assert "Invalid SUBNODES COUNT value" in caplog.text
         assert subnodes_el.get("COUNT") == "1"
 
-    def test_create_new_invalid_name(self, collection: NMLLibraryCollection, caplog):
+    def test_create_invalid_name(self, collection: NMLLibraryCollection, caplog):
         with caplog.at_level(logging.WARNING):
-            NMLPlaylistCollection.create_new("$New PL", library=collection)
+            NMLPlaylistCollection.create("$New PL", library=collection)
 
         assert "name changed" in caplog.text
 
-    def test_create_new_raises_if_root_subnodes_missing(
+    def test_create_raises_if_root_subnodes_missing(
         self, collection: NMLLibraryCollection
     ) -> None:
         # sanity: the fixture file should normally have $ROOT/SUBNODES
@@ -73,27 +73,31 @@ class TestTidalPlaylistIntegration:
         with pytest.raises(
             ValueError, match=r"Could not find SUBNODES in \$ROOT folder"
         ):
-            NMLPlaylistCollection.create_new("New PL", library=collection)
+            NMLPlaylistCollection.create("New PL", library=collection)
 
-    def test_get_by_ids(self, collection: NMLLibraryCollection):
+    def test_get(self, collection: NMLLibraryCollection):
         existing_uuid = "6868ecd66b354d37a33b965dae7a82e7"
 
-        pl = NMLPlaylistCollection.get_by_ids({"traktor_id": existing_uuid}, collection)
+        pl = NMLPlaylistCollection.get(
+            ids={"traktor_id": existing_uuid}, library=collection
+        )
         assert pl is not None
 
         with pytest.raises(ValueError, match="not found"):
-            pl = NMLPlaylistCollection.get_by_ids({"traktor_id": "nope"}, collection)
+            pl = NMLPlaylistCollection.get(
+                ids={"traktor_id": "nope"}, library=collection
+            )
 
         with pytest.raises(ValueError, match="not found"):
-            pl = NMLPlaylistCollection.get_by_ids({}, collection)
+            pl = NMLPlaylistCollection.get(ids={}, library=collection)
 
     def test_remote_delete(
         self,
         collection: NMLLibraryCollection,
     ):
-        pl_collection = NMLPlaylistCollection.create_new("New PL", library=collection)
+        pl_collection = NMLPlaylistCollection.create("New PL", library=collection)
 
         # Remove should work as upserted before
-        pl_collection.remote_delete()
+        pl_collection.delete()
 
         assert collection.get_playlist(uuid=pl_collection.uuid) is None

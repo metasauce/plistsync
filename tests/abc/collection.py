@@ -2,7 +2,7 @@ import pytest
 from typing import Any, ClassVar
 from abc import ABC, abstractmethod
 
-from plistsync.core import LibraryCollection, Track, Collection
+from plistsync.core import Library, Track, Collection
 from plistsync.core.collection import (
     GlobalLookup,
     InfoLookup,
@@ -97,7 +97,7 @@ class CollectionTestBase(ABC):
 
 class LibraryCollectionTestBase(CollectionTestBase, ABC):
     @abstractmethod
-    def create_collection(self, *args, **kwargs) -> Iterable[LibraryCollection]:
+    def create_collection(self, *args, **kwargs) -> Iterable[Library]:
         """Create a collection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.

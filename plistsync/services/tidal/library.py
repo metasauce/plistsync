@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import overload
 
 from requests import HTTPError
@@ -6,8 +6,9 @@ from requests import HTTPError
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
     GlobalLookup,
-    LibraryCollection,
+    Library,
 )
+from plistsync.core.playlist import PlaylistIDs
 from plistsync.logger import log
 
 from .api import TidalApi, extract_tidal_playlist_id
@@ -16,7 +17,7 @@ from .track import TidalTrack
 
 
 class TidalLibraryCollection(
-    LibraryCollection[TidalTrack, TidalPlaylistCollection],
+    Library[TidalTrack, TidalPlaylistCollection],
     GlobalLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
@@ -38,14 +39,26 @@ class TidalLibraryCollection(
         return [TidalPlaylistCollection(self, pl, lookup) for pl in playlists]
 
     @overload
-    def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, name: str | None = None
+    ) -> TidalPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, id: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, id: str | None = None
+    ) -> TidalPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, url: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, url: str | None = None
+    ) -> TidalPlaylistCollection | None: ...
+    @overload
+    def get_playlist(
+        self, *, ids: PlaylistIDs | None = None
+    ) -> TidalPlaylistCollection | None: ...
 
     def get_playlist(
         self,
+        *,
+        ids: PlaylistIDs | None = None,
         name: str | None = None,
         id: str | None = None,
         url: str | None = None,
@@ -56,8 +69,11 @@ class TidalLibraryCollection(
 
         Returns None if not found.
         """
-        if sum(arg is not None for arg in [name, id, url]) != 1:
-            raise ValueError("Exactly one of name, id, or url must be provided")
+        if sum(arg is not None for arg in [ids, name, id, url]) != 1:
+            raise ValueError("Exactly one of name, id, ids, or url must be provided")
+
+        if ids and (tidal_id := ids.get("tidal_id")):
+            id = tidal_id
 
         if url is not None:
             id = extract_tidal_playlist_id(url)
@@ -86,6 +102,23 @@ class TidalLibraryCollection(
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[TidalTrack] | None = None,
+    ):
+        pl = TidalPlaylistCollection(
+            self,
+            *self.api.playlist.create(name, description or ""),
+        )
+
+        if tracks:
+            with pl.edit():
+                pl.tracks = tracks
+
+        return pl
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -16,7 +17,7 @@ from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .path import NMLPath
-from .track import NMLPlaylistTrack
+from .track import NMLPlaylistTrack, NMLTrack
 from .utility import (
     detach,
     sanitize_plist_name,
@@ -100,8 +101,15 @@ class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[NMLPlaylistTrack]):
-        self._tracks = value
+    def tracks(self, value: list[NMLPlaylistTrack] | Sequence[NMLTrack]):
+        def convert(t: NMLPlaylistTrack | NMLTrack):
+            # convert tracks to playlist tracks
+            if isinstance(t, NMLPlaylistTrack):
+                return t
+            else:
+                return NMLPlaylistTrack.from_track(t)
+
+        self._tracks = list(map(convert, value))
 
     @property
     def ids(self) -> PlaylistIDs:
@@ -123,66 +131,6 @@ class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
         self.playlist_node.set("UUID", value)
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
-
-    @classmethod
-    def create_new(
-        cls,
-        name: str,
-        description: str | None = None,
-        tracks: list[NMLPlaylistTrack] | None = None,
-        library: NMLLibraryCollection | None = None,
-    ):
-        if library is None:
-            library = NMLLibraryCollection()
-
-        root_node = cls._create_root_node(name)
-
-        # Insert under playlists root
-        subnodes = library.tree.xpath(
-            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
-        )
-        if len(subnodes) == 0:
-            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
-        subnodes_el = subnodes[0]
-        subnodes_el.append(root_node)
-
-        # Increment count in library
-        count_raw = subnodes_el.get("COUNT", "0")
-        try:
-            count = int(count_raw)
-        except ValueError:
-            log.warning(f"Invalid SUBNODES COUNT value: {count_raw!r}, treating as 0")
-            count = 0
-        subnodes_el.set("COUNT", str(count + 1))
-
-        pl = cls(library, root_node)
-
-        with pl.remote_edit():
-            # Description not supported
-            # pl.description = description
-            if tracks:
-                pl.tracks = tracks
-
-        return pl
-
-    @classmethod
-    def get_by_ids(
-        cls,
-        ids: PlaylistIDs,
-        library: NMLLibraryCollection | None = None,
-    ):
-        if library is None:
-            library = NMLLibraryCollection()
-
-        if ids and (traktor_id := ids.get("traktor_id")):
-            maybe_root_node = library._get_playlist_root_node_by_uuid(traktor_id)
-            if maybe_root_node is not None:
-                return cls(
-                    library,
-                    maybe_root_node,
-                )
-
-        raise ValueError("Playlist not found!")
 
     def _remote_delete(self):
         """Remove in connected collection."""

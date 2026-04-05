@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from pathlib import Path
 from shutil import copyfile
@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, overload
 from lxml import etree
 
 from plistsync.config import Config
-from plistsync.core.collection import LibraryCollection, LocalLookup, TrackStream
+from plistsync.core.collection import Library, LocalLookup, TrackStream
+from plistsync.core.playlist import PlaylistIDs
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
 
 
 class NMLLibraryCollection(
-    LibraryCollection[NMLTrack, NMLPlaylistCollection],
+    Library[NMLTrack, NMLPlaylistCollection],
     TrackStream[NMLTrack],
     LocalLookup[NMLTrack],
 ):
@@ -90,13 +91,22 @@ class NMLLibraryCollection(
             yield pl
 
     @overload
-    def get_playlist(self, *, name: str) -> NMLPlaylistCollection | None: ...
-
+    def get_playlist(
+        self, *, name: str | None = None
+    ) -> NMLPlaylistCollection | None: ...
     @overload
-    def get_playlist(self, *, uuid: str) -> NMLPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, uuid: str | None = None
+    ) -> NMLPlaylistCollection | None: ...
+    @overload
+    def get_playlist(
+        self, *, ids: PlaylistIDs | None = None
+    ) -> NMLPlaylistCollection | None: ...
 
     def get_playlist(
         self,
+        *,
+        ids: PlaylistIDs | None = None,
         name: str | None = None,
         uuid: str | None = None,
     ) -> NMLPlaylistCollection | None:
@@ -106,8 +116,11 @@ class NMLLibraryCollection(
 
         If Ids are not found this raises, but if names are not found it retuns None.
         """
-        if sum(arg is not None for arg in [name, uuid]) != 1:
-            raise ValueError("Exactly one of name or uuid must be provided")
+        if sum(arg is not None for arg in [name, uuid, ids]) != 1:
+            raise ValueError("Exactly one of name, ids or uuid must be provided")
+
+        if ids and (traktor_id := ids.get("traktor_id")):
+            uuid = traktor_id
 
         root_node: _Element | None = None
 
@@ -126,6 +139,42 @@ class NMLLibraryCollection(
             return None
 
         return NMLPlaylistCollection(self, root_node)
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[NMLTrack] | None = None,
+    ):
+        root_node = NMLPlaylistCollection._create_root_node(name)
+
+        # Insert under playlists root
+        subnodes = self.tree.xpath(
+            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
+        )
+        if len(subnodes) == 0:
+            raise ValueError("Could not find SUBNODES in $ROOT folder in NML file")
+        subnodes_el = subnodes[0]
+        subnodes_el.append(root_node)
+
+        # Increment count in library
+        count_raw = subnodes_el.get("COUNT", "0")
+        try:
+            count = int(count_raw)
+        except ValueError:
+            log.warning(f"Invalid SUBNODES COUNT value: {count_raw!r}, treating as 0")
+            count = 0
+        subnodes_el.set("COUNT", str(count + 1))
+
+        pl = NMLPlaylistCollection(self, root_node)
+
+        with pl.edit():
+            # Description not supported
+            # pl.description = description
+            if tracks:
+                pl.tracks = tracks
+
+        return pl
 
     def _playlist_nodes(self) -> Iterable[_Element]:
         """Get all playlists in the NML file."""

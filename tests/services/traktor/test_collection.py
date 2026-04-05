@@ -168,7 +168,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         l_before = len(p1)
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks.append(NMLPlaylistTrack.from_path(track_path))
         assert len(p1) == l_before + 1
 
@@ -180,7 +180,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         """Test adding a track to a playlist."""
         p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
         assert len(p1) == 1
 
@@ -196,7 +196,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         l_before = len(p1)
-        with p1.remote_edit():
+        with p1.edit():
             for audio_file in audio_files.iterdir():
                 p1.tracks.append(NMLPlaylistTrack.from_path(audio_file))
                 break
@@ -216,7 +216,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_traktor_path(NMLPath("D:/:Not/:existing.flac"))
         assert track is None
 
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks.append(p1.tracks[-1])
         track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
         assert "duplicate" in caplog.text
