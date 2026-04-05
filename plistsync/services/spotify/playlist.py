@@ -137,11 +137,17 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
     @classmethod
     def get_by_ids(
         cls,
-        ids: PlaylistIDs,
+        ids: PlaylistIDs | str,
+        # PS: I think since this is a service specific method, we should also allow
+        # convenient lookup via id directly. and consider to include this type
+        # in the abc method
         library: SpotifyLibraryCollection | None = None,
     ) -> Self:
         if library is None:
             library = SpotifyLibraryCollection()
+
+        if isinstance(ids, str):
+            ids = PlaylistIDs(spotify_id=ids)
 
         if ids and (spotify_id := ids.get("spotify_id")):
             return cls(

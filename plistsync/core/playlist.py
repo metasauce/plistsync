@@ -26,7 +26,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Generic, Self, TypedDict
 
-from .collection import Collection, TrackStream, TypeVar
+from .collection import Collection, LibraryCollection, TrackStream, TypeVar
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
@@ -191,7 +191,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
 class OfflinePlaylist(Playlist[Track]):
     """A offline (in memory) playlist with no remote synchronization.
 
-    This class provides a concrete implementation of `PlaylistCollection` for
+    This class provides a concrete implementation of `Playlist` for
     managing playlists in memory without any connection to online music services.
     It is useful for testing, temporary playlist manipulation, or as an intermediate
     representation during playlist conversions.
@@ -241,8 +241,9 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     Extends `Playlist` with methods to manage the lifecycle and state synchronization
     between a local representation and its remote counterpart (e.g., on Spotify, Tidal).
     By convention, every `ServicePlaylist` instance corresponds to an existing remote
-    playlist. If the remote playlist is deleted, the local instance should be discarded
-    in favor of an `OfflinePlaylist` to retain the data.
+    playlist, and has a library and api associated. If the remote playlist is deleted,
+    the local instance should be discarded in favor of an `OfflinePlaylist` to retain
+    the data.
 
     Provides two synchronization strategies:
       - `remote_edit()` – transactional edits with automatic local rollback
@@ -252,20 +253,26 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     # --------------------------- Required (protocol) ---------------------------- #
     # TODO: Finalize naming!!
     # SM: I would like to drop the remote prefix
+    # PS: Let's drop them. Because we are separating this on class level now,
+    # it beomces clear enough imo.
 
     @classmethod
     @abstractmethod
     def create_new(
+        # PS: `create` ?
         cls,
         name: str,
         description: str | None = None,
         tracks: list[T] | None = None,
+        library: LibraryCollection | None = None,
+        # PS: I would like to include the library convention in the ABC. how to type it?
     ) -> Self:
         """Create a service playlist."""
 
     @classmethod
     @abstractmethod
     def get_by_ids(cls, ids: PlaylistIDs) -> Self:
+        # PS:  `get_by_id` ? -> only one of the ids is actually used, see also spotify.
         """Retrieve a service playlist using remote identifiers.
 
         This factory method attempts to locate an existing remote playlist using
@@ -273,6 +280,9 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         with its current remote state. If not should raise!
         """
         ...
+
+    # PS: One thing I could not infer is our recommended pattern to create
+    # a service playlist from an offline playlist. What helper methods do we want?
 
     @abstractmethod
     def _remote_delete(self):
@@ -294,6 +304,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
+        # PS: neat, loving this convention!
 
         offline = OfflinePlaylist(self.name, self.description, self.tracks)
         self._remote_delete()
@@ -314,10 +325,16 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         truth = self.get_by_ids(self.ids)
         if truth.ids != self.ids:
             # We should normally only get the playlist here, create
-            # should normallynot happen.
+            # should normally not happen.
             # TODO: decicde if we want to raise here
             # if yes we should properly implement the error
             # - create test
+
+            # PS: I think its more complicated. I would limit the check to one service
+            # at a time, because the id on other services should be allowed to change.
+            # Then we would need a mechanic to set the relevant service id per subclass.
+            # Q i cant answer 100%: would this check prevent syncing between users on
+            # same service? (I think it wont)
             raise ValueError
 
         snapshot_before = truth.get_snapshot()
