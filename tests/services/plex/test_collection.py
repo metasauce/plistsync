@@ -15,17 +15,18 @@ class TestPlexPlaylistCollection(CollectionTestBase):
     library_collection: PlexLibrarySectionCollection
 
     @pytest.fixture(autouse=True)
-    def setup(self, plex_library_collection_mock):
+    def setup(self, plex_library_collection_mock, playlist_data):
         self.library_collection = plex_library_collection_mock
+        self.playlist_data = playlist_data
 
     def create_collection(self) -> Iterable[PlexPlaylistCollection]:
         """Create a PlexLibrarySectionCollection for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
         """
-        pl = PlexPlaylistCollection.create(
-            "foo",
+        pl = PlexPlaylistCollection(
             library=self.library_collection,
+            data=self.playlist_data,
         )
         pl.tracks = [
             PlexTrack({"ratingKey": "10637"}),

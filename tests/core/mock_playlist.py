@@ -1,10 +1,10 @@
 import random
 from typing import Any
+from unittest.mock import Mock
 from plistsync.core import Track
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     OfflinePlaylist,
-    PlaylistIDs,
     ServicePlaylist,
     Snapshot,
 )
@@ -19,14 +19,7 @@ class MockServicePlaylist(
     def __init__(self, *args, **kwargs):
         self.log: list[tuple[Any, ...]] = []
         super().__init__(*args, **kwargs)
-
-    @classmethod
-    def get(cls, *, ids: PlaylistIDs | None = None):
-        return cls(name="name", description="description")
-
-    @classmethod
-    def create(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
+        self.library = Mock()
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))
@@ -44,14 +37,7 @@ class MockMultiRequestServicePlaylist(
     def __init__(self, *args, **kwargs):
         self.log: list[tuple[Any, ...]] = []
         super().__init__(*args, **kwargs)
-
-    @classmethod
-    def get(cls, *, ids: PlaylistIDs | None = None):
-        return cls(name="name", description="description")
-
-    @classmethod
-    def create(cls, *args, **kwargs):
-        return cls(*args, **kwargs)
+        self.library = Mock()
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))

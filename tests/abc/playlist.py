@@ -69,7 +69,10 @@ class TestPlaylistBase(ABC):
     def test_property_tracks(self, playlist: Playlist) -> None:
         """Tracks can be set and retrieved"""
 
-        dummy_tracks = [i for i in range(5)]
+        if len(playlist.tracks) == 0:
+            pytest.skip("Can test track property without tracks in playlist!")
+
+        dummy_tracks = [t for t in playlist.tracks]
 
         # Test append
         assert isinstance(playlist.tracks, list)
@@ -78,7 +81,7 @@ class TestPlaylistBase(ABC):
             playlist.tracks.append(t)
         assert len(dummy_tracks) + len_before == len(playlist.tracks)
         assert len(dummy_tracks) + len_before == len(playlist)
-        assert playlist.tracks[-5:] == dummy_tracks
+        assert playlist.tracks[-len_before:] == dummy_tracks
 
         # Test overwrite
         playlist.tracks = dummy_tracks
@@ -158,12 +161,14 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
         playlist._remote_delete.assert_called_once()
 
     def test_remote_update(self, playlist: ServicePlaylist):
-        playlist.get = Mock(return_value=playlist)
+        library = Mock()
+        library.get_playlist_or_raise = Mock(return_value=playlist)
+        playlist.library = library
         playlist._remote_commit = Mock()
 
         playlist.update()
 
-        playlist.get.assert_called_once_with(ids=playlist.ids)
+        playlist.library.get_playlist_or_raise.assert_called_once_with(ids=playlist.ids)
         playlist._remote_commit.assert_called_once()
 
     def test_remote_edit(self, playlist: ServicePlaylist):
