@@ -47,6 +47,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
+    TYPE_CHECKING,
     Concatenate,
     Generic,
     ParamSpec,
@@ -56,14 +57,17 @@ from typing import (
 
 from typing_extensions import TypeVar
 
-from plistsync.core.playlist import Playlist, PlaylistIDs
-
 from .matching import Matches, Similarity, fuzzy_match
 from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
 
 R = TypeVar("R")
 P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
+
+if TYPE_CHECKING:
+    from .playlist import Playlist, PlaylistIDs
+
+Plist = TypeVar("Plist", bound="Playlist", default="Playlist")
 
 
 @runtime_checkable
@@ -379,9 +383,6 @@ class Collection(ABC, Generic[T]):
             found=found_tracks,
             found_similarities=similarities,
         )
-
-
-Plist = TypeVar("Plist", bound=Playlist, default=Playlist)
 
 
 class Library(Generic[T, Plist], Collection[T]):
