@@ -1,12 +1,16 @@
-# Architecture Overview
+# Architecture
 
-We follow a layered design that unifies and generalizes operations across different music platforms while maintaining flexibility.
+We follow a layered design that unifies and generalizes operations across different
+music platforms while maintaining flexibility.
 
-## High-Level Architecture
+## High-Level
 
-From a high level, plistsync abstracts and unifies communication with external services - whether streaming platforms (Spotify, Tidal) or track storage (Traktor NML, local files).
+From a high level, plistsync abstracts and unifies communication with external services 
+- whether streaming platforms (Spotify, Tidal) or track storage (Traktor NML, local files).
 
-Each service exposes a **Library**, which provides a unified interface to interact with that service. Whether you're fetching playlists from Spotify or a local folder with M3U files, the syntax is identical.
+Each service exposes a **Library**, which provides a unified interface to interact with
+that service. Whether you're fetching playlists from Spotify or a local folder with M3U
+files, the syntax is identical.
 
 ```{mermaid}
 flowchart LR
@@ -24,30 +28,32 @@ flowchart LR
     S@{ shape: processes }
 ```
 
-### Design Principles
+## Design Principles
 
 The architecture follows these key principles:
 
 | Principle | Description |
 |-----------|-------------|
-| **Service adapter pattern** | Each service (Spotify, Tidal, Plex) is an adapter that implements a common interface. Users interact with `Library`, never directly with the service/api. |
-| **Capability-based protocols** | Collections declare what operations they support via protocols (`GlobalLookup`, `LocalLookup`, `InfoLookup`, `TrackStream`). This allows flexible composition without rigid inheritance. |
-| **Three-layer identity** | Tracks have global IDs (cross-service), local IDs (context-scoped), and metadata. Matching uses the best available layer for reliability vs. coverage. |
-| **Lazy loading** | Large libraries load data on-demand to avoid upfront cost. |
+| **Service adapter pattern**    | Each service (Spotify, Tidal, Plex,...) is an adapter that implements a common interface. Users interact with `Library`, never directly with the service/api. |
+| **Capability-based protocols** | Collections declare which operations they support via protocols (`GlobalLookup`, `LocalLookup`, `InfoLookup`, `TrackStream`). This allows flexible composition without rigid inheritance. |
+| **Three-layer identity**       | Tracks have global IDs (cross-service), local IDs (context-scoped), and metadata. Matching uses the best available layer for reliability vs. coverage. |
+| **Lazy loading**               | Large libraries load data on-demand to avoid upfront cost. |
 
-For detailed explanations of each concept (Tracks, Collections, Services, Matching), see [core-concepts.md](./core-concepts.md).
+For detailed explanations of each concept (Tracks, Collections, Services, Matching), see
+[core-concepts.md](./core-concepts.md).
 
+## Playlists
 
-### Playlist Hierarchy
-
-Playlists follow an abstract inheritance hierarchy. This allows services to implement playlists with different capabilities while users interact with a unified interface.
+Playlists follow an abstract inheritance hierarchy. This allows services to implement 
+playlists with different capabilities while users interact with a unified interface.
 
 The hierarchy distinguishes between:
 
 - **Offline playlists** exist only in memory, no remote association
 - **Service playlists** backed by a remote service
 
-Service playlists further distinguish between single-request operations and batch-friendly operations.
+Service playlists further distinguish between single-request operations and 
+batch-friendly operations.
 
 
 ```{mermaid}
@@ -63,11 +69,9 @@ classDiagram
     }
     
     class ServicePlaylist~T~ {
-        
     }
     
     class MultiRequestServicePlaylist~T~ {
-        
     }
     
     class SpotifyPlaylist {
@@ -76,7 +80,6 @@ classDiagram
     }
     class TraktorPlaylist {
     }
-
 
     Playlist <|-- OfflinePlaylist
     Playlist <|-- ServicePlaylist
@@ -89,5 +92,73 @@ classDiagram
 :::{admonition} Why batch operations?
 :class: note dropdown
 
-Most music service APIs require separate calls for adding tracks vs. updating metadata. `MultiRequestServicePlaylist` computes the minimal diff between two playlist states and translates it into the appropriate sequence of API calls.
+Most music service APIs require separate calls for adding tracks vs. updating metadata.
+`MultiRequestServicePlaylist` computes the minimal diff between two playlist states and 
+translates it into the appropriate sequence of API calls.
+:::
+
+
+## Tracks
+
+Tracks follow a composition-over-inheritance model. Rather than a deep hierarchy,
+tracks aggregate three distinct identity layers via typed dictionaries, allowing
+flexible composition based on what identifiers are available.
+
+The design separates concerns into:
+
+- **Global IDs** — Cross-service identifiers (ISRC, service IDs) for matching across libraries
+- **Local IDs** — Context-scoped identifiers (file paths, database IDs) for internal references  
+- **Metadata** — Title, artists, albums for display and fuzzy matching
+
+Each service implements the `Track` abstract base class by providing these three
+contracts:
+
+
+```python
+@property
+@abstractmethod
+def info(self) -> TrackInfo:
+    """Get this tracks information."""
+    ...
+
+@property
+@abstractmethod
+def global_ids(self) -> GlobalTrackIDs:
+    """The globally unique identifiers of this track."""
+    ...
+
+@property
+@abstractmethod
+def local_ids(self) -> LocalTrackIDs:
+    """The locally unique identifiers of this track."""
+    ...
+```
+
+:::{admonition} Why three identity layers?
+:class: note dropdown
+
+No single identifier is universally available. ISRCs miss older tracks, service IDs
+don't transfer between platforms, and file paths vary across machines. The three-layer
+approach lets matching use the best available identifier for reliability vs. coverage.
+:::
+
+
+## Libraries
+
+Libraries are the top-level entry point for interacting with a music service. Each 
+service implements a `Library` that provides a unified interface for playlist 
+management.
+
+Libraries provide the following abstractions:
+
+- **Playlist retrieval** via `playlists` property
+- **Playlist lookup** by various identifiers (name, id, url, uri)
+- **Playlist creation** with optional initial tracks
+
+:::{admonition} Why the Library abstraction?
+:class: note dropdown
+
+Whether you're fetching playlists from Spotify or a local folder with M3U files, the
+syntax is identical. Libraries abstract away the underlying service while providing
+a consistent API for playlist operations.
 :::

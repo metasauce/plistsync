@@ -9,7 +9,7 @@ Managing music across multiple platforms and storage formats is notoriously diff
 
 `plistsync` solves this by providing a unified abstraction layer that normalizes tracks, collections, and playlists from various services into a common format. This enables seamless synchronization while handling the complexities of different APIs, authentication methods, and metadata formats.
 
-In the following we will give you a primer on our library architecture which should ease the starting threshold and allow you to jump into the nitty gritty quicker.
+In the following we will give you a primer on our architecture which should ease the starting threshold and allow you to jump into the nitty gritty quicker.
 
 :::{toctree}
 :maxdepth: 2
