@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Software architecture overview for the core ideas in plistsync.
+```
+
+
 # Architecture
 
 We follow a layered design that unifies and generalizes operations across different
@@ -5,8 +11,7 @@ music platforms while maintaining flexibility.
 
 ## High-Level
 
-From a high level, plistsync abstracts and unifies communication with external services 
-- whether streaming platforms (Spotify, Tidal) or track storage (Traktor NML, local files).
+From a high level, plistsync abstracts and unifies communication with external services, whether streaming platforms (Spotify, Tidal) or track storage (Traktor NML, local files).
 
 Each service exposes a **Library**, which provides a unified interface to interact with
 that service. Whether you're fetching playlists from Spotify or a local folder with M3U
@@ -28,19 +33,6 @@ flowchart LR
     S@{ shape: processes }
 ```
 
-## Design Principles
-
-The architecture follows these key principles:
-
-| Principle | Description |
-|-----------|-------------|
-| **Service adapter pattern**    | Each service (Spotify, Tidal, Plex,...) is an adapter that implements a common interface. Users interact with `Library`, never directly with the service/api. |
-| **Capability-based protocols** | Collections declare which operations they support via protocols (`GlobalLookup`, `LocalLookup`, `InfoLookup`, `TrackStream`). This allows flexible composition without rigid inheritance. |
-| **Three-layer identity**       | Tracks have global IDs (cross-service), local IDs (context-scoped), and metadata. Matching uses the best available layer for reliability vs. coverage. |
-| **Lazy loading**               | Large libraries load data on-demand to avoid upfront cost. |
-
-For detailed explanations of each concept (Tracks, Collections, Services, Matching), see
-[core-concepts.md](./core-concepts.md).
 
 ## Playlists
 
@@ -62,24 +54,13 @@ batch-friendly operations.
 classDiagram
     direction TB
     
-    class Playlist~T~ {
-    }
-    
-    class OfflinePlaylist {
-    }
-    
-    class ServicePlaylist~T~ {
-    }
-    
-    class MultiRequestServicePlaylist~T~ {
-    }
-    
-    class SpotifyPlaylist {
-    }
-    class TidalPlaylist {
-    }
-    class TraktorPlaylist {
-    }
+    class Playlist~T~ {} 
+    class OfflinePlaylist {} 
+    class ServicePlaylist~T~ {}
+    class MultiRequestServicePlaylist~T~ {}
+    class SpotifyPlaylist {}
+    class TidalPlaylist {}
+    class TraktorPlaylist {}
 
     Playlist <|-- OfflinePlaylist
     Playlist <|-- ServicePlaylist
@@ -106,21 +87,15 @@ flexible composition based on what identifiers are available.
 
 The design separates concerns into:
 
-- **Global IDs** — Cross-service identifiers (ISRC, service IDs) for matching across libraries
-- **Local IDs** — Context-scoped identifiers (file paths, database IDs) for internal references  
-- **Metadata** — Title, artists, albums for display and fuzzy matching
+- **Global IDs** Cross-service identifiers (ISRC, service IDs) for matching across libraries
+- **Local IDs** Context-scoped identifiers (file paths, database IDs) for internal references  
+- **Metadata** Title, artists, albums for display and fuzzy matching
 
 Each service implements the `Track` abstract base class by providing these three
 contracts:
 
 
 ```python
-@property
-@abstractmethod
-def info(self) -> TrackInfo:
-    """Get this tracks information."""
-    ...
-
 @property
 @abstractmethod
 def global_ids(self) -> GlobalTrackIDs:
@@ -131,6 +106,12 @@ def global_ids(self) -> GlobalTrackIDs:
 @abstractmethod
 def local_ids(self) -> LocalTrackIDs:
     """The locally unique identifiers of this track."""
+    ...
+
+@property
+@abstractmethod
+def info(self) -> TrackInfo:
+    """Get this tracks information."""
     ...
 ```
 
@@ -161,4 +142,38 @@ Libraries provide the following abstractions:
 Whether you're fetching playlists from Spotify or a local folder with M3U files, the
 syntax is identical. Libraries abstract away the underlying service while providing
 a consistent API for playlist operations.
+:::
+
+
+## Matching
+
+Matching connects tracks across services, enabling cross-platform syncing. For example when you transfer a playlist from Spotify to Tidal, matching finds which Tidal tracks correspond to your Spotify songs.
+
+The algorithm tries increasingly fuzzy strategies until it finds a suitable match or 
+exhausts all options.
+
+```{mermaid}
+flowchart TD
+    A[Track] --> B{Global ID}
+    B -->|Hit| C[✅ Match]
+    B -->|Miss| D{Local ID}
+    D -->|Hit| E[✅ Match + validate]
+    D -->|Miss| F{Metadata score ≥ 0.6}
+    F -->|Hit| G[✅ Best candidate]
+    F -->|Miss| H[❌ No match]
+
+    class C,E,G success
+    class H danger
+```
+
+Priority | Method | Confidence |
+|--------|--------|------------|
+| 1 | Global ID (ISRC, service ID) | Certain |
+| 2 | Local ID (file path, DB ID) | High + validation |
+| 3 | Metadata similarity (title/artist/album) | Fuzzy (≥0.6)
+
+:::{admonition} Example
+:class: note dropdown
+
+A typical sync matches ~95% of tracks by global ID, then falls back to metadata similarity for the remaining ~5%.
 :::
