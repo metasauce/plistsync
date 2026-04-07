@@ -14,15 +14,8 @@ import typer
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex import PlexPlaylist
-from plistsync.services.plex.library import (
-    PlexLibrary,
-)
-from plistsync.services.traktor import (
-    NMLLibrary,
-    NMLPlaylist,
-    NMLPlaylistTrack,
-)
+from plistsync.services.plex.library import PlexLibrary
+from plistsync.services.traktor import NMLLibrary, NMLPlaylistTrack
 
 
 def main(
@@ -79,9 +72,7 @@ def main(
             type=bool,
             default=True,
         ):
-            plex_playlist = PlexPlaylist.create(
-                name=playlist_name, library=plex_library
-            )
+            plex_playlist = plex_library.create_playlist(name=playlist_name)
         else:
             raise typer.Exit(-1)
 
@@ -91,9 +82,7 @@ def main(
             type=bool,
             default=True,
         ):
-            traktor_playlist = NMLPlaylist.create(
-                name=playlist_name, library=traktor_library
-            )
+            traktor_playlist = traktor_library.create_playlist(name=playlist_name)
         else:
             raise typer.Exit(-1)
 
