@@ -19,13 +19,13 @@ from .api_types import (
 from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 if TYPE_CHECKING:
-    from .library import SpotifyLibraryCollection
+    from .library import SpotifyLibrary
 
 
-class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
+class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
     """A collection representing a spotify playlist."""
 
-    library: SpotifyLibraryCollection
+    library: SpotifyLibrary
     data: SpotifyApiPlaylistResponseBase
     tracks_data: PlaylistTracksBase
 
@@ -33,7 +33,7 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
 
     def __init__(
         self,
-        library: SpotifyLibraryCollection,
+        library: SpotifyLibrary,
         data: SpotifyApiPlaylistResponseSimplified | SpotifyApiPlaylistResponseFull,
     ):
         """

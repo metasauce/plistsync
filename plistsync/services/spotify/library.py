@@ -12,12 +12,12 @@ from plistsync.core.playlist import PlaylistIDs
 from plistsync.logger import log
 
 from .api import SpotifyApi, extract_spotify_playlist_id
-from .playlist import SpotifyPlaylistCollection
+from .playlist import SpotifyPlaylist
 from .track import SpotifyTrack
 
 
-class SpotifyLibraryCollection(
-    Library[SpotifyTrack, SpotifyPlaylistCollection],
+class SpotifyLibrary(
+    Library[SpotifyTrack, SpotifyPlaylist],
     GlobalLookup[SpotifyTrack],
 ):
     """A collection representing the full spotify library.
@@ -34,13 +34,13 @@ class SpotifyLibraryCollection(
     # ------------------------ LibraryCollection protocol ------------------------ #
 
     @property
-    def playlists(self) -> Iterable[SpotifyPlaylistCollection]:
+    def playlists(self) -> Iterable[SpotifyPlaylist]:
         """Get all playlists of the current user.
 
         This can take quite some time, as it fetches all playlists and their tracks.
         """
         return [
-            SpotifyPlaylistCollection(
+            SpotifyPlaylist(
                 self,
                 playlist,
             )
@@ -50,23 +50,23 @@ class SpotifyLibraryCollection(
     @overload
     def get_playlist(
         self, *, name: str | None = None
-    ) -> SpotifyPlaylistCollection | None: ...
+    ) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, ids: PlaylistIDs | None = None
-    ) -> SpotifyPlaylistCollection | None: ...
+    ) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, id: str | None = None
-    ) -> SpotifyPlaylistCollection | None: ...
+    ) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, url: str | None = None
-    ) -> SpotifyPlaylistCollection | None: ...
+    ) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, uri: str | None = None
-    ) -> SpotifyPlaylistCollection | None: ...
+    ) -> SpotifyPlaylist | None: ...
 
     def get_playlist(
         self,
@@ -76,7 +76,7 @@ class SpotifyLibraryCollection(
         id: str | None = None,
         url: str | None = None,
         uri: str | None = None,
-    ) -> SpotifyPlaylistCollection | None:
+    ) -> SpotifyPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given: name/id/url/uri.
@@ -107,7 +107,7 @@ class SpotifyLibraryCollection(
 
         #  Direct ID lookup (fastest path)
         try:
-            return SpotifyPlaylistCollection(
+            return SpotifyPlaylist(
                 self,
                 self.api.playlist.get(id),
             )
@@ -121,7 +121,7 @@ class SpotifyLibraryCollection(
         description: str | None = None,
         tracks: Sequence[SpotifyTrack] | None = None,
     ):
-        pl = SpotifyPlaylistCollection(
+        pl = SpotifyPlaylist(
             self,
             self.api.playlist.create(name, description or ""),
         )
