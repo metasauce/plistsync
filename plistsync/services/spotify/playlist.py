@@ -175,6 +175,12 @@ class SpotifyPlaylistCollection(MultiRequestServicePlaylist[SpotifyPlaylistTrack
 
     # ---------------------------- Track lazy loading ---------------------------- #
 
+    def __len__(self) -> int:
+        """If tracks are not fetched yet, use length from minimal response."""
+        if self._tracks is None:
+            return self.tracks_data.get("total", -1)
+        return len(self._tracks)
+
     def _refetch_tracks(self) -> list[SpotifyPlaylistTrack]:
         """Refetch the tracks from the online playlist."""
 

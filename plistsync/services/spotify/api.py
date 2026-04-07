@@ -187,7 +187,7 @@ class PlaylistApi:
         all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore [assignment]
 
         next_page = data.get("next")
-        if force:
+        if force or len(all_items) == 0:
             all_items = []
             next_page = data["href"]
 
