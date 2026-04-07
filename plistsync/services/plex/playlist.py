@@ -18,10 +18,10 @@ from .api_types import (
 from .track import PlexTrack
 
 if TYPE_CHECKING:
-    from .library import PlexLibrarySectionCollection
+    from .library import PlexLibrary
 
 
-class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
+class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
     """
     A collection of all tracks in a Plex playlist.
 
@@ -32,7 +32,7 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
       they can contain tracks from multiple libraries.
     """
 
-    library: PlexLibrarySectionCollection
+    library: PlexLibrary
 
     data: PlexApiPlaylistResponse
     tracks_data: list[PlexApiPlaylistTrackResponse]
@@ -41,7 +41,7 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
 
     def __init__(
         self,
-        library: PlexLibrarySectionCollection,
+        library: PlexLibrary,
         data: PlexApiPlaylistResponse,
         tracks_data: list[PlexApiPlaylistTrackResponse] | None = None,
     ):

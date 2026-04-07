@@ -14,9 +14,9 @@ import typer
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex import PlexPlaylistCollection
+from plistsync.services.plex import PlexPlaylist
 from plistsync.services.plex.library import (
-    PlexLibrarySectionCollection,
+    PlexLibrary,
 )
 from plistsync.services.traktor import (
     NMLLibraryCollection,
@@ -65,7 +65,7 @@ def main(
         path_rewrite = PathRewrite.from_str(plex_path_base, traktor_path_base)
 
     # Get libraries
-    plex_library = PlexLibrarySectionCollection(plex_section_name)
+    plex_library = PlexLibrary(plex_section_name)
     traktor_library = NMLLibraryCollection(traktor_nml_path)
 
     # Get playlists
@@ -79,7 +79,7 @@ def main(
             type=bool,
             default=True,
         ):
-            plex_playlist = PlexPlaylistCollection.create(
+            plex_playlist = PlexPlaylist.create(
                 name=playlist_name, library=plex_library
             )
         else:

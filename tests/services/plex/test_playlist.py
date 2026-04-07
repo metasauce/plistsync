@@ -4,7 +4,7 @@ from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiPlaylistTrackResponse,
 )
-from plistsync.services.plex.playlist import PlexPlaylistCollection
+from plistsync.services.plex.playlist import PlexPlaylist
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 
 
@@ -20,9 +20,9 @@ class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):
         self.playlist_data = playlist_data
         self.playlist_track_data = playlist_track_data
 
-    def create_playlist(self) -> PlexPlaylistCollection:
+    def create_playlist(self) -> PlexPlaylist:
         self.playlist_data["leafCount"] = 1
-        return PlexPlaylistCollection(
+        return PlexPlaylist(
             Mock(), self.playlist_data, [self.playlist_track_data]
         )
 

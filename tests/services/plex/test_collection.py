@@ -2,29 +2,29 @@ from pathlib import Path
 from collections.abc import Iterable
 
 import pytest
-from plistsync.services.plex.playlist import PlexPlaylistCollection
+from plistsync.services.plex.playlist import PlexPlaylist
 from plistsync.services.plex.track import PlexTrack
 from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
-from plistsync.services.plex import PlexLibrarySectionCollection
+from plistsync.services.plex import PlexLibrary
 
 
-class TestPlexPlaylistCollection(CollectionTestBase):
-    collection_class = PlexPlaylistCollection
+class TestPlexPlaylist(CollectionTestBase):
+    collection_class = PlexPlaylist
 
-    library_collection: PlexLibrarySectionCollection
+    library_collection: PlexLibrary
 
     @pytest.fixture(autouse=True)
     def setup(self, plex_library_collection_mock, playlist_data):
         self.library_collection = plex_library_collection_mock
         self.playlist_data = playlist_data
 
-    def create_collection(self) -> Iterable[PlexPlaylistCollection]:
-        """Create a PlexLibrarySectionCollection for testing.
+    def create_collection(self) -> Iterable[PlexPlaylist]:
+        """Create a PlexLibrary for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
         """
-        pl = PlexPlaylistCollection(
+        pl = PlexPlaylist(
             library=self.library_collection,
             data=self.playlist_data,
         )
@@ -45,15 +45,15 @@ class TestPlexPlaylistCollection(CollectionTestBase):
         raise RuntimeError("No track found in created collection")
 
 
-class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
-    collection_class = PlexLibrarySectionCollection
+class TestPlexLibrary(LibraryCollectionTestBase):
+    collection_class = PlexLibrary
 
     @pytest.fixture(autouse=True)
     def setup(self, plex_library_collection_mock):
         self.collection = plex_library_collection_mock
 
     def create_collection(self, *args, **kwargs):
-        """Create a PlexLibrarySectionCollection for testing.
+        """Create a PlexLibrary for testing.
 
         This method should create a collection with some dummy data. It must be implemented by the subclass.
         """
@@ -86,7 +86,7 @@ class TestPlexLibrarySectionCollection(LibraryCollectionTestBase):
     def test_preload(self):
         """Test that preloading the library collection works."""
         library_collection = next(iter(self.create_collection()))
-        assert isinstance(library_collection, PlexLibrarySectionCollection)
+        assert isinstance(library_collection, PlexLibrary)
         library_collection.preload()
         assert library_collection._fetched is True, (
             "Library collection should be marked as fetched after preload()"

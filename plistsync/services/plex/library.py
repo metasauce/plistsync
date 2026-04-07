@@ -11,14 +11,14 @@ from plistsync.core.playlist import PlaylistIDs
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 from plistsync.services.local.track import FileCache
-from plistsync.services.plex.playlist import PlexPlaylistCollection
+from plistsync.services.plex.playlist import PlexPlaylist
 
 from .api import PlexApi
 from .track import PlexTrack
 
 
-class PlexLibrarySectionCollection(
-    Library[PlexTrack, PlexPlaylistCollection],
+class PlexLibrary(
+    Library[PlexTrack, PlexPlaylist],
     TrackStream[PlexTrack],
     LocalLookup[PlexTrack],
     GlobalLookup[PlexTrack],
@@ -39,7 +39,7 @@ class PlexLibrarySectionCollection(
     api: PlexApi
 
     def __init__(self, section_name_or_id: str | int = "Music"):
-        """Initialize the PlexLibraryCollection from plex given a section id.
+        """Initialize the PlexLibrary from plex given a section id.
 
         Parameters
         ----------
@@ -62,15 +62,15 @@ class PlexLibrarySectionCollection(
         _ = list(self.tracks)
 
     @property
-    def playlists(self) -> Iterable[PlexPlaylistCollection]:
-        """Get all playlists in the library as PlexPlaylistCollection objects."""
-        playlists: list[PlexPlaylistCollection] = []
+    def playlists(self) -> Iterable[PlexPlaylist]:
+        """Get all playlists in the library as PlexPlaylist objects."""
+        playlists: list[PlexPlaylist] = []
         for pl_data in self.api.playlist.all():
             # we might also want to filter: smart=False
             if pl_data.get("playlistType") != "audio":
                 continue
             playlists.append(
-                PlexPlaylistCollection(
+                PlexPlaylist(
                     library=self,
                     data=pl_data,
                 )
@@ -81,15 +81,15 @@ class PlexLibrarySectionCollection(
     @overload
     def get_playlist(
         self, *, ids: PlaylistIDs | None = None
-    ) -> PlexPlaylistCollection | None: ...
+    ) -> PlexPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, name: str | None = None
-    ) -> PlexPlaylistCollection | None: ...
+    ) -> PlexPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, id: int | None = None
-    ) -> PlexPlaylistCollection | None: ...
+    ) -> PlexPlaylist | None: ...
 
     def get_playlist(
         self,
@@ -97,7 +97,7 @@ class PlexLibrarySectionCollection(
         ids: PlaylistIDs | None = None,
         name: str | None = None,
         id: int | None = None,
-    ) -> PlexPlaylistCollection | None:
+    ) -> PlexPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given. Either search
@@ -120,7 +120,7 @@ class PlexLibrarySectionCollection(
             return None
 
         try:
-            return PlexPlaylistCollection(
+            return PlexPlaylist(
                 library=self,
                 data=self.api.playlist.get(id),
                 tracks_data=self.api.playlist.get_items(id),
@@ -135,7 +135,7 @@ class PlexLibrarySectionCollection(
         description: str | None = None,
         tracks: Sequence[PlexTrack] | None = None,
     ):
-        pl = PlexPlaylistCollection(
+        pl = PlexPlaylist(
             self,
             self.api.playlist.create(name),
         )
