@@ -214,6 +214,12 @@ class PlexPlaylistCollection(MultiRequestServicePlaylist[PlexTrack]):
 
     # ---------------------------- Track lazy loading ---------------------------- #
 
+    def __len__(self) -> int:
+        if self._tracks is None:
+            return self.data.get('leafCount', -1)
+        else:
+            return len(self._tracks)
+
     def _refetch_tracks(self) -> list[PlexTrack]:
         """Refetch the tracks from the online playlist.
 
