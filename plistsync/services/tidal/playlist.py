@@ -193,6 +193,11 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
 
     # ---------------------------- Track lazy loading ---------------------------- #
 
+    def __len__(self) -> int:
+        if self._tracks is None:
+            return self.data['attributes'].get('numberOfItems', -1)
+        return len(self._tracks)
+
     def _refetch_tracks(self) -> list[TidalPlaylistTrack]:
         """Refetch the tracks from the online playlist.
 
