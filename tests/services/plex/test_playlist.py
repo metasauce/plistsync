@@ -22,8 +22,6 @@ class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):
 
     def create_playlist(self) -> PlexPlaylist:
         self.playlist_data["leafCount"] = 1
-        return PlexPlaylist(
-            Mock(), self.playlist_data, [self.playlist_track_data]
-        )
+        return PlexPlaylist(Mock(), self.playlist_data, [self.playlist_track_data])
 
     # TODO: Add tests for remote_method implementations

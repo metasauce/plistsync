@@ -195,7 +195,7 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
 
     def __len__(self) -> int:
         if self._tracks is None:
-            return self.data['attributes'].get('numberOfItems', -1)
+            return self.data["attributes"].get("numberOfItems", -1)
         return len(self._tracks)
 
     def _refetch_tracks(self) -> list[TidalPlaylistTrack]:

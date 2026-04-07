@@ -91,17 +91,11 @@ class NMLLibrary(
             yield pl
 
     @overload
-    def get_playlist(
-        self, *, name: str | None = None
-    ) -> NMLPlaylist | None: ...
+    def get_playlist(self, *, name: str | None = None) -> NMLPlaylist | None: ...
     @overload
-    def get_playlist(
-        self, *, uuid: str | None = None
-    ) -> NMLPlaylist | None: ...
+    def get_playlist(self, *, uuid: str | None = None) -> NMLPlaylist | None: ...
     @overload
-    def get_playlist(
-        self, *, ids: PlaylistIDs | None = None
-    ) -> NMLPlaylist | None: ...
+    def get_playlist(self, *, ids: PlaylistIDs | None = None) -> NMLPlaylist | None: ...
 
     def get_playlist(
         self,

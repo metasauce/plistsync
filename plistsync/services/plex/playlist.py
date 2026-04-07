@@ -216,7 +216,7 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
 
     def __len__(self) -> int:
         if self._tracks is None:
-            return self.data.get('leafCount', -1)
+            return self.data.get("leafCount", -1)
         else:
             return len(self._tracks)
 
