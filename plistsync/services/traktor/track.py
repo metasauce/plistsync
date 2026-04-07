@@ -14,7 +14,7 @@ from .path import NMLPath
 if TYPE_CHECKING:
     from lxml.etree import _Element
 
-    from .library import NMLLibraryCollection
+    from .library import NMLLibrary
 
 
 class NMLTrack(Track):
@@ -194,7 +194,7 @@ class NMLPlaylistTrack(Track):
             )
         return cls.from_path(track.path)
 
-    def to_nml_track(self, collection: NMLLibraryCollection) -> NMLTrack | None:
+    def to_nml_track(self, collection: NMLLibrary) -> NMLTrack | None:
         """Convert this playlist track to a NMLTrack.
 
         This might fail if the track does not exist in the main collection.

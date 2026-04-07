@@ -1,8 +1,8 @@
 from pathlib import Path
 import sys
 import pytest
-from plistsync.services.traktor import NMLLibraryCollection
-from plistsync.services.traktor import NMLPlaylistCollection
+from plistsync.services.traktor import NMLLibrary
+from plistsync.services.traktor import NMLPlaylist
 from plistsync.services.traktor import NMLPath
 from plistsync.services.traktor.track import NMLPlaylistTrack
 from plistsync.services.traktor.utility import xpath_string_escape
@@ -11,11 +11,11 @@ from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 from lxml.etree import _Element
 
 
-class TestNMLCollection(LibraryCollectionTestBase):
-    """Test the NMLCollection class."""
+class TestNMLLibrary(LibraryCollectionTestBase):
+    """Test the NMLLibrary class."""
 
-    collection_class = NMLLibraryCollection
-    collection: NMLLibraryCollection
+    collection_class = NMLLibrary
+    collection: NMLLibrary
 
     length = 265  # Number of tracks in the test NML file
 
@@ -74,7 +74,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
-    def test_write_persists(self, collection: NMLLibraryCollection) -> None:
+    def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
         p = collection.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
@@ -82,11 +82,11 @@ class TestNMLCollection(LibraryCollectionTestBase):
         collection.write()
 
         # After reload should be persisteted!
-        reloaded = NMLLibraryCollection(collection.path)
+        reloaded = NMLLibrary(collection.path)
         p2 = reloaded.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
-    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
+    def test_find_by_local_ids(self, collection: NMLLibrary):
         # Test with a valid path
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
@@ -105,7 +105,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
     )
     def test_write_backup(
         self,
-        collection: NMLLibraryCollection,
+        collection: NMLLibrary,
         backup: bool,
     ):
         collection.write(backup=backup)
@@ -114,13 +114,13 @@ class TestNMLCollection(LibraryCollectionTestBase):
         assert len(bak_files) == int(backup)
 
 
-class TestNMLPlaylistCollection(CollectionTestBase):
-    """Test the NMLPlaylistCollection class."""
+class TestNMLPlaylist(CollectionTestBase):
+    """Test the NMLPlaylist class."""
 
-    collection_class = NMLPlaylistCollection
+    collection_class = NMLPlaylist
 
     @pytest.fixture(autouse=True)
-    def setup(self, collection: NMLLibraryCollection, sample_track):
+    def setup(self, collection: NMLLibrary, sample_track):
         self.collection = collection
         self.track = sample_track
 
@@ -202,7 +202,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
                 break
         assert len(p1) == l_before + 1
 
-    def test_find_by_traktor_path(self, collection: NMLLibraryCollection, caplog):
+    def test_find_by_traktor_path(self, collection: NMLLibrary, caplog):
         """Test finding a track by its file path in a playlist."""
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
@@ -221,7 +221,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
         assert "duplicate" in caplog.text
 
-    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
+    def test_find_by_local_ids(self, collection: NMLLibrary):
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 

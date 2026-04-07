@@ -25,10 +25,10 @@ from .utility import (
 )
 
 if TYPE_CHECKING:
-    from .library import NMLLibraryCollection
+    from .library import NMLLibrary
 
 
-class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
+class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
     """A Traktor NML playlist collection.
 
     Traktor playlists use file paths as the identifiers.
@@ -36,7 +36,7 @@ class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
     Allows to parse and interact with a Traktor NML file that contains playlists.
     """
 
-    library: NMLLibraryCollection
+    library: NMLLibrary
 
     # Root node to the playlist (should always be attached to the library)
     root_node: _Element  # <Node TYPE="PLAYLIST">
@@ -45,7 +45,7 @@ class NMLPlaylistCollection(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
 
     def __init__(
         self,
-        library: NMLLibraryCollection,
+        library: NMLLibrary,
         root_node: _Element,
     ):
         """Create a new instance of a traktor playlist given its xml element."""

@@ -15,7 +15,7 @@ from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .path import NMLPath
-from .playlist import NMLPlaylistCollection
+from .playlist import NMLPlaylist
 from .track import NMLTrack
 from .utility import sanitize_plist_name, xpath_string_escape
 
@@ -23,12 +23,12 @@ if TYPE_CHECKING:
     from lxml.etree import _Element, _ElementTree
 
 
-class NMLLibraryCollection(
-    Library[NMLTrack, NMLPlaylistCollection],
+class NMLLibrary(
+    Library[NMLTrack, NMLPlaylist],
     TrackStream[NMLTrack],
     LocalLookup[NMLTrack],
 ):
-    """A Traktor NML collection.
+    """A Traktor NML Library.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
 
@@ -82,10 +82,10 @@ class NMLLibraryCollection(
     # ------------------------ LibraryCollection protocol ------------------------ #
 
     @property
-    def playlists(self) -> Iterable[NMLPlaylistCollection]:
-        """Get all playlists in the NML file as NMLPlaylistCollection objects."""
+    def playlists(self) -> Iterable[NMLPlaylist]:
+        """Get all playlists in the NML file as NMLPlaylist objects."""
         for node in self._playlist_nodes():
-            pl = NMLPlaylistCollection(self, node)
+            pl = NMLPlaylist(self, node)
             if pl.name.startswith("_"):
                 continue
             yield pl
@@ -93,15 +93,15 @@ class NMLLibraryCollection(
     @overload
     def get_playlist(
         self, *, name: str | None = None
-    ) -> NMLPlaylistCollection | None: ...
+    ) -> NMLPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, uuid: str | None = None
-    ) -> NMLPlaylistCollection | None: ...
+    ) -> NMLPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, ids: PlaylistIDs | None = None
-    ) -> NMLPlaylistCollection | None: ...
+    ) -> NMLPlaylist | None: ...
 
     def get_playlist(
         self,
@@ -109,7 +109,7 @@ class NMLLibraryCollection(
         ids: PlaylistIDs | None = None,
         name: str | None = None,
         uuid: str | None = None,
-    ) -> NMLPlaylistCollection | None:
+    ) -> NMLPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given. Either search by name or by uuid.
@@ -138,7 +138,7 @@ class NMLLibraryCollection(
         if root_node is None:
             return None
 
-        return NMLPlaylistCollection(self, root_node)
+        return NMLPlaylist(self, root_node)
 
     def create_playlist(
         self,
@@ -146,7 +146,7 @@ class NMLLibraryCollection(
         description: str | None = None,
         tracks: Sequence[NMLTrack] | None = None,
     ):
-        root_node = NMLPlaylistCollection._create_root_node(name)
+        root_node = NMLPlaylist._create_root_node(name)
 
         # Insert under playlists root
         subnodes = self.tree.xpath(
@@ -166,7 +166,7 @@ class NMLLibraryCollection(
             count = 0
         subnodes_el.set("COUNT", str(count + 1))
 
-        pl = NMLPlaylistCollection(self, root_node)
+        pl = NMLPlaylist(self, root_node)
 
         with pl.edit():
             # Description not supported

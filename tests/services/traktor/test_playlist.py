@@ -1,7 +1,7 @@
 import logging
 
 import pytest
-from plistsync.services.traktor import NMLPlaylistCollection, NMLLibraryCollection
+from plistsync.services.traktor import NMLPlaylist, NMLLibrary
 from tests.abc.playlist import (
     TestServicePlaylistBase,
 )
@@ -13,10 +13,10 @@ class TestsTidalPlaylist(TestServicePlaylistBase):
     supports_description = False
 
     @pytest.fixture(autouse=True)
-    def setup(self, collection: NMLLibraryCollection):
+    def setup(self, collection: NMLLibrary):
         self.library = collection
 
-    def create_playlist(self) -> NMLPlaylistCollection:
+    def create_playlist(self) -> NMLPlaylist:
         return self.library.create_playlist(
             "A name",
         )
@@ -26,7 +26,7 @@ class TestTidalPlaylistIntegration:
     """Real tests against a live nml collection."""
 
     # TODO: Migrate tests from test_collection!
-    def test_create(self, collection: NMLLibraryCollection):
+    def test_create(self, collection: NMLLibrary):
         count_before = len(list(collection._playlist_nodes()))
         pl_collection = collection.create_playlist(
             "A name",
@@ -39,7 +39,7 @@ class TestTidalPlaylistIntegration:
         assert fetched.uuid == pl_collection.uuid
 
     def test_create_invalid_subnodes_count(
-        self, collection: NMLLibraryCollection, caplog
+        self, collection: NMLLibrary, caplog
     ) -> None:
         subnodes_el = collection.tree.xpath(
             ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
@@ -54,7 +54,7 @@ class TestTidalPlaylistIntegration:
         assert "Invalid SUBNODES COUNT value" in caplog.text
         assert subnodes_el.get("COUNT") == "1"
 
-    def test_create_invalid_name(self, collection: NMLLibraryCollection, caplog):
+    def test_create_invalid_name(self, collection: NMLLibrary, caplog):
         with caplog.at_level(logging.WARNING):
             collection.create_playlist(
                 "$New PL",
@@ -63,7 +63,7 @@ class TestTidalPlaylistIntegration:
         assert "name changed" in caplog.text
 
     def test_create_raises_if_root_subnodes_missing(
-        self, collection: NMLLibraryCollection
+        self, collection: NMLLibrary
     ) -> None:
         # sanity: the fixture file should normally have $ROOT/SUBNODES
         subnodes = collection.tree.xpath(
@@ -83,7 +83,7 @@ class TestTidalPlaylistIntegration:
         ):
             collection.create_playlist("New PL")
 
-    def test_get(self, collection: NMLLibraryCollection):
+    def test_get(self, collection: NMLLibrary):
         existing_uuid = "6868ecd66b354d37a33b965dae7a82e7"
 
         pl = collection.get_playlist(ids={"traktor_id": existing_uuid})
@@ -97,7 +97,7 @@ class TestTidalPlaylistIntegration:
 
     def test_remote_delete(
         self,
-        collection: NMLLibraryCollection,
+        collection: NMLLibrary,
     ):
         pl_collection = collection.create_playlist("New PL")
 

@@ -19,8 +19,8 @@ from plistsync.services.plex.library import (
     PlexLibrary,
 )
 from plistsync.services.traktor import (
-    NMLLibraryCollection,
-    NMLPlaylistCollection,
+    NMLLibrary,
+    NMLPlaylist,
     NMLPlaylistTrack,
 )
 
@@ -66,7 +66,7 @@ def main(
 
     # Get libraries
     plex_library = PlexLibrary(plex_section_name)
-    traktor_library = NMLLibraryCollection(traktor_nml_path)
+    traktor_library = NMLLibrary(traktor_nml_path)
 
     # Get playlists
     plex_playlist = plex_library.get_playlist(name=playlist_name)
@@ -91,7 +91,7 @@ def main(
             type=bool,
             default=True,
         ):
-            traktor_playlist = NMLPlaylistCollection.create(
+            traktor_playlist = NMLPlaylist.create(
                 name=playlist_name, library=traktor_library
             )
         else:
