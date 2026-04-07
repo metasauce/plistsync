@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 import pytest
 from plistsync.services.tidal.api_types import PlaylistResource
-from plistsync.services.tidal.playlist import TidalPlaylistCollection
+from plistsync.services.tidal.playlist import TidalPlaylist
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 
 
@@ -14,9 +14,9 @@ class TestsTidalPlaylist(TestMultiRequestServicePlaylistBase):
         self.playlist_data = playlist_resource
         self.items_lookup = items_lookup
 
-    def create_playlist(self) -> TidalPlaylistCollection:
+    def create_playlist(self) -> TidalPlaylist:
         self.playlist_data["attributes"]["numberOfItems"] = 1
-        pl = TidalPlaylistCollection(Mock(), self.playlist_data, self.items_lookup)
+        pl = TidalPlaylist(Mock(), self.playlist_data, self.items_lookup)
         pl._refetch_tracks = Mock()
         return pl
 

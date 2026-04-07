@@ -12,12 +12,12 @@ from plistsync.core.playlist import PlaylistIDs
 from plistsync.logger import log
 
 from .api import TidalApi, extract_tidal_playlist_id
-from .playlist import TidalPlaylistCollection
+from .playlist import TidalPlaylist
 from .track import TidalTrack
 
 
-class TidalLibraryCollection(
-    Library[TidalTrack, TidalPlaylistCollection],
+class TidalLibrary(
+    Library[TidalTrack, TidalPlaylist],
     GlobalLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
@@ -30,30 +30,30 @@ class TidalLibraryCollection(
     # ------------------------ LibraryCollection protocol ------------------------ #
 
     @property
-    def playlists(self) -> Iterable[TidalPlaylistCollection]:
+    def playlists(self) -> Iterable[TidalPlaylist]:
         """Get all playlists of the current user.
 
         This can take quite some time, as it fetches all playlists and their tracks.
         """
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
-        return [TidalPlaylistCollection(self, pl, lookup) for pl in playlists]
+        return [TidalPlaylist(self, pl, lookup) for pl in playlists]
 
     @overload
     def get_playlist(
         self, *, name: str | None = None
-    ) -> TidalPlaylistCollection | None: ...
+    ) -> TidalPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, id: str | None = None
-    ) -> TidalPlaylistCollection | None: ...
+    ) -> TidalPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, url: str | None = None
-    ) -> TidalPlaylistCollection | None: ...
+    ) -> TidalPlaylist | None: ...
     @overload
     def get_playlist(
         self, *, ids: PlaylistIDs | None = None
-    ) -> TidalPlaylistCollection | None: ...
+    ) -> TidalPlaylist | None: ...
 
     def get_playlist(
         self,
@@ -62,7 +62,7 @@ class TidalLibraryCollection(
         name: str | None = None,
         id: str | None = None,
         url: str | None = None,
-    ) -> TidalPlaylistCollection | None:
+    ) -> TidalPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given: name/id/url.
@@ -98,7 +98,7 @@ class TidalLibraryCollection(
             return None
 
         try:
-            return TidalPlaylistCollection(self, *self.api.playlist.get(id))
+            return TidalPlaylist(self, *self.api.playlist.get(id))
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
@@ -109,7 +109,7 @@ class TidalLibraryCollection(
         description: str | None = None,
         tracks: Sequence[TidalTrack] | None = None,
     ):
-        pl = TidalPlaylistCollection(
+        pl = TidalPlaylist(
             self,
             *self.api.playlist.create(name, description or ""),
         )

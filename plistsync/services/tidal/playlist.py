@@ -16,11 +16,11 @@ from .api_types import PlaylistResource
 from .track import TidalPlaylistTrack, TidalTrack
 
 if TYPE_CHECKING:
-    from .library import TidalLibraryCollection
+    from .library import TidalLibrary
 
 
-class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
-    library: TidalLibraryCollection
+class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
+    library: TidalLibrary
 
     data: PlaylistResource
 
@@ -28,11 +28,11 @@ class TidalPlaylistCollection(MultiRequestServicePlaylist[TidalPlaylistTrack]):
 
     def __init__(
         self,
-        library: TidalLibraryCollection,
+        library: TidalLibrary,
         data: PlaylistResource,
         data_lookup: LookupDict,
     ):
-        """Create a TidalPlaylistCollection from a PlaylistResource response."""
+        """Create a TidalPlaylist from a PlaylistResource response."""
         self.library = library
         self.data = data  # now self.online_data and len is available
         self.lookup = data_lookup
