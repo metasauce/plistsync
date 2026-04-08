@@ -308,13 +308,13 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
 
         Usage
         -----
-        ```python
-        with playlist.edit():
-            playlist.tracks.append(new_track)
-            playlist.name = "Updated Name"
-        # Changes committed to remote on success
-        # Local state restored on error (remote rollback not implemented)
-        ```
+        .. code-block:: python
+
+            with playlist.edit():
+                playlist.tracks.append(new_track)
+                playlist.name = "Updated Name"
+            # Changes committed to remote on success
+            # Local state restored on error (remote rollback not implemented)
         """
         # Main use case is for roll backs of IncrementalPlaylistCollection, where
         # individual remote operations might fail.
