@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, Mock
 from pathlib import Path
 from plistsync.services.plex.api import PlexApi
 from plistsync.services.plex.api_types import (
+    PlexApiPlaylistTrackResponse,
     PlexApiTrackResponse,
     PlexApiPlaylistResponse,
 )
@@ -60,8 +61,27 @@ def mock_plex_api() -> Mock:
 
 
 @pytest.fixture
-def mock_plex_api_with_data(mock_plex_api: Mock, audio_files: Path) -> Mock:
-    """Create a mock PlexApi with sample data."""
+def playlist_data() -> PlexApiPlaylistResponse:
+    playlist_data: PlexApiPlaylistResponse = {
+        "ratingKey": "100",
+        "title": "Test Playlist",
+        "smart": False,
+        "playlistType": "audio",
+        "composite": "/library/metadata/100/composite/1234567890",
+        "icon": "playlist",
+        "duration": 1800000,
+        "leafCount": 5,
+        "addedAt": 1234567890,
+        "updatedAt": 1234567890,
+        "guid": "plex://playlist/100",
+    }
+    return playlist_data
+
+
+@pytest.fixture()
+def track_data(
+    audio_files: Path,
+) -> PlexApiTrackResponse:
     # Create sample track data
     audio_file = next(audio_files.iterdir())
 
@@ -126,34 +146,43 @@ def mock_plex_api_with_data(mock_plex_api: Mock, audio_files: Path) -> Mock:
         "title": "Test Track",
         "type": "track",
     }
+    return track_data
 
-    playlist_data: PlexApiPlaylistResponse = {
-        "ratingKey": "100",
-        "title": "Test Playlist",
-        "smart": False,
-        "playlistType": "audio",
-        "composite": "/library/metadata/100/composite/1234567890",
-        "icon": "playlist",
-        "duration": 1800000,
-        "leafCount": 5,
-        "addedAt": 1234567890,
-        "updatedAt": 1234567890,
-        "guid": "plex://playlist/100",
+
+@pytest.fixture()
+def playlist_track_data(
+    track_data: PlexApiTrackResponse,
+) -> PlexApiPlaylistTrackResponse:
+    return {
+        **track_data,
+        "playlistItemID": 5001,
+        "ratingCount": 42,
+        "updatedAt": 1735500000,
     }
+
+
+@pytest.fixture
+def mock_plex_api_with_data(
+    mock_plex_api: Mock,
+    playlist_data: PlexApiPlaylistResponse,
+    track_data: PlexApiTrackResponse,
+) -> Mock:
+    """Create a mock PlexApi with sample data."""
 
     # Configure the mock with data
     mock_plex_api.track.fetch_tracks.return_value = [track_data]
     mock_plex_api.playlist.fetch_playlists.return_value = [playlist_data]
     mock_plex_api.playlist.fetch_playlist.return_value = playlist_data
     mock_plex_api.playlist.fetch_playlist_items.return_value = [track_data]
+    mock_plex_api.playlist.create.return_value = playlist_data
 
     return mock_plex_api
 
 
 @pytest.fixture
-def plex_library_collection(monkeypatch, mock_plex_api_with_data):
-    """Fixture for a PlexLibrarySectionCollection with mocked API."""
-    from plistsync.services.plex import PlexLibrarySectionCollection
+def plex_library_collection_mock(monkeypatch, mock_plex_api_with_data):
+    """Fixture for a PlexLibrary with mocked API."""
+    from plistsync.services.plex import PlexLibrary
 
     # Monkeypatch the PlexApi constructor to return our mock
     monkeypatch.setattr(
@@ -161,4 +190,4 @@ def plex_library_collection(monkeypatch, mock_plex_api_with_data):
         lambda **kwargs: mock_plex_api_with_data,
     )
 
-    return PlexLibrarySectionCollection("Music")
+    return PlexLibrary("Music")

@@ -1,32 +1,28 @@
 from typing import Any
 from unittest.mock import ANY, Mock
 import pytest
-from plistsync.core.playlist import MultiRequestPlaylistCollection, Snapshot
-from plistsync.core.track import GlobalTrackIDs
+from plistsync.core.playlist import (
+    MultiRequestServicePlaylist,
+    OfflinePlaylist,
+    Snapshot,
+)
 
-from ..core.mock_playlist import MockPlaylist, MockPlaylistMultiRequest
+from ..core.mock_playlist import MockMultiRequestServicePlaylist, MockServicePlaylist
 from ..core.mock_track import MockTrack
-from ..abc.playlist import TestPlaylistCollection, TestMultiRequestPlaylistCollection
+from ..abc.playlist import (
+    TestPlaylistBase,
+    TestMultiRequestServicePlaylistBase,
+    TestServicePlaylistBase,
+)
 
 
-def make_mock_playlist(
-    *,
-    name: str = "foo",
-    ids: list[GlobalTrackIDs] | None = None,
-    remote_associated: bool = True,
-) -> MockPlaylist:
-    if ids is not None:
-        tracks = [MockTrack(global_ids=gid) for gid in ids]
-    else:
-        tracks = None
-    return MockPlaylist(name, tracks, remote_associated=remote_associated)
-
-
-class TestMockPlaylist(TestPlaylistCollection):
-    Playlist = MockPlaylist
-
-    def create_playlist(self):
-        return make_mock_playlist(name="A playlist", remote_associated=False)
+class TestOfflinePlaylist(TestPlaylistBase):
+    def create_playlist(self, name="Name", n_tracks=0):
+        return OfflinePlaylist(
+            name,
+            "description",
+            [MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+        )
 
     @pytest.mark.parametrize(
         ["name", "n_tracks", "expected_repr"],
@@ -36,35 +32,28 @@ class TestMockPlaylist(TestPlaylistCollection):
         ],
     )
     def test_repr(self, name, n_tracks, expected_repr):
-        repr_str = repr(
-            make_mock_playlist(
-                name=name,
-                ids=[{"isrc": str(i)} for i in range(n_tracks)],
-            )
-        )
+        repr_str = repr(self.create_playlist(name, n_tracks))
         assert expected_repr in repr_str
 
 
-def make_mock_playlist_multi(
-    *,
-    name: str = "foo",
-    ids: list[GlobalTrackIDs] | None = None,
-    remote_associated: bool = True,
-) -> MockPlaylistMultiRequest:
-    if ids is not None:
-        tracks = [MockTrack(global_ids=gid) for gid in ids]
-    else:
-        tracks = None
-    return MockPlaylistMultiRequest(name, tracks, remote_associated=remote_associated)
+class TestMockServicePlaylist(TestServicePlaylistBase):
+    def create_playlist(self, name="Name", n_tracks=0):
+        return MockServicePlaylist(
+            name,
+            "description",
+            [MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+        )
 
 
-class TestMockMockPlaylistMultiRequest(TestMultiRequestPlaylistCollection):
-    Playlist = MockPlaylistMultiRequest
+class TestMockMultiRequestServicePlaylist(TestMultiRequestServicePlaylistBase):
+    def create_playlist(self, name="Name", n_tracks=0):
+        return MockMultiRequestServicePlaylist(
+            name,
+            "description",
+            [MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+        )
 
-    def create_playlist(self):
-        return make_mock_playlist_multi(name="A playlist", remote_associated=False)
-
-    def test_default_remote_move_track(self, playlist: MultiRequestPlaylistCollection):
+    def test_default_remote_move_track(self, playlist: MultiRequestServicePlaylist):
         """Test that move defaults to delete and insert"""
         playlist._remote_update_metadata = Mock()
         playlist._remote_insert_track = Mock()
@@ -81,7 +70,7 @@ class TestMockMockPlaylistMultiRequest(TestMultiRequestPlaylistCollection):
             idx=0, track=4, tracks_before=ANY
         )
 
-    def test_none_name_raises(self, playlist: MultiRequestPlaylistCollection):
+    def test_none_name_raises(self, playlist: MultiRequestServicePlaylist):
         playlist.info.pop("name")
 
         with pytest.raises(ValueError, match="has no name"):

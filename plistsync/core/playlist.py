@@ -20,24 +20,71 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, TypedDict
+from typing import Generic, Self, TypedDict
 
-from plistsync.errors import PlaylistAssociationError
+from typing_extensions import TypeVar
 
-from .collection import Collection, TrackStream, TypeVar
+from .collection import Collection, Library, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import Track
 
 
+class PlaylistIDs(TypedDict, total=False):
+    """Unique identifiers for a playlist.
+
+    Each identifier in this object uniquely identifies a playlist
+    within a specific service. While it is unlikely that multiple
+    IDs are set at the same time, this may be possible in the future.
+    """
+
+    spotify_id: str
+    """Spotify ID of the playlist.
+
+    Unique within the Spotify service.
+    """
+
+    tidal_id: str
+    """Tidal playlist ID.
+
+    Unique within the Tidal service.
+    """
+
+    plex_id: int
+    """Plex ratingKey
+
+    Unique within a plex server.
+    """
+
+    traktor_id: str
+    """Traktor uuid
+
+    Unique within a single nml file.
+    """
+
+
 class PlaylistInfo(TypedDict, total=False):
-    """Unified information a playlist can have, independent of its service."""
+    """Unified metadata for a playlist, independent of any specific service.
+
+    This object captures descriptive information about a playlist that
+    is consistent across services or platforms.
+
+    Unlike `PlaylistIDs`, which uniquely identify a playlist, `PlaylistInfo`
+    contains human-readable metadata such as the playlist's name, description,
+    and other relevant attributes.
+
+    Fields may be partially populated depending on the source service.
+    """
 
     name: str
+    """The display name of the playlist."""
+
     description: str | None
+    """Optional textual description of the playlist."""
+
     # TODO: add more unified fields like owner, date_created etc
 
 
@@ -53,43 +100,26 @@ class Snapshot(Generic[T]):
     tracks: list[T]
 
 
-class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
-    """Abstract base class for playlist collections across music services.
+class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
+    """Abstract base class defining the core playlist interface.
 
-    Manages local track state and syncs changes to remote services.
+    This class provides a minimal protocol for playlist-like objects without
+    assuming any specific storage model (local files, remote APIs, in-memory, etc.).
+    It defines the essential properties that all playlists must support:
+    metadata access (`info`, `name`, `description`), track list access (`tracks`),
+    and unique identifiers (`ids`).
 
-    It supports two ways to synchronize the local state of a playlist to its remote:
-        - via context manager `with remote_edit():`
-            where we create a snapshot before an after the context, so that we can
-            easily undo failed remote operations
-        - via final call to `remote_upsert()`
-            which checks the remote state and sets it to the current local state
-            (and might internally use the context manager)
-
-    Note:
-    The difference between this base class and IncrementalPlaylistCollection is that
-    here we focus on playlist creation/deletion and services where the playlist state
-    can be saved to remote via a single API call.
-
-    Subclass this and implement:
-        - info (getter / setter)  - Consistent interface for name and description
-        - remote_associated()     - Indicate whether the playlist exists on the remote
-        - _remote_create()        - Create this playlist on the remote
-        - _remote_delete()        - Delete this playlist from the remote
-        - _remote_commit()        - Sync current local state of playlist to the remote
-                                    (usually via single API call)
-
+    Concrete implementations should subclass this and implement the abstract
+    properties. Use this as a base when building playlist abstractions for
+    specific music services or local file formats.
     """
+
+    # --------------------------- Required (protocol) ---------------------------- #
 
     @property
     @abstractmethod
     def info(self) -> PlaylistInfo:
-        """
-        Get this playlist's information.
-
-        Subclasses need return a reference, so that the setters for name
-        etc. that are defined here, write back.
-        """
+        """Get this playlist's information."""
         ...
 
     @info.setter
@@ -97,6 +127,26 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
     def info(self, value: PlaylistInfo):
         """Set playlist information."""
         ...
+
+    @property
+    @abstractmethod
+    def tracks(self) -> list[T]:
+        """Get the list of tracks in the playlist."""
+        ...
+
+    @tracks.setter
+    @abstractmethod
+    def tracks(self, value: list[T]) -> None:
+        """Set the list of tracks in the playlist."""
+        ...
+
+    @property
+    @abstractmethod
+    def ids(self) -> PlaylistIDs:
+        """Get the unique identifiers of the playlist."""
+        ...
+
+    # ----------------------------- Usability helpers ---------------------------- #
 
     @property
     def name(self) -> str:
@@ -125,46 +175,151 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
         info.update({"description": value})
         self.info = info
 
+    def get_snapshot(self) -> Snapshot[T]:
+        """Get a snapshot of the current state of the playlist."""
+        return Snapshot(
+            name=self.name,
+            description=self.description,
+            tracks=deepcopy(self.tracks),
+        )
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
 
-    # -------------------------------- Tracks -------------------------------- #
+    def __len__(self) -> int:
+        return len(self.tracks)
 
-    # Services can decide how to populate this helper
-    _tracks: list[T] | None = None
+
+class OfflinePlaylist(Playlist[Track]):
+    """A offline (in memory) playlist with no service synchronization.
+
+    This class provides a concrete implementation of `Playlist` for
+    managing playlists in memory without any connection to online music services.
+    It is useful for testing, temporary playlist manipulation, or as an intermediate
+    representation during playlist conversions.
+    """
+
+    _tracks: list[Track]
+    _info: PlaylistInfo
+    _ids: PlaylistIDs
+
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[Track] | None = None,
+    ) -> None:
+        self._info = PlaylistInfo(
+            name=name,
+            description=description,
+        )
+        self._tracks = list(tracks or [])
+        self._ids = PlaylistIDs()
 
     @property
-    def tracks(self) -> list[T]:
-        if self._tracks is None:
-            self._tracks = []
+    def ids(self) -> PlaylistIDs:
+        return self._ids
+
+    @property
+    def info(self) -> PlaylistInfo:
+        return self._info
+
+    @info.setter
+    def info(self, value: PlaylistInfo) -> None:
+        self._info = value
+
+    @property
+    def tracks(self) -> list[Track]:
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[T]) -> None:
+    def tracks(self, value: list[Track]) -> None:
         self._tracks = value
 
-    def __len__(self) -> int:
-        """Use .tracks, but instances may override to use lookup data."""
-        return len(self.tracks)
 
-    # --------------------------- Remote Operations -------------------------- #
+class ServicePlaylist(Generic[T], Playlist[T], ABC):
+    """Abstract base class for playlists synchronized with music services.
+
+    Extends `Playlist` with methods to manage the lifecycle and state synchronization
+    between a in memory representation and its service counterpart (e.g., on Spotify,
+    Tidal). By convention, every `ServicePlaylist` instance corresponds to an existing
+    "remote" playlist, and has a library and/or api associated. If the "remote" playlist
+    is deleted, the specific "ServicePlaylist" instance should be discarded in favor of
+    an `OfflinePlaylist` to retain the data.
+
+    Provides two synchronization strategies:
+      - `edit()` – transactional edits with automatic local rollback
+      - `update()` – bulk update by comparing remote and local snapshots
+    """
+
+    library: Library[Track, Self]
+
+    # --------------------------- Required (protocol) ---------------------------- #
+
+    @abstractmethod
+    def _remote_delete(self):
+        """Delete the playlist on the service."""
+        ...
+
+    @abstractmethod
+    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
+        """Write the current playlist state to its online version."""
+        ...
+
+    # ----------------------------- Usability helpers ---------------------------- #
+
+    def delete(self) -> OfflinePlaylist:
+        """Delete the playlist from the remote service and return an offline copy.
+
+        Removes the playlist from the connected remote service and returns a new
+        `OfflinePlaylist` instance containing the playlist's metadata and tracks
+        as they existed before deletion. This allows the data to be preserved or
+        migrated elsewhere even after the remote resource is gone.
+        """
+        offline = OfflinePlaylist(self.name, self.description, self.tracks)
+        self._remote_delete()
+        return offline
+
+    def update(self):
+        """Update the playlist on the remote service.
+
+        Creates the playlist if it doesn't exist, or updates it to match the
+        current local state.
+
+        Performance Note
+        ----------------
+        Less efficient than `edit()` for changes, as it retrieves the full remote state
+        before committing. Use the `edit()` context manager for better
+        performance/fewer API requests.
+        """
+        truth = self.library.get_playlist_or_raise(ids=self.ids)
+        snapshot_before = truth.get_snapshot()
+        snapshot_after = self.get_snapshot()
+        self._remote_commit(snapshot_before, snapshot_after)
 
     @contextmanager
-    def remote_edit(self):
-        """Transactional playlist editor with automatic rollback.
+    def edit(self):
+        """Context manager for transactional playlist edits with automatic rollback.
 
-        Only callable if the playlist is already linked.
-        (.remote_associated == True)
+        Enables safe modifications to a remote playlist by capturing the current
+        state before entering the block. On successful exit, commits the changes
+        to the remote service. If an exception occurs, restores the local state
+        to its pre-edit condition.
 
-        Captures snapshot before entering block. Applies diff to remote service
-        on successful exit. Resets local state on error.
+        Usage
+        -----
+        .. code-block:: python
+
+            with playlist.edit():
+                playlist.tracks.append(new_track)
+                playlist.name = "Updated Name"
+            # Changes committed to remote on success
+            # Local state restored on error (remote rollback not implemented)
         """
         # Main use case is for roll backs of IncrementalPlaylistCollection, where
         # individual remote operations might fail.
         # But we want a consistent interface, therefore we define it in this base class,
         # even though roll-backs are an uncommon requirement for local changes.
-        if not self.remote_associated:
-            raise PlaylistAssociationError(already_associated=False)
 
         snapshot_before = self.get_snapshot()
         try:
@@ -178,68 +333,8 @@ class PlaylistCollection(Generic[T], Collection[T], TrackStream[T], ABC):
             # TODO: maybe we want a online rollback too
             raise
 
-    def get_snapshot(self) -> Snapshot[T]:
-        """Get a snapshot of the current state of the playlist."""
-        return Snapshot(
-            name=self.name,
-            description=self.description,
-            tracks=deepcopy(self.tracks),
-        )
 
-    def remote_create(self):
-        """
-        Create the playlist online.
-
-        - if self.id: raise "is already associated online"
-        - Depending on config (TODO config option DEBUG | INFO | WARN | Raise )
-          Warn or Raise here if another playlist exists with the same name.
-        """
-        if self.remote_associated:
-            raise PlaylistAssociationError(already_associated=True)
-
-        return self._remote_create()
-
-    def remote_delete(self):
-        """Delete the playlist online."""
-        if not self.remote_associated:
-            raise PlaylistAssociationError(already_associated=False)
-
-        return self._remote_delete()
-
-    def remote_upsert(self):
-        """
-        Alternate usage pattern, besides `with playlist.remote_edit()`.
-
-        - if does not exist, create_online()
-        - if exists, then invoke remote_edit() wrapper.
-        """
-        raise NotImplementedError()
-
-    # ---------------------- Abstract remote operations ---------------------- #
-
-    @property
-    @abstractmethod
-    def remote_associated(self) -> bool:
-        """Indicate if the playlist is already linked to a remote (online) playlist."""
-        ...
-
-    @abstractmethod
-    def _remote_create(self):
-        """Create the playlist online. Checks are handled in the public version."""
-        ...
-
-    @abstractmethod
-    def _remote_delete(self):
-        """Delete the playlist online."""
-        ...
-
-    @abstractmethod
-    def _remote_commit(self, before: Snapshot[T], after: Snapshot[T]) -> None:
-        """Write the current playlist state to its online version."""
-        ...
-
-
-class MultiRequestPlaylistCollection(PlaylistCollection[T], ABC):
+class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
     """Playlist for APIs where modifications have to be split into mulitple requests.
 
     Subclass this and implement:

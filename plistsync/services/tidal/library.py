@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import overload
 
 from requests import HTTPError
@@ -6,58 +6,68 @@ from requests import HTTPError
 from plistsync.core import GlobalTrackIDs
 from plistsync.core.collection import (
     GlobalLookup,
-    LibraryCollection,
+    Library,
 )
+from plistsync.core.playlist import PlaylistIDs
 from plistsync.logger import log
 
-from .api import TidalApi, TidalApiSession, extract_tidal_playlist_id
-from .playlist import TidalPlaylistCollection
+from .api import TidalApi, extract_tidal_playlist_id
+from .playlist import TidalPlaylist
 from .track import TidalTrack
 
 
-class TidalLibraryCollection(
-    LibraryCollection[TidalTrack, TidalPlaylistCollection],
+class TidalLibrary(
+    Library[TidalTrack, TidalPlaylist],
     GlobalLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
 
     api: TidalApi
 
-    def __init__(self, session: TidalApiSession | None = None) -> None:
-        super().__init__()
-        self.api = TidalApi(session)
+    def __init__(self) -> None:
+        self.api = TidalApi()
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 
     @property
-    def playlists(self) -> Iterable[TidalPlaylistCollection]:
+    def playlists(self) -> Iterable[TidalPlaylist]:
+        """Get all playlists of the current user.
+
+        This can take quite some time, as it fetches all playlists and their tracks.
+        """
         playlists, lookup = self.api.playlist.get_many_by_user(self.api.user.me()["id"])
-        return [
-            TidalPlaylistCollection.from_response_data(self, pl, lookup)
-            for pl in playlists
-        ]
+        return [TidalPlaylist(self, pl, lookup) for pl in playlists]
 
     @overload
-    def get_playlist(self, *, name: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(self, *, name: str | None = None) -> TidalPlaylist | None: ...
     @overload
-    def get_playlist(self, *, id: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(self, *, id: str | None = None) -> TidalPlaylist | None: ...
     @overload
-    def get_playlist(self, *, url: str) -> TidalPlaylistCollection | None: ...
+    def get_playlist(self, *, url: str | None = None) -> TidalPlaylist | None: ...
+    @overload
+    def get_playlist(
+        self, *, ids: PlaylistIDs | None = None
+    ) -> TidalPlaylist | None: ...
 
     def get_playlist(
         self,
+        *,
+        ids: PlaylistIDs | None = None,
         name: str | None = None,
         id: str | None = None,
         url: str | None = None,
-    ) -> TidalPlaylistCollection | None:
+    ) -> TidalPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given: name/id/url.
 
         Returns None if not found.
         """
-        if sum(arg is not None for arg in [name, id, url]) != 1:
-            raise ValueError("Exactly one of name, id, or url must be provided")
+        if sum(arg is not None for arg in [ids, name, id, url]) != 1:
+            raise ValueError("Exactly one of name, id, ids, or url must be provided")
+
+        if ids and (tidal_id := ids.get("tidal_id")):
+            id = tidal_id
 
         if url is not None:
             id = extract_tidal_playlist_id(url)
@@ -82,12 +92,27 @@ class TidalLibraryCollection(
             return None
 
         try:
-            return TidalPlaylistCollection.from_response_data(
-                self, *self.api.playlist.get(id)
-            )
+            return TidalPlaylist(self, *self.api.playlist.get(id))
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[TidalTrack] | None = None,
+    ):
+        pl = TidalPlaylist(
+            self,
+            *self.api.playlist.create(name, description or ""),
+        )
+
+        if tracks:
+            with pl.edit():
+                pl.tracks = tracks
+
+        return pl
 
     def has_playlist(self, name: str) -> bool:
         """Check if a playlist with the given name exists in the user's library."""

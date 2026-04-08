@@ -47,6 +47,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
+    TYPE_CHECKING,
     Concatenate,
     Generic,
     ParamSpec,
@@ -62,6 +63,11 @@ from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
 R = TypeVar("R")
 P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
+
+if TYPE_CHECKING:
+    from .playlist import Playlist, PlaylistIDs
+
+Plist = TypeVar("Plist", bound="Playlist", default="Playlist")
 
 
 @runtime_checkable
@@ -379,10 +385,7 @@ class Collection(ABC, Generic[T]):
         )
 
 
-C = TypeVar("C", bound=Collection, default=Collection)
-
-
-class LibraryCollection(Generic[T, C], Collection[T]):
+class Library(Generic[T, Plist], Collection[T]):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
@@ -392,12 +395,16 @@ class LibraryCollection(Generic[T, C], Collection[T]):
 
     @property
     @abstractmethod
-    def playlists(self) -> Iterable[C]:
+    def playlists(self) -> Iterable[Plist]:
         """Retrieve playlists associated with this library collection."""
         ...
 
     @abstractmethod
-    def get_playlist(self, *args, **kwargs) -> C | None:
+    def get_playlist(
+        self,
+        *,
+        ids: PlaylistIDs | None = None,
+    ) -> Plist | None:
         """Get a playlist by identifier.
 
         Implement with kwargs like ``name=``, ``id=``, ``url=``, or ``uri=``.
@@ -405,10 +412,26 @@ class LibraryCollection(Generic[T, C], Collection[T]):
         """
         ...
 
-    def get_playlist_or_raise(self, *args, **kwargs) -> C:
+    @abstractmethod
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: list[T] | None = None,
+    ) -> Plist:
+        """Create a new playlist."""
+        ...
+
+    def get_playlist_or_raise(
+        self,
+        *,
+        ids: PlaylistIDs | None = None,
+        **kwargs,
+    ) -> Plist:
         """Like get_playlist() but raises if no result is found."""
-        playlist = self.get_playlist(*args, **kwargs)
+        playlist = self.get_playlist(ids=ids, **kwargs)
         if playlist is None:
+            kwargs["ids"] = ids
             raise ValueError(f"Could not find playlist for {kwargs}")
         return playlist
 

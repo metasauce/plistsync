@@ -1,10 +1,8 @@
-import logging
 from pathlib import Path
 import sys
 import pytest
-from plistsync.errors import PlaylistAssociationError
-from plistsync.services.traktor import NMLLibraryCollection
-from plistsync.services.traktor import NMLPlaylistCollection
+from plistsync.services.traktor import NMLLibrary
+from plistsync.services.traktor import NMLPlaylist
 from plistsync.services.traktor import NMLPath
 from plistsync.services.traktor.track import NMLPlaylistTrack
 from plistsync.services.traktor.utility import xpath_string_escape
@@ -13,11 +11,11 @@ from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 from lxml.etree import _Element
 
 
-class TestNMLCollection(LibraryCollectionTestBase):
-    """Test the NMLCollection class."""
+class TestNMLLibrary(LibraryCollectionTestBase):
+    """Test the NMLLibrary class."""
 
-    collection_class = NMLLibraryCollection
-    collection: NMLLibraryCollection
+    collection_class = NMLLibrary
+    collection: NMLLibrary
 
     length = 265  # Number of tracks in the test NML file
 
@@ -76,7 +74,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
-    def test_write_persists(self, collection: NMLLibraryCollection) -> None:
+    def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
         p = collection.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
@@ -84,11 +82,11 @@ class TestNMLCollection(LibraryCollectionTestBase):
         collection.write()
 
         # After reload should be persisteted!
-        reloaded = NMLLibraryCollection(collection.path)
+        reloaded = NMLLibrary(collection.path)
         p2 = reloaded.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
-    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
+    def test_find_by_local_ids(self, collection: NMLLibrary):
         # Test with a valid path
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
@@ -107,7 +105,7 @@ class TestNMLCollection(LibraryCollectionTestBase):
     )
     def test_write_backup(
         self,
-        collection: NMLLibraryCollection,
+        collection: NMLLibrary,
         backup: bool,
     ):
         collection.write(backup=backup)
@@ -116,145 +114,13 @@ class TestNMLCollection(LibraryCollectionTestBase):
         assert len(bak_files) == int(backup)
 
 
-class TestNMLPlaylistUpsert:
-    def test_upsert_new_playlist(self, collection: NMLLibraryCollection) -> None:
-        """Allow to insert new playlist collection"""
-        count_before = len(list(collection._playlist_nodes()))
-        pl_collection = NMLPlaylistCollection(collection, "New PL")
-        pl_collection.remote_upsert()
+class TestNMLPlaylist(CollectionTestBase):
+    """Test the NMLPlaylist class."""
 
-        assert len(list(collection._playlist_nodes())) == count_before + 1
-        # and it's retrievable via public API
-        fetched = collection.get_playlist_or_raise(uuid=pl_collection.uuid)
-        assert fetched.name == "New PL"
-        assert fetched.uuid == pl_collection.uuid
-
-    def test_upsert_playlist_invalid_subnodes_count(
-        self, collection: NMLLibraryCollection, caplog
-    ) -> None:
-        subnodes_el = collection.tree.xpath(
-            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
-        )[0]
-        subnodes_el.set("COUNT", "not-an-int")
-
-        pl_collection = NMLPlaylistCollection(collection, "New PL")
-        with caplog.at_level(logging.WARNING):
-            pl_collection.remote_upsert()
-
-        assert "Invalid SUBNODES COUNT value" in caplog.text
-        assert subnodes_el.get("COUNT") == "1"
-
-    def test_upsert_playlist_raises_if_root_subnodes_missing(
-        self, collection: NMLLibraryCollection
-    ) -> None:
-        # sanity: the fixture file should normally have $ROOT/SUBNODES
-        subnodes = collection.tree.xpath(
-            ".//PLAYLISTS/NODE[@TYPE='FOLDER'][@NAME='$ROOT']/SUBNODES"
-        )
-        assert len(subnodes) == 1
-        subnodes_el = subnodes[0]
-
-        parent = subnodes_el.getparent()
-        assert parent is not None
-
-        # remove SUBNODES so xpath in upsert_playlist finds nothing
-        parent.remove(subnodes_el)
-
-        new_pl = NMLPlaylistCollection(collection, "New PL")
-        with pytest.raises(
-            ValueError, match=r"Could not find SUBNODES in \$ROOT folder"
-        ):
-            new_pl.remote_upsert()
-
-    def test_upsert_playlist_replaces_existing_by_uuid_and_removes_old_node(
-        self, collection: NMLLibraryCollection
-    ) -> None:
-        existing_uuid = "6868ecd66b354d37a33b965dae7a82e7"
-
-        # Grab the actual node currently in the tree
-        old_node = collection._get_playlist_root_node_by_uuid(existing_uuid)
-        assert old_node is not None
-        old_parent = old_node.getparent()
-        assert old_parent is not None
-        old_index = old_parent.index(old_node)
-
-        # Create a *different* playlist element, but reuse the same UUID
-        replacement = NMLPlaylistCollection(collection, "Replaced Name")
-        replacement.uuid = existing_uuid
-        assert (
-            replacement.root_node is not old_node
-        )  # ensures parent.remove path is taken
-
-        replacement.remote_upsert()
-
-        # old node must be detached now (proves it was removed from its parent)
-        assert old_node.getparent() is None
-
-        # exactly one playlist with that uuid exists
-        matches = collection.tree.xpath(
-            f".//NODE[@TYPE='PLAYLIST']/*[@UUID='{existing_uuid}']/.."
-        )
-        assert len(matches) == 1
-        new_node = matches[0]
-
-        # inserted in the same parent at the same index (in-place replacement)
-        assert new_node.getparent() is old_parent
-        assert old_parent.index(new_node) == old_index
-
-        # and public API returns the replaced playlist data
-        fetched = collection.get_playlist_or_raise(uuid=existing_uuid)
-        assert fetched.name == "Replaced Name"
-        assert fetched.uuid == existing_uuid
-
-    def test_upsert_playlist_raises_if_existing_matching_node_has_no_parent(
-        self,
-        collection: NMLLibraryCollection,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        # orphan node: getparent() is None
-        orphan_existing = _Element("NODE", {"TYPE": "PLAYLIST"})
-        assert orphan_existing.getparent() is None
-
-        def _fake_get_playlist_root_node_by_uuid(_: str):
-            return orphan_existing
-
-        # Force the "replace" branch and specifically the parent None check
-        monkeypatch.setattr(
-            collection,
-            "_get_playlist_root_node_by_uuid",
-            _fake_get_playlist_root_node_by_uuid,
-        )
-
-        pl = NMLPlaylistCollection(collection, "New PL")
-        with pytest.raises(
-            ValueError, match=r"Existing playlist node has no parent; cannot replace"
-        ):
-            pl.remote_upsert()
-
-    def test_remote_delete(
-        self,
-        collection: NMLLibraryCollection,
-    ):
-        pl_collection = NMLPlaylistCollection(collection, "New PL")
-        pl_collection.remote_upsert()
-
-        # Remove should work as upserted before
-        pl_collection.remote_delete()
-
-        assert not pl_collection.remote_associated
-
-        # Second delete should trigger value error
-        with pytest.raises(PlaylistAssociationError):
-            pl_collection.remote_delete()
-
-
-class TestNMLPlaylistCollection(CollectionTestBase):
-    """Test the NMLPlaylistCollection class."""
-
-    collection_class = NMLPlaylistCollection
+    collection_class = NMLPlaylist
 
     @pytest.fixture(autouse=True)
-    def setup(self, collection: NMLLibraryCollection, sample_track):
+    def setup(self, collection: NMLLibrary, sample_track):
         self.collection = collection
         self.track = sample_track
 
@@ -302,7 +168,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         l_before = len(p1)
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks.append(NMLPlaylistTrack.from_path(track_path))
         assert len(p1) == l_before + 1
 
@@ -314,7 +180,7 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         """Test adding a track to a playlist."""
         p1 = self.collection.get_playlist(name=self.name)
         assert p1 is not None
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
         assert len(p1) == 1
 
@@ -330,13 +196,13 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         assert p1 is not None
 
         l_before = len(p1)
-        with p1.remote_edit():
+        with p1.edit():
             for audio_file in audio_files.iterdir():
                 p1.tracks.append(NMLPlaylistTrack.from_path(audio_file))
                 break
         assert len(p1) == l_before + 1
 
-    def test_find_by_traktor_path(self, collection: NMLLibraryCollection, caplog):
+    def test_find_by_traktor_path(self, collection: NMLLibrary, caplog):
         """Test finding a track by its file path in a playlist."""
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
@@ -350,12 +216,12 @@ class TestNMLPlaylistCollection(CollectionTestBase):
         track = p1.find_by_traktor_path(NMLPath("D:/:Not/:existing.flac"))
         assert track is None
 
-        with p1.remote_edit():
+        with p1.edit():
             p1.tracks.append(p1.tracks[-1])
         track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
         assert "duplicate" in caplog.text
 
-    def test_find_by_local_ids(self, collection: NMLLibraryCollection):
+    def test_find_by_local_ids(self, collection: NMLLibrary):
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 
@@ -368,19 +234,6 @@ class TestNMLPlaylistCollection(CollectionTestBase):
 
         track = p1.find_by_local_ids({})
         assert track is None
-
-    def test_remote_create(self, collection: NMLLibraryCollection):
-        p1 = NMLPlaylistCollection(
-            collection,
-            name="foo",
-        )
-
-        with pytest.raises(ValueError):
-            collection.get_playlist_or_raise(name="foo")
-
-        p1.remote_create()
-
-        assert collection.get_playlist(name="foo") is not None
 
 
 @pytest.mark.parametrize(

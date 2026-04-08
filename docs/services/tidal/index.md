@@ -7,5 +7,4 @@
 
 getting-started
 collections
-tracks
 ```

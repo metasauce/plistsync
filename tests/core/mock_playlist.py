@@ -1,54 +1,46 @@
 import random
 from typing import Any
+from unittest.mock import Mock
+from plistsync.core import Track
 from plistsync.core.playlist import (
-    MultiRequestPlaylistCollection,
-    PlaylistCollection,
-    PlaylistInfo,
+    MultiRequestServicePlaylist,
+    OfflinePlaylist,
+    ServicePlaylist,
     Snapshot,
 )
-from .mock_track import MockTrack
 
 
-class MockPlaylist(PlaylistCollection[MockTrack]):
+class MockServicePlaylist(
+    OfflinePlaylist,
+    ServicePlaylist[Track],
+):
     """Mock PlaylistCollection implementation for testing."""
 
-    def __init__(
-        self,
-        name: str,
-        tracks: None | list = None,
-        remote_associated: bool = True,
-    ):
-        self._info: PlaylistInfo = {"name": name}
+    def __init__(self, *args, **kwargs):
         self.log: list[tuple[Any, ...]] = []
-        self._tracks = tracks
-        self._remote_associated = remote_associated
-
-    @property
-    def info(self) -> PlaylistInfo:
-        return self._info
-
-    @info.setter
-    def info(self, value: PlaylistInfo):
-        self._info = value
-
-    @property
-    def remote_associated(self):
-        return self._remote_associated
-
-    def _remote_commit(self, before: Snapshot[MockTrack], after: Snapshot[MockTrack]):
-        self.log.append(("remote_commit",))
-
-    def _remote_create(self):
-        self.log.append(("remote_create",))
-        self._remote_associated = True
+        super().__init__(*args, **kwargs)
+        self.library = Mock()
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))
-        self._remote_associated = False
+
+    def _remote_commit(self, before: Snapshot[Track], after: Snapshot[Track]):
+        self.log.append(("remote_commit",))
 
 
-class MockPlaylistMultiRequest(MultiRequestPlaylistCollection[MockTrack], MockPlaylist):
+class MockMultiRequestServicePlaylist(
+    OfflinePlaylist,
+    MultiRequestServicePlaylist[Track],
+):
     """Mock IncrementalPlaylistCollection implementation for testing."""
+
+    def __init__(self, *args, **kwargs):
+        self.log: list[tuple[Any, ...]] = []
+        super().__init__(*args, **kwargs)
+        self.library = Mock()
+
+    def _remote_delete(self):
+        self.log.append(("remote_delete",))
 
     def _remote_delete_track(
         self,

@@ -6,13 +6,13 @@ expected behaviors of various collection types, as well as utilities for track h
 and path rewriting.
 """
 
-from .collection import Collection, LibraryCollection
+from .collection import Collection, Library
 from .rewrite import PathRewrite
 from .track import GlobalTrackIDs, Track
 
 __all__ = [
     "Collection",
-    "LibraryCollection",
+    "Library",
     "PathRewrite",
     "Track",
     "GlobalTrackIDs",

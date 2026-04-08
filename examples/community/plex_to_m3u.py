@@ -7,7 +7,7 @@ import typer
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex import PlexLibrarySectionCollection
+from plistsync.services.plex import PlexLibrary
 
 
 def main(
@@ -53,7 +53,7 @@ def main(
         path_rewrite = PathRewrite.from_str(plex_path_base, m3u_path_base)
 
     # Load Plex library and playlist
-    plex_library = PlexLibrarySectionCollection(plex_section_name)
+    plex_library = PlexLibrary(plex_section_name)
     playlist = plex_library.get_playlist(name=playlist_name)
 
     if playlist is None:

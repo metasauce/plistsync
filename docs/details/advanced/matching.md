@@ -37,13 +37,13 @@ Imagine you have a track file on your local computer that you've recently bought
 
 ```python
 from plistsync.services.local import LocalTrack
-from plistsync.services.spotify import SpotifyLibraryCollection
+from plistsync.services.spotify import SpotifyLibrary
 
 # This represents a single track on your local filesystem
 source_track = LocalTrack("./path_to_source_track.mp3")
 
 # Access to spotify
-target_collection = SpotifyLibraryCollection()
+target_collection = SpotifyLibrary()
 
 # Perform the match operation to find the source_track in the target_collection
 matches = target_collection.match(source_track)

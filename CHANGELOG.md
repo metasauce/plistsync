@@ -7,15 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Upcoming
 
+### Breaking Changes
+
+#### Playlist Class Hierarchy Refactor
+
+The playlist class hierarchy has been redesigned for clearer separation of concerns:
+
+**Renamed Classes:**
+- `PlaylistCollection` → `Playlist` (base protocol)
+- `SpotifyPlaylistCollection` → `SpotifyPlaylist`
+- `TidalPlaylistCollection` → `TidalPlaylist`
+- `PlexPlaylistCollection` → `PlexPlaylist`
+- `NMLPlaylistCollection` → `NMLPlaylist`
+
+**Library Classes Renamed:**
+- `SpotifyLibraryCollection` → `SpotifyLibrary`
+- `TidalLibraryCollection` → `TidalLibrary`
+- `PlexLibrarySectionCollection` → `PlexLibrary`
+- `NMLLibraryCollection` → `NMLLibrary`
+
+**New Abstractions:**
+- `OfflinePlaylist` — In-memory playlist with no service synchronization
+- `ServicePlaylist` — Base for playlists synchronized with music services
+- `MultiRequestServicePlaylist` — For APIs requiring multi-request modifications
+- `PlaylistIDs` — Unified TypedDict for cross-service playlist identification
+
+**Method Changes:**
+| Old | New | Notes |
+|-----|-----|-------|
+| `remote_edit()` | `edit()` | Context manager for transactional edits |
+| `remote_delete()` | `delete()` | Returns `OfflinePlaylist` with last state |
+| `remote_create()` | `library.create_playlist()` | Factory method on library |
+| `remote_upsert()` | `update()` | Bulk sync to remote |
+| `remote_associated` | Removed | Service playlists always correspond to remote |
+
+**Migration:**
+```python
+# Old
+pl = SpotifyPlaylistCollection(library, "Name", "desc")
+pl.remote_create()
+with pl.remote_edit():
+    pl.tracks.append(track)
+
+# New
+pl = library.create_playlist("Name", "desc")
+with pl.edit():
+    pl.tracks.append(track)
+```
+
 - Auth commands are now available via `plistsync auth [service]` instead of `plistsync [service] auth`
-- Added `plistsync --version` command to show the currently installed version of the library
-- Renamed `_apply_diff` -> `_remote_commit` for clarity
+
+### Added
+
 - Split Playlist ABC into two classes: one for simple services, like filesystems, where states can be pushed via a single API call (`PlaylistCollection`) and one where multiple API calls are required (`MultiRequestPlaylistCollection`), e.g. when a playlists description cannot be pushed in the same call as track changes.
-- Added `PlaylistAssociationError` for playlist remote association checks, replacing `ValueError` with clearer messages and an `already_associated` attribute for programmatic inspection.
 - Added `allservices` dependency group to allow a loaded pip install with batteries included.
+- Added `plistsync --version` command to show the currently installed version of the library
 
 ### Fixed
 
+- Fixed lazy track loading when playlist has 0 tracks (`force=True` logic in `_load_tracks`)
 - In rare cases, spotify playlists can contain invalid items, which do not appear in the web interface (but through the api). We now filter and remove them.
 
 ## [0.5.1] - 2026-03-16

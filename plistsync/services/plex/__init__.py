@@ -6,13 +6,13 @@ check_imports(
 )
 
 from . import api
-from .library import PlexLibrarySectionCollection
-from .playlist import PlexPlaylistCollection
+from .library import PlexLibrary
+from .playlist import PlexPlaylist
 from .track import PlexTrack
 
 __all__ = [
     "api",
-    "PlexLibrarySectionCollection",
-    "PlexPlaylistCollection",
+    "PlexLibrary",
+    "PlexPlaylist",
     "PlexTrack",
 ]

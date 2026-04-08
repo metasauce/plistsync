@@ -6,14 +6,14 @@ check_imports(
 )
 
 from . import api
-from .library import SpotifyLibraryCollection
-from .playlist import SpotifyPlaylistCollection
+from .library import SpotifyLibrary
+from .playlist import SpotifyPlaylist
 from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 __all__ = [
     "api",
-    "SpotifyLibraryCollection",
-    "SpotifyPlaylistCollection",
+    "SpotifyLibrary",
+    "SpotifyPlaylist",
     "SpotifyPlaylistTrack",
     "SpotifyTrack",
 ]

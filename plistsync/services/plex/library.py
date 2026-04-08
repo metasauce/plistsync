@@ -5,19 +5,20 @@ from typing import overload
 
 from requests import HTTPError
 
-from plistsync.core import GlobalTrackIDs, LibraryCollection, PathRewrite
+from plistsync.core import GlobalTrackIDs, Library, PathRewrite
 from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
+from plistsync.core.playlist import PlaylistIDs
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 from plistsync.services.local.track import FileCache
-from plistsync.services.plex.playlist import PlexPlaylistCollection
+from plistsync.services.plex.playlist import PlexPlaylist
 
 from .api import PlexApi
 from .track import PlexTrack
 
 
-class PlexLibrarySectionCollection(
-    LibraryCollection[PlexTrack, PlexPlaylistCollection],
+class PlexLibrary(
+    Library[PlexTrack, PlexPlaylist],
     TrackStream[PlexTrack],
     LocalLookup[PlexTrack],
     GlobalLookup[PlexTrack],
@@ -37,11 +38,8 @@ class PlexLibrarySectionCollection(
     id: int
     api: PlexApi
 
-    def __init__(
-        self,
-        section_name_or_id: str | int,
-    ):
-        """Initialize the PlexLibraryCollection from plex given a section id.
+    def __init__(self, section_name_or_id: str | int = "Music"):
+        """Initialize the PlexLibrary from plex given a section id.
 
         Parameters
         ----------
@@ -64,33 +62,38 @@ class PlexLibrarySectionCollection(
         _ = list(self.tracks)
 
     @property
-    def playlists(self) -> Iterable[PlexPlaylistCollection]:
-        """Get all playlists in the library as PlexPlaylistCollection objects."""
-        playlists: list[PlexPlaylistCollection] = []
+    def playlists(self) -> Iterable[PlexPlaylist]:
+        """Get all playlists in the library as PlexPlaylist objects."""
+        playlists: list[PlexPlaylist] = []
         for pl_data in self.api.playlist.all():
             # we might also want to filter: smart=False
             if pl_data.get("playlistType") != "audio":
                 continue
             playlists.append(
-                PlexPlaylistCollection.from_response_data(
+                PlexPlaylist(
                     library=self,
-                    playlist_data=pl_data,
-                    tracks_data=[],  # fetch later
+                    data=pl_data,
                 )
             )
         playlists = sorted(playlists, key=lambda p: p.name.lower())
         return playlists
 
     @overload
-    def get_playlist(self, *, name: str) -> PlexPlaylistCollection | None: ...
+    def get_playlist(
+        self, *, ids: PlaylistIDs | None = None
+    ) -> PlexPlaylist | None: ...
     @overload
-    def get_playlist(self, *, id: int) -> PlexPlaylistCollection | None: ...
+    def get_playlist(self, *, name: str | None = None) -> PlexPlaylist | None: ...
+    @overload
+    def get_playlist(self, *, id: int | None = None) -> PlexPlaylist | None: ...
 
     def get_playlist(
         self,
+        *,
+        ids: PlaylistIDs | None = None,
         name: str | None = None,
         id: int | None = None,
-    ) -> PlexPlaylistCollection | None:
+    ) -> PlexPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given. Either search
@@ -100,8 +103,11 @@ class PlexLibrarySectionCollection(
 
         Tracks are fetched eagerly.
         """
-        if sum(arg is not None for arg in [name, id]) != 1:
-            raise ValueError("Exactly one of name or id must be provided")
+        if sum(arg is not None for arg in [ids, name, id]) != 1:
+            raise ValueError("Exactly one of name, ids or id must be provided")
+
+        if ids and (plex_id := ids.get("plex_id")):
+            id = plex_id
 
         if name is not None:
             id = self.api.converts.playlist_name_to_id(name)
@@ -110,14 +116,32 @@ class PlexLibrarySectionCollection(
             return None
 
         try:
-            return PlexPlaylistCollection.from_response_data(
+            return PlexPlaylist(
                 library=self,
-                playlist_data=self.api.playlist.get(id),
+                data=self.api.playlist.get(id),
                 tracks_data=self.api.playlist.get_items(id),
             )
         except HTTPError as e:
             log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
             return None
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[PlexTrack] | None = None,
+    ):
+        pl = PlexPlaylist(
+            self,
+            self.api.playlist.create(name),
+        )
+
+        with pl.edit():
+            pl.description = description
+            if tracks:
+                pl.tracks = tracks
+
+        return pl
 
     @cached_property
     def locations(self) -> list[Path]:

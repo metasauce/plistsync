@@ -14,15 +14,8 @@ import typer
 
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex import PlexPlaylistCollection
-from plistsync.services.plex.library import (
-    PlexLibrarySectionCollection,
-)
-from plistsync.services.traktor import (
-    NMLLibraryCollection,
-    NMLPlaylistCollection,
-    NMLPlaylistTrack,
-)
+from plistsync.services.plex.library import PlexLibrary
+from plistsync.services.traktor import NMLLibrary, NMLPlaylistTrack
 
 
 def main(
@@ -65,8 +58,8 @@ def main(
         path_rewrite = PathRewrite.from_str(plex_path_base, traktor_path_base)
 
     # Get libraries
-    plex_library = PlexLibrarySectionCollection(plex_section_name)
-    traktor_library = NMLLibraryCollection(traktor_nml_path)
+    plex_library = PlexLibrary(plex_section_name)
+    traktor_library = NMLLibrary(traktor_nml_path)
 
     # Get playlists
     plex_playlist = plex_library.get_playlist(name=playlist_name)
@@ -79,8 +72,7 @@ def main(
             type=bool,
             default=True,
         ):
-            plex_playlist = PlexPlaylistCollection(plex_library, playlist_name)
-            plex_playlist.remote_upsert()
+            plex_playlist = plex_library.create_playlist(name=playlist_name)
         else:
             raise typer.Exit(-1)
 
@@ -90,8 +82,7 @@ def main(
             type=bool,
             default=True,
         ):
-            traktor_playlist = NMLPlaylistCollection(traktor_library, playlist_name)
-            traktor_playlist.remote_upsert()
+            traktor_playlist = traktor_library.create_playlist(name=playlist_name)
         else:
             raise typer.Exit(-1)
 
@@ -112,7 +103,7 @@ def main(
     log.info(
         f"Adding {len(missing_in_traktor)} tracks from Plex to Traktor playlist..."
     )
-    with traktor_playlist.remote_edit():
+    with traktor_playlist.edit():
         for p in missing_in_traktor:
             # For traktor, PlaylistTracks are essentially only file paths, so
             # we do not need a lookup.
@@ -123,7 +114,7 @@ def main(
 
     # Traktor to plex
     log.info(f"Adding {len(missing_in_plex)} tracks from Traktor to Plex playlist...")
-    with plex_playlist.remote_edit():
+    with plex_playlist.edit():
         for p in missing_in_plex:
             p_for_plex = path_rewrite.invert.apply(p)
             plex_track = plex_library.find_by_local_ids({"file_path": p_for_plex})
