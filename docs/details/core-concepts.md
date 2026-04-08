@@ -98,4 +98,4 @@ Each service manages the platform-specific details so you don't have to:
 - **Data import/export** - Converting between platform formats and plistsync's standard Tracks/Collections
 - **Write-back** - Creating playlists, adding tracks, updating metadata on the target platform
 
-**Example**: Sync a Spotify "Road Trip" playlist → Tidal by letting services handle authentication → data extraction → track matching → playlist recreation automaticall
+**Example**: Sync a Spotify "Road Trip" playlist → Tidal by letting services handle authentication → data extraction → track matching → playlist recreation automatically

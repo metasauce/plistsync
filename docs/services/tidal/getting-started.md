@@ -33,6 +33,7 @@ uv add plistsync --extra tidal
 ### Tidal Account
 
 You'll need an active Tidal account. If you don't have one, sign up at [tidal.com](https://tidal.com).
+For tidal, free accounts are sufficient to use the API and `plistsync`.
 
 ### API Credentials
 
