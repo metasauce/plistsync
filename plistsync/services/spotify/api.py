@@ -14,6 +14,7 @@ from plistsync.utils.auth.bearer_token import (
     Oauth2Token,
     TokenSession,
 )
+from plistsync.utils.session import PlistsyncSession
 
 from .api_types import (
     PlaylistTracks,
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
     )
 
 
-class SpotifyApiSession(TokenSession[Oauth2Token]):
+class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
     """A requests Session configured for Spotify.
 
     Automatically attaches the auth token and refreshes
@@ -49,7 +50,7 @@ class SpotifyApiSession(TokenSession[Oauth2Token]):
         client_id: str,
         token: Oauth2Token,
     ):
-        super().__init__(token)
+        super().__init__(token=token)
         self.client_id = client_id
         self.headers["Accept"] = "application/json"
 

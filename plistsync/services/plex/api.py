@@ -18,6 +18,7 @@ import requests
 
 from plistsync.logger import log
 from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
+from plistsync.utils.session import PlistsyncSession
 
 from .api_types import (
     PlexApiConnection,
@@ -52,7 +53,7 @@ class PlexToken(Token):
         return request
 
 
-class PlexApiSession(TokenSession[PlexToken]):
+class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
     """A requests Session configured for Plex API requests.
 
     Automatically attaches the Plex auth token and refreshes
@@ -69,7 +70,7 @@ class PlexApiSession(TokenSession[PlexToken]):
         token: PlexToken,
     ) -> None:
         """Initialize the PlexApiSession."""
-        super().__init__(token)
+        super().__init__(token=token)
         self.headers["Accept"] = "application/json"
         self.headers["X-Plex-Client-Identifier"] = client_id
         self.headers["X-Plex-Product"] = product
