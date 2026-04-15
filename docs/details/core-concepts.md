@@ -29,12 +29,10 @@ spotify = SpotifyLibraryCollection()
 tidal = TidalLibraryCollection()
 ```
 
-
 ## Libraries
 
-A **library** represents everything you have in a single service. This encapsulates,your
+A **library** represents everything you have in a single service. This encapsulates your
 complete music catalog.
-
 
 Libraries are typically large and long-lived. They also contain your playlists.
 
