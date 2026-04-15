@@ -13,6 +13,7 @@ from plistsync.utils.auth.bearer_token import (
     Oauth2Token,
     TokenSession,
 )
+from plistsync.utils.session import PlistsyncSession
 
 from .api_types import (
     MultiRelationshipDataDocument,
@@ -43,7 +44,7 @@ LookupDict = dict[tuple[str, str], T_Included]
 MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
 
 
-class TidalApiSession(TokenSession):
+class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
     """A request Session configured for Tidal.
 
     Automatically attaches the auth token and refreshes
@@ -63,7 +64,10 @@ class TidalApiSession(TokenSession):
         client_id: str,
         token: Oauth2Token,
     ):
-        super().__init__(token)
+        super().__init__(
+            rate_limit=0.25,  # Tidal allows 4 requests per second
+            token=token,
+        )
         self.client_id = client_id
 
     @classmethod
