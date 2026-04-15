@@ -191,7 +191,7 @@ class TokenSession(Generic[T], requests.Session, ABC):
         """
 
         if self.token.is_expired:
-            self._refresh_token()
+            self.refresh_token()
 
         # Always use token in auth
         kwargs["auth"] = self.token
@@ -209,7 +209,7 @@ class TokenSession(Generic[T], requests.Session, ABC):
                 **kwargs,
             )
         except ExpiredAccessToken:
-            self._refresh_token()
+            self.refresh_token()
             return self.request(method, url, *args, **kwargs)
 
         if res.status_code in self.status_codes_expired:
