@@ -5,20 +5,7 @@ from eyconf.validation import ConfigurationError, MultiConfigurationError
 __all__ = [
     "ConfigurationError",
     "MultiConfigurationError",
-    "NotFoundError",
 ]
-
-
-class NotFoundError(Exception):
-    def __init__(self, message="Resource not found", resource=None):
-        self.message = message
-        self.resource = resource
-        super().__init__(self.message)
-
-    def __str__(self):
-        if self.resource:
-            return f"{self.message}: {self.resource}"
-        return self.message
 
 
 class DependencyError(ImportError):
