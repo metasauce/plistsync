@@ -687,10 +687,7 @@ class TidalPlaylistApi:
             return
 
         # max batch size is 20 (see tidal api docs, in the json schema)
-        batch_size = 20
-        for i in range(0, len(ids), batch_size):
-            batch = ids[i : i + batch_size]
-
+        for batch in chunk_list(ids, MAX_FILTER_SIZE):
             # Build the data array
             data: list[dict[str, str]] = []
             for item_id in batch:
@@ -768,10 +765,7 @@ class TidalPlaylistApi:
             return
 
         # max batch size is 20 (see tidal api docs, in the json schema)
-        batch_size = 20
-        for i in range(0, len(item_ids), batch_size):
-            batch = item_ids[i : i + batch_size]
-
+        for batch in chunk_list(item_ids, MAX_FILTER_SIZE):
             data: list[dict[str, Any]] = []
             for item_id in batch:
                 item_data = {
