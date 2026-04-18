@@ -68,9 +68,6 @@ with pl.edit():
 - Fixed lazy track loading when playlist has 0 tracks (`force=True` logic in `_load_tracks`)
 - In rare cases, spotify playlists can contain invalid items, which do not appear in the web interface (but through the api). We now filter and remove them.
 - Fixed an issue with the spotify api returning duplicate playlists on pagination borders.
-
-### Fixed
-
 - In rare cases, spotify playlists can contain invalid items, which do not appear in the web interface (but through the api). We now filter and remove them.
 
 ## [0.5.1] - 2026-03-16

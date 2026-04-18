@@ -130,13 +130,9 @@ jobs:
           name: Release ${{ needs.check_version.outputs.current_version }}
           tag_name: v${{ needs.check_version.outputs.current_version }}
           body: |
-            {{ steps.changelog.outputs.changelog }}
+            ${{ steps.changelog.outputs.changelog }}
 
             📦 **PyPI**: https://pypi.org/project/plistsync/${{ needs.check_version.outputs.current_version }}/
-
-            📁 **Artifacts**:
-            - sdist: `plistsync-${{ needs.check_version.outputs.current_version }}.tar.gz`
-            - wheel: `plistsync-${{ needs.check_version.outputs.current_version }}-py3-none-any.whl`
           files: |
             dist/plistsync-${{ needs.check_version.outputs.current_version }}.tar.gz
             dist/plistsync-${{ needs.check_version.outputs.current_version }}-py3-none-any.whl
