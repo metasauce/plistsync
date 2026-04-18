@@ -176,13 +176,13 @@ class SpotifyApiPlaylistResponseBase(TypedDict):
 class SpotifyApiPlaylistResponseFull(SpotifyApiPlaylistResponseBase):
     """Full playlist object."""
 
-    tracks: PlaylistTracks
+    items: PlaylistTracks
 
 
 class SpotifyApiPlaylistResponseSimplified(SpotifyApiPlaylistResponseBase):
     """Simplified playlist object (without full tracks)."""
 
-    tracks: PlaylistTracksSimplified
+    items: PlaylistTracksSimplified
 
 
 class UserProfile(TypedDict):
