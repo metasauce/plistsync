@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from shutil import copyfile
 from typing import TYPE_CHECKING, overload
@@ -236,7 +236,11 @@ class NMLLibrary(
             yield NMLTrack(entry)
 
     def __len__(self) -> int:
-        n_str = self._collection.get("ENTRIES", 0)
+        collection = self.tree.find("COLLECTION")
+        if collection is None:
+            return 0
+
+        n_str = collection.get("ENTRIES", 0)
         return int(n_str)
 
     # ---------------------------------- Helper ---------------------------------- #
@@ -276,6 +280,13 @@ class NMLLibrary(
         entry.set("MODIFIED_TIME", "0")
 
         entry.append(track.traktor_path.to_nml_location())
+        # This does not deal with the volume ids yet:
+        # For playlist tracks we have no volume ids, but library entries always
+        # have them afaik. If we wanted to be more precise, we should check the
+        # library for an occurence of the volume by name and use that volumes' id.
+
+        info = etree.SubElement(entry, "INFO")
+        info.set("IMPORT_DATE", date.today().strftime("%Y/%-m/%-d"))
 
         mod_info = etree.SubElement(entry, "MODIFICATION_INFO")
         mod_info.set("AUTHOR_TYPE", "user")
