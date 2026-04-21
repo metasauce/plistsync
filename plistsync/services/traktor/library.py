@@ -16,7 +16,7 @@ from plistsync.logger import log
 
 from .path import NMLPath
 from .playlist import NMLPlaylist
-from .track import NMLTrack
+from .track import NMLPlaylistTrack, NMLTrack
 from .utility import sanitize_plist_name, xpath_string_escape
 
 if TYPE_CHECKING:
@@ -217,12 +217,7 @@ class NMLLibrary(
             the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
             it should will be ignored for the search.
         """
-
-        collection = self.tree.find("COLLECTION")
-        if collection is None:
-            raise ValueError("Could not find COLLECTION in NML file")
-
-        entry = collection.xpath(
+        entry = self._collection.xpath(
             f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
             f"[@FILE={xpath_string_escape(traktor_path.file)}]"
             f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
@@ -236,18 +231,59 @@ class NMLLibrary(
 
     @property
     def tracks(self) -> Iterable[NMLTrack]:
-        collection = self.tree.find("COLLECTION")
-        if collection is None:
-            raise ValueError("Could not find COLLECTION in NML file")
-
-        entries = collection.findall("ENTRY")
+        entries = self._collection.findall("ENTRY")
         for entry in entries:
             yield NMLTrack(entry)
 
     def __len__(self) -> int:
-        e = self.tree.find("COLLECTION")
-        if e is None:
-            return 0
-
-        n_str = e.get("ENTRIES", 0)
+        n_str = self._collection.get("ENTRIES", 0)
         return int(n_str)
+
+    # ---------------------------------- Helper ---------------------------------- #
+
+    @property
+    def _collection(self):
+        collection = self.tree.find("COLLECTION")
+        if collection is None:
+            raise ValueError("Could not find COLLECTION in NML file")
+        return collection
+
+    def insert_track(self, track: NMLTrack | NMLPlaylistTrack, force: bool = False):
+        """
+        Insert a track into the xml, if not present yet.
+
+        This is needed when you want a playlist to contain a track for which you know
+        it exists on the target disk, but it was not imported into Traktor yet.
+        Traktor will then load the track's metadata when its first loaded into a deck.
+
+        You can force insertion to avoid the check for existence (which is done via
+        the track's file-path and volume)
+        """
+
+        existing = self.find_by_traktor_path(track.traktor_path)
+        if existing is not None and not force:
+            log.debug(
+                f"Found existing track for {track.traktor_path}, skipping insertion."
+            )
+            return existing
+
+        # Keep this deliberately "old" so Traktor will refresh metadata/cover on load.
+        # Any date in the past works; using epoch date is explicit and stable.
+        # See https://github.com/metasauce/plistsync/issues/54
+        collection = self._collection
+        entry = etree.SubElement(collection, "ENTRY")
+        entry.set("MODIFIED_DATE", "2008/10/16")
+        entry.set("MODIFIED_TIME", "0")
+
+        entry.append(track.traktor_path.to_nml_location())
+
+        mod_info = etree.SubElement(entry, "MODIFICATION_INFO")
+        mod_info.set("AUTHOR_TYPE", "user")
+
+        # Keep COLLECTION/ENTRIES in sync
+        count = int(collection.get("ENTRIES", "0"))
+        collection.set("ENTRIES", str(count + 1))
+        inserted = NMLTrack(entry)
+
+        log.debug(f"Inserted track into COLLECTION: {inserted.traktor_path}")
+        return inserted

@@ -2,7 +2,7 @@ import re
 from pathlib import PurePath, PurePosixPath, PureWindowsPath
 from typing import Literal, Self
 
-from lxml.etree import _Element
+from lxml.etree import Element, SubElement, _Element
 
 
 class NMLPath:
@@ -71,6 +71,24 @@ class NMLPath:
             raise ValueError("Could not find DIR, FILE or VOLUME in NML LOCATION entry")
 
         return cls(f"{vol}{dir}{file}")
+
+    def to_nml_location(self, parent: _Element | None = None) -> _Element:
+        """
+        Create a <LOCATION> element from this NMLPath.
+
+        If `parent` is provided, appends LOCATION to parent.
+        Otherwise returns a standalone LOCATION element.
+        """
+        if parent is None:
+            location = Element("LOCATION")
+        else:
+            location = SubElement(parent, "LOCATION")
+
+        location.set("DIR", self.directories)
+        location.set("FILE", self.file)
+        location.set("VOLUME", self.volume)
+        location.set("VOLUMEID", self.volume)
+        return location
 
     @classmethod
     def from_path(cls, path: str | PurePath) -> Self:
