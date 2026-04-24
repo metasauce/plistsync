@@ -66,7 +66,7 @@ class NMLTrack(Track):
         dir = loc.get("DIR")
         file = loc.get("FILE")
 
-        return vol, dir, file
+        return NMLPath(f"{vol}/:{dir}/:{file}")
 
     @property
     def path(self) -> PurePath:
@@ -194,12 +194,17 @@ class NMLPlaylistTrack(Track):
             )
         return cls.from_path(track.path)
 
-    def to_nml_track(self, collection: NMLLibrary) -> NMLTrack | None:
+    def to_nml_track(
+        self, collection: NMLLibrary, insert_if_not_found: bool = True
+    ) -> NMLTrack | None:
         """Convert this playlist track to a NMLTrack.
 
-        This might fail if the track does not exist in the main collection.
+        By default, if the track was not found in the NMLLibrary, we insert it.
         """
-        return collection.find_by_traktor_path(self.traktor_path)
+        track = collection.find_by_traktor_path(self.traktor_path)
+        if track is None and insert_if_not_found:
+            track = collection.insert_track(self)
+        return track
 
     @property
     def traktor_path(self) -> NMLPath:

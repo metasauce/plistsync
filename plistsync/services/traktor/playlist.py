@@ -156,6 +156,8 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
             self.playlist_node.append(
                 NMLPlaylistTrack.from_traktor_path(track.traktor_path).entry
             )
+            if self.library.find_by_traktor_path(track.traktor_path) is None:
+                self.library.insert_track(track)
 
         self.playlist_node.set("ENTRIES", str(len(tracks)))
 

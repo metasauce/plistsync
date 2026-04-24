@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 import sys
 import pytest
 from plistsync.services.traktor import NMLLibrary
@@ -8,6 +8,7 @@ from plistsync.services.traktor.track import NMLPlaylistTrack
 from plistsync.services.traktor.utility import xpath_string_escape
 from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
+from lxml import etree
 from lxml.etree import _Element
 
 
@@ -160,7 +161,10 @@ class TestNMLPlaylist(CollectionTestBase):
 
     @pytest.mark.parametrize(
         "track_path",
-        [Path("/Volumes/Macintosh HD/foo/bar.mp3")],
+        [
+            Path("/Volumes/Macintosh HD/foo/bar.mp3"),
+            PurePath("D:/foo/bar.mp3"),
+        ],
     )
     def test_insert_track(self, track_path):
         """Test adding a track to a playlist."""
@@ -171,6 +175,138 @@ class TestNMLPlaylist(CollectionTestBase):
         with p1.edit():
             p1.tracks.append(NMLPlaylistTrack.from_path(track_path))
         assert len(p1) == l_before + 1
+
+    @pytest.mark.parametrize(
+        "track_path",
+        [
+            PurePath("/Volumes/Macintosh HD/foo/bar.mp3"),
+            PurePath("D:/foo/bar.mp3"),
+        ],
+    )
+    def test_nml_path_to_nml_location(self, track_path):
+        traktor_path = NMLPath.from_path(track_path)
+
+        location = traktor_path.to_nml_location()
+        assert location.tag == "LOCATION"
+        assert location.get("DIR") == traktor_path.directories
+        assert location.get("FILE") == traktor_path.file
+        assert location.get("VOLUME") == traktor_path.volume
+
+        parent = etree.Element("ENTRY")
+        location2 = traktor_path.to_nml_location(parent)
+        assert location2.getparent() is parent
+        assert parent.find("LOCATION") is location2
+
+    @pytest.mark.parametrize(
+        "track_path",
+        [
+            PurePath("/Volumes/Macintosh HD/foo/insert-me.flac"),
+            PurePath("D:/foo/insert-me.flac"),
+        ],
+    )
+    def test_library_insert_track(self, track_path):
+        traktor_path = NMLPath.from_path(track_path)
+        playlist_track = NMLPlaylistTrack.from_traktor_path(traktor_path)
+
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        entries_before = int(collection_node.get("ENTRIES", "0"))
+
+        inserted = self.collection.insert_track(playlist_track)
+        assert inserted is not None
+        assert inserted.traktor_path == traktor_path
+
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        assert int(collection_node.get("ENTRIES", "0")) == entries_before + 1
+
+        entry = inserted.entry
+        assert entry.get("MODIFIED_DATE") == "2008/10/16"
+        assert entry.get("MODIFIED_TIME") == "0"
+
+        loc = entry.find("LOCATION")
+        assert loc is not None
+        assert loc.get("DIR") == traktor_path.directories
+        assert loc.get("FILE") == traktor_path.file
+        assert loc.get("VOLUME") == traktor_path.volume
+        assert loc.get("VOLUMEID") == traktor_path.volume_id
+
+        mod_info = entry.find("MODIFICATION_INFO")
+        assert mod_info is not None
+        assert mod_info.get("AUTHOR_TYPE") == "user"
+
+        info = entry.find("INFO")
+        assert info is not None
+        assert info.get("IMPORT_DATE") is not None
+
+        inserted_again = self.collection.insert_track(playlist_track)
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        assert int(collection_node.get("ENTRIES", "0")) == entries_before + 1
+        assert inserted_again is not None
+        assert inserted_again.traktor_path == traktor_path
+
+        inserted_forced = self.collection.insert_track(playlist_track, force=True)
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        assert int(collection_node.get("ENTRIES", "0")) == entries_before + 2
+        assert inserted_forced is not None
+        assert inserted_forced.traktor_path == traktor_path
+
+    @pytest.mark.parametrize(
+        "track_path",
+        [
+            PurePath("/Volumes/Macintosh HD/foo/to-nml-track.flac"),
+            PurePath("D:/foo/to-nml-track.flac"),
+        ],
+    )
+    def test_playlist_track_to_nml_track(self, track_path):
+        traktor_path = NMLPath.from_path(track_path)
+        playlist_track = NMLPlaylistTrack.from_traktor_path(traktor_path)
+
+        found = playlist_track.to_nml_track(self.collection, insert_if_not_found=False)
+        assert found is None
+
+        inserted = playlist_track.to_nml_track(self.collection)
+        assert inserted is not None
+        assert inserted.traktor_path == traktor_path
+
+        found_again = playlist_track.to_nml_track(
+            self.collection, insert_if_not_found=False
+        )
+        assert found_again is not None
+        assert found_again.traktor_path == traktor_path
+
+    @pytest.mark.parametrize(
+        "track_path",
+        [
+            PurePath("/Volumes/Macintosh HD/foo/added-via-edit.flac"),
+            PurePath("D:/foo/added-via-edit.flac"),
+        ],
+    )
+    def test_playlist_edit_inserts_missing_track_into_library(self, track_path):
+        p1 = self.collection.get_playlist(name=self.name)
+        assert p1 is not None
+
+        traktor_path = NMLPath.from_path(track_path)
+        missing_track = NMLPlaylistTrack.from_traktor_path(traktor_path)
+
+        assert self.collection.find_by_traktor_path(traktor_path) is None
+
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        entries_before = int(collection_node.get("ENTRIES", "0"))
+
+        with p1.edit():
+            p1.tracks.append(missing_track)
+
+        collection_node = self.collection.tree.find("COLLECTION")
+        assert collection_node is not None
+        assert int(collection_node.get("ENTRIES", "0")) == entries_before + 1
+
+        inserted = self.collection.find_by_traktor_path(traktor_path)
+        assert inserted is not None
+        assert inserted.traktor_path == traktor_path
 
     @pytest.mark.parametrize(
         "track_path",
