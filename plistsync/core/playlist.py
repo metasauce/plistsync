@@ -248,8 +248,8 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
     an `OfflinePlaylist` to retain the data.
 
     Provides two synchronization strategies:
-      - `edit()` – transactional edits with automatic local rollback
-      - `update()` – bulk update by comparing remote and local snapshots
+      - `edit()` - transactional edits with automatic local rollback
+      - `update()` - bulk update by comparing remote and local snapshots
     """
 
     library: Library[Track, Self]

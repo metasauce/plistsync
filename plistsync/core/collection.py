@@ -67,7 +67,7 @@ T = TypeVar("T", bound=Track, covariant=True)
 if TYPE_CHECKING:
     from .playlist import Playlist, PlaylistIDs
 
-Plist = TypeVar("Plist", bound="Playlist", default="Playlist")
+Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
 
 
 @runtime_checkable
@@ -392,6 +392,11 @@ class Library(Generic[T, Plist], Collection[T]):
     It provides a framework for managing tracks and playlists, allowing each service
     to implement its specifics.
     """
+
+    @property
+    def name(self) -> str:
+        """Name of the library, typically the service name."""
+        return type(self).__name__.replace("Library", "")
 
     @property
     @abstractmethod
