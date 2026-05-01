@@ -30,7 +30,7 @@ from typing_extensions import TypeVar
 
 from .collection import Collection, Library, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
-from .track import Track
+from .track import OfflineTrack, Track
 
 
 class PlaylistIDs(TypedDict, total=False):
@@ -190,7 +190,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
         return len(self.tracks)
 
 
-class OfflinePlaylist(Playlist[Track]):
+class OfflinePlaylist(Playlist[OfflineTrack]):
     """A offline (in memory) playlist with no service synchronization.
 
     This class provides a concrete implementation of `Playlist` for
@@ -199,7 +199,7 @@ class OfflinePlaylist(Playlist[Track]):
     representation during playlist conversions.
     """
 
-    _tracks: list[Track]
+    _tracks: list[OfflineTrack]
     _info: PlaylistInfo
     _ids: PlaylistIDs
 
@@ -207,7 +207,7 @@ class OfflinePlaylist(Playlist[Track]):
         self,
         name: str,
         description: str | None = None,
-        tracks: Sequence[Track] | None = None,
+        tracks: Sequence[OfflineTrack] | None = None,
     ) -> None:
         self._info = PlaylistInfo(
             name=name,
@@ -229,11 +229,11 @@ class OfflinePlaylist(Playlist[Track]):
         self._info = value
 
     @property
-    def tracks(self) -> list[Track]:
+    def tracks(self) -> list[OfflineTrack]:
         return self._tracks
 
     @tracks.setter
-    def tracks(self, value: list[Track]) -> None:
+    def tracks(self, value: list[OfflineTrack]) -> None:
         self._tracks = value
 
 
@@ -276,7 +276,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
-        offline = OfflinePlaylist(self.name, self.description, self.tracks)
+        offline = OfflinePlaylist(self.name, self.description, [OfflineTrack.from_track(t) for t in self.tracks])
         self._remote_delete()
         return offline
 

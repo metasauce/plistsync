@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from copy import copy
 from pathlib import PurePath
 from typing import TypedDict
 
@@ -95,12 +96,27 @@ class Track(ABC):
     is needed.
     """
 
-    # ----------------------------- Info Getters ----------------------------- #
+    # --------------------------- Required (protocol) ---------------------------- #
 
-    # Lets not overdo it, in principle we could expose all underlying data, but
-    # this bloats a lot.
-    # Convention: The convenience getters give value or None,
-    # or lists that can be empty but have the same length as the input
+    @property
+    @abstractmethod
+    def info(self) -> TrackInfo:
+        """Get this tracks information."""
+        ...
+
+    @property
+    @abstractmethod
+    def global_ids(self) -> GlobalTrackIDs:
+        """The globally unique identifiers of this track."""
+        ...
+
+    @property
+    @abstractmethod
+    def local_ids(self) -> LocalTrackIDs:
+        """The locally unique identifiers of this track."""
+        ...
+
+    # ----------------------------- Info Getters ----------------------------- #
 
     @property
     def title(self) -> str | None:
@@ -143,26 +159,6 @@ class Track(ABC):
         return self.artists[0] if self.artists else None
 
     # --------------------------------- Contracts -------------------------------- #
-
-    # Every track has to implement all three contracts.
-
-    @property
-    @abstractmethod
-    def info(self) -> TrackInfo:
-        """Get this tracks information."""
-        ...
-
-    @property
-    @abstractmethod
-    def global_ids(self) -> GlobalTrackIDs:
-        """The globally unique identifiers of this track."""
-        ...
-
-    @property
-    @abstractmethod
-    def local_ids(self) -> LocalTrackIDs:
-        """The locally unique identifiers of this track."""
-        ...
 
     # ----------------------------------- Other ---------------------------------- #
 
@@ -224,3 +220,60 @@ class Track(ABC):
         artist = self.primary_artist or "?"
         title = self.title or "?"
         return f"{cls}(artist={artist!r}, title={title!r})"
+
+
+class OfflineTrack(Track):
+    """A offline (in memory) track with attached service.
+
+    This class provides a concrete implementation of `Track` for
+    managing tracks in memory without any connection to online music services.
+    It is useful as an intermediate representation during matching or syncing.
+    """
+
+    _info: TrackInfo
+    _local_ids: LocalTrackIDs
+    _global_ids: GlobalTrackIDs
+
+    def __init__(
+        self,
+        info: TrackInfo,
+        local_ids: LocalTrackIDs | None = None,
+        global_ids: GlobalTrackIDs | None = None,
+    ):
+        self._info = info
+        self._local_ids = local_ids or {}
+        self._global_ids = global_ids or {}
+
+    @property
+    def info(self) -> TrackInfo:
+        return self._info
+
+    @property
+    def global_ids(self) -> GlobalTrackIDs:
+        return self._global_ids
+
+    @property
+    def local_ids(self) -> LocalTrackIDs:
+        return self._local_ids
+
+    def merge(self, track: Track) -> OfflineTrack:
+        """Merge another track into this one.
+
+        This operation returns a new offline track
+        with the merged data.
+        """
+        info = copy(self.info)
+        info.update(track.info)
+
+        local_ids = copy(self.local_ids)
+        local_ids.update(track.local_ids)
+
+        global_ids = copy(self.global_ids)
+        global_ids.update(track.global_ids)
+
+        return OfflineTrack(info, local_ids, global_ids)
+
+    @classmethod
+    def from_track(cls, track: Track) -> OfflineTrack:
+        """Create a offline track from arbitrary other track."""
+        return cls(track.info, track.local_ids, track.global_ids)
