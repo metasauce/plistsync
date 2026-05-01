@@ -1,7 +1,7 @@
 import pytest
 from pathlib import PurePath
 
-from plistsync.core.track import Track, GlobalTrackIDs, LocalTrackIDs
+from plistsync.core.track import OfflineTrack, Track, GlobalTrackIDs, LocalTrackIDs
 from tests.abc.tracks import TestTrack
 from .mock_track import MockTrack
 
@@ -237,3 +237,20 @@ class TestTrackDiffs:
         assert diffs["local_ids.file_path"] == (PurePath("/path.mp3"), None)
         assert "local_ids.beets_id" in diffs
         assert diffs["local_ids.beets_id"] == (None, 42)
+
+
+class TestOfflineTrack:
+    def test_merge(self):
+        """Test that the OfflinePlaylist merge works as expected"""
+        track1 = OfflineTrack(info={"title": "Title"}, global_ids={"isrc": "ISRC123"})
+        track2 = OfflineTrack(
+            info={"artists": ["Artist"], "title": "Title2"},
+            local_ids={"file_path": PurePath("/path.mp3")},
+        )
+
+        merged = track1.merge(track2)
+
+        assert merged.artists == ["Artist"]
+        assert merged.path == PurePath("/path.mp3")
+        assert merged.isrc == "ISRC123"
+        assert merged.title == "Title2"  # Precedence of merged track's info

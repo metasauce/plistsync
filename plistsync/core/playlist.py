@@ -276,7 +276,11 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
-        offline = OfflinePlaylist(self.name, self.description, [OfflineTrack.from_track(t) for t in self.tracks])
+        offline = OfflinePlaylist(
+            self.name,
+            self.description,
+            [OfflineTrack.from_track(t) for t in self.tracks],
+        )
         self._remote_delete()
         return offline
 
