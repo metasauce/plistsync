@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.1] - Upcoming
 
+### Added
+
+- Added a migration example to fully copy a playlist from an arbitrary service to another. (#60)
+
 ### Fixed
 
 - When syncing playlists to traktor, we now insert missing tracks into the library collection. This avoids those track to disappear from the playlist when launching Traktor after the sync. (#54)
