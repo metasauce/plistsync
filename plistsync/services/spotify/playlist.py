@@ -45,7 +45,7 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
         # Split playlist & track data to allow lazy loading
         # tracks data includes a cursor to fetch the data
         self.data = data
-        self.tracks_data = data.get("tracks", {})
+        self.tracks_data = data.get("items", {})
         self.library = library
 
         tracks_data_items: list[SpotifyApiPlaylistTrack] = self.tracks_data.get(

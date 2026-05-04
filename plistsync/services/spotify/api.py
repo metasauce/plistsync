@@ -172,9 +172,9 @@ class PlaylistApi:
         ).json()
 
         if preload:
-            plist["tracks"] = {
-                **plist["tracks"],
-                "items": self._load_tracks(plist["tracks"]),
+            plist["items"] = {
+                **plist["items"],
+                "items": self._load_tracks(plist["items"]),
                 "next": None,
             }
         return plist
@@ -337,7 +337,7 @@ class PlaylistApi:
 
         response = self.session.request(
             "PUT",
-            f"/playlists/{playlist_id}/tracks",
+            f"/playlists/{playlist_id}/items",
             json=data,
         )
 
@@ -361,7 +361,7 @@ class PlaylistApi:
         data = {"uris": track_uris}
         response = self.session.request(
             "PUT",
-            f"/playlists/{playlist_id}/tracks",
+            f"/playlists/{playlist_id}/items",
             json=data,
         )
         return response.json()["snapshot_id"]
@@ -373,7 +373,7 @@ class PlaylistApi:
         position: int | None = None,
         snapshot_id: str | None = None,
     ) -> str:
-        """Add tracks to a playlist.
+        """Add items to a playlist.
 
         Parameters
         ----------
@@ -382,14 +382,14 @@ class PlaylistApi:
         track_uris : list[str]
             A list of Spotify track URIs to add to the playlist.
         position : int | None, optional
-            The position to insert the tracks at, by default None (append to end).
+            The position to insert the items at, by default None (append to end).
         snapshot_id : str | None, optional
             The snapshot ID of the playlist, by default None.
 
         Returns
         -------
         str
-            The new snapshot ID of the playlist after adding tracks.
+            The new snapshot ID of the playlist after adding items.
         """
         if len(track_uris) == 0:
             raise ValueError("No track URIs provided to add to playlist")
@@ -404,7 +404,7 @@ class PlaylistApi:
 
             response = self.session.request(
                 "POST",
-                f"/playlists/{playlist_id}/tracks",
+                f"/playlists/{playlist_id}/items",
                 json=body,
             )
             data = response.json()
@@ -437,8 +437,8 @@ class PlaylistApi:
         if plist_data is None:
             plist_data = self.get(playlist_id)
 
-        # Get current playlist tracks
-        playlist_tracks = plist_data.get("tracks", {}).get("items", [])
+        # Get current playlist items
+        playlist_tracks = plist_data.get("items", {}).get("items", [])
         playlist_uris = [item.get("track", {}).get("uri") for item in playlist_tracks]
 
         counter_remove = Counter(remove_uris)
@@ -531,7 +531,7 @@ class PlaylistApi:
 
             response = self.session.request(
                 "DELETE",
-                f"/playlists/{playlist_id}/tracks",
+                f"/playlists/{playlist_id}/items",
                 json=body,
             )
             data = response.json()

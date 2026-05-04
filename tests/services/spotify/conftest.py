@@ -32,7 +32,7 @@ def playlist_data() -> SpotifyApiPlaylistResponseFull:
         "snapshot_id": "MTMsMDAwMDAwMDAsMDAwMDAwMDAwMDAwMDAwMDA=",
         "type": "playlist",
         "uri": "spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
-        "tracks": {
+        "items": {
             "href": "https://api.spotify.com/v1/playlists/37i9dQZF1DXcBWIGoYBM5M/tracks",
             "total": 1,
             "next": None,

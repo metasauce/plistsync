@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - When syncing playlists to traktor, we now insert missing tracks into the library collection. This avoids those track to disappear from the playlist when launching Traktor after the sync. (#54)
+- Adjusted spotify api layer for deprecations
 
 ## [0.6.0] - 2026-04-18
 
