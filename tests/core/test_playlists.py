@@ -6,6 +6,7 @@ from plistsync.core.playlist import (
     OfflinePlaylist,
     Snapshot,
 )
+from plistsync.core.track import OfflineTrack
 
 from ..core.mock_playlist import MockMultiRequestServicePlaylist, MockServicePlaylist
 from ..core.mock_track import MockTrack
@@ -21,7 +22,10 @@ class TestOfflinePlaylist(TestPlaylistBase):
         return OfflinePlaylist(
             name,
             "description",
-            [MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+            [
+                OfflineTrack(info={"title": f"Track {i}"}, global_ids={"isrc": str(i)})
+                for i in range(n_tracks)
+            ],
         )
 
     @pytest.mark.parametrize(
