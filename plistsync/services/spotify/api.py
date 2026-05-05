@@ -680,21 +680,3 @@ class UserApi:
         # we need to dedupe here
         ids_to_playlists = {p["id"]: p for p in playlists_details}
         return list(ids_to_playlists.values())
-
-
-def extract_spotify_playlist_id(url_or_uri: str) -> str | None:
-    """Extract the Spotify ID from a playlist URL or URI."""
-    # Pattern matches:
-    # spotify:playlist:<id>
-    # https?://open.spotify.com/playlist/<id>
-    # open.spotify.com/playlist/<id> (without protocol)
-
-    import re
-
-    pattern = r"(?:spotify:playlist:|(?:https?://)?open\.spotify\.com/playlist/)([a-zA-Z0-9]+)"
-    match = re.search(pattern, url_or_uri)
-    if match:
-        return match.group(1)
-    else:
-        log.debug(f"Invalid Spotify playlist URL or URI: {url_or_uri}")
-        return None

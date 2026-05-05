@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistIDs,
+    PlaylistID,
     PlaylistInfo,
 )
 
@@ -20,6 +22,44 @@ from .track import SpotifyPlaylistTrack, SpotifyTrack
 
 if TYPE_CHECKING:
     from .library import SpotifyLibrary
+
+
+@dataclass(frozen=True)
+class SpotifyPlaylistID(PlaylistID):
+    service_name: ClassVar[str] = "spotify"
+    id: str
+
+    @property
+    def url(self) -> str:
+        """URL to the playlist."""
+        return f"https://open.spotify.com/playlist/{self.id}"
+
+    @classmethod
+    def parse(cls, value: str) -> SpotifyPlaylistID:
+        """Parse from URL, URI, or raw id."""
+        value = value.strip()
+
+        # URL (https://open.spotify.com/playlist/<id>)
+        if m := re.search(r"open\.spotify\.com/playlist/([A-Za-z0-9]{22})", value):
+            return cls(m.group(1))
+
+        # URI (spotify:playlist:<id> or spotify:<id>)
+        if m := re.match(r"spotify:(?:playlist:)?([A-Za-z0-9]{22})$", value):
+            return cls(m.group(1))
+
+        # Plain id
+        if re.fullmatch(r"[A-Za-z0-9]{22}", value):
+            return cls(value)
+
+        raise ValueError(f"Invalid Spotify playlist id: {value!r}")
+
+    def serialize(self) -> str:
+        """Canonical Spotify URI."""
+        return f"spotify:playlist:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display (just the raw id)."""
+        return self.id
 
 
 class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
@@ -109,18 +149,13 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
         self._tracks = list(map(convert, value))
 
     @property
-    def ids(self) -> PlaylistIDs:
-        """Unique identifiers of the playlist."""
-        return PlaylistIDs(spotify_id=self.data["id"])
-
-    @property
-    def id(self) -> str:
-        return self.data["id"]
+    def id(self) -> SpotifyPlaylistID:
+        return SpotifyPlaylistID(self.data["id"])
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
 
     def _remote_delete(self):
-        self.api.playlist.delete(self.id)
+        self.api.playlist.delete(str(self.id))
 
     # -------------- Required (MultiRequestServicePlaylist protocol) ------------- #
 
@@ -131,7 +166,7 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
         tracks_before: list[SpotifyPlaylistTrack],
     ) -> None:
         track_uris = [t.uri for t in track] if isinstance(track, list) else [track.uri]
-        self.api.playlist.add_tracks(self.id, track_uris, idx)
+        self.api.playlist.add_tracks(str(self.id), track_uris, idx)
 
     def _remote_delete_track(
         self,
@@ -141,7 +176,7 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
     ):
         track_uris = [t.uri for t in track] if isinstance(track, list) else [track.uri]
         self.api.playlist.remove_tracks(
-            self.id, track_uris, [i for i in range(idx, idx - len(track_uris), -1)]
+            str(self.id), track_uris, [i for i in range(idx, idx - len(track_uris), -1)]
         )
 
     def _remote_move_track(
@@ -152,7 +187,7 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
         tracks_before: list[SpotifyPlaylistTrack],
     ) -> None:
         self.api.playlist.reorder_tracks(
-            playlist_id=self.id,
+            playlist_id=str(self.id),
             range_start=old_idx,
             range_length=1,
             insert_before=new_idx,
@@ -164,7 +199,7 @@ class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
         new_description=None,
     ):
         self.api.playlist.update(
-            self.id,
+            str(self.id),
             new_name,
             new_description,
         )

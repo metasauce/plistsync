@@ -8,11 +8,11 @@ from plistsync.core.collection import (
     GlobalLookup,
     Library,
 )
-from plistsync.core.playlist import PlaylistIDs
+from plistsync.core.playlist import PlaylistID
 from plistsync.logger import log
 
-from .api import SpotifyApi, extract_spotify_playlist_id
-from .playlist import SpotifyPlaylist
+from .api import SpotifyApi
+from .playlist import SpotifyPlaylist, SpotifyPlaylistID
 from .track import SpotifyTrack
 
 
@@ -51,10 +51,8 @@ class SpotifyLibrary(
     def get_playlist(self, *, name: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(
-        self, *, ids: PlaylistIDs | None = None
+        self, *, id: PlaylistID | str | None = None
     ) -> SpotifyPlaylist | None: ...
-    @overload
-    def get_playlist(self, *, id: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(self, *, url: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
@@ -63,9 +61,8 @@ class SpotifyLibrary(
     def get_playlist(
         self,
         *,
-        ids: PlaylistIDs | None = None,
         name: str | None = None,
-        id: str | None = None,
+        id: PlaylistID | str | None = None,
         url: str | None = None,
         uri: str | None = None,
     ) -> SpotifyPlaylist | None:
@@ -75,36 +72,49 @@ class SpotifyLibrary(
 
         Returns None if not found.
         """
-        if sum(arg is not None for arg in [ids, name, id, url]) != 1:
-            raise ValueError("Exactly one of name, id, ids, or url must be provided")
+        if sum(arg is not None for arg in [id, name, url, uri]) != 1:
+            raise ValueError("Exactly one of name, id, uri, or url must be provided")
 
-        if ids and (spotify_id := ids.get("spotify_id")):
-            id = spotify_id
-        if url is not None:
-            id = extract_spotify_playlist_id(url)
-        if uri is not None:
-            id = extract_spotify_playlist_id(uri)
+        raw: str | PlaylistID
 
-        # Resolve name to id
+        # resolve name via user playlists
         if name is not None:
-            plists = self.api.user.get_playlists(preload=False)
-            for plist in plists:
+            for plist in self.api.user.get_playlists(preload=False):
                 if plist["name"] == name:
-                    id = plist["id"]
+                    raw = plist["id"]
                     break
+            else:
+                log.debug(f"No playlist found for name={name!r}")
+                return None
+        else:
+            # exactly one guaranteed here!
+            raw = id or url or uri  # type: ignore[assignment]
 
-        if id is None:
-            log.debug(f"Could not find playlist for {name=} {uri=} {url=}")
-            return None
+        # normalize into PlaylistID
+        if isinstance(raw, PlaylistID):
+            playlist_id = raw
+        else:
+            try:
+                playlist_id = SpotifyPlaylistID.parse(raw)
+            except ValueError:
+                log.warning(f"Invalid playlist id format: {raw!r}")
+                return None
 
-        #  Direct ID lookup (fastest path)
+        # enforce Spotify boundary
+        if not isinstance(playlist_id, SpotifyPlaylistID):
+            raise TypeError(
+                f"Expected SpotifyPlaylistID, got {type(playlist_id).__name__}"
+            )
+
         try:
             return SpotifyPlaylist(
                 self,
-                self.api.playlist.get(id),
+                self.api.playlist.get(str(playlist_id)),
             )
         except HTTPError as e:
-            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            log.debug(
+                f"Failed to get playlist for {playlist_id=}, likely invalid id: {e}"
+            )
             return None
 
     def create_playlist(
