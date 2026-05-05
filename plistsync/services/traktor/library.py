@@ -5,17 +5,18 @@ from datetime import date, datetime
 from pathlib import Path
 from shutil import copyfile
 from typing import TYPE_CHECKING, overload
+from uuid import UUID
 
 from lxml import etree
 
 from plistsync.config import Config
 from plistsync.core.collection import Library, LocalLookup, TrackStream
-from plistsync.core.playlist import PlaylistIDs
+from plistsync.core.playlist import PlaylistID
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .path import NMLPath
-from .playlist import NMLPlaylist
+from .playlist import NMLPlaylist, NMLPlaylistID
 from .track import NMLPlaylistTrack, NMLTrack
 from .utility import sanitize_plist_name, xpath_string_escape
 
@@ -93,16 +94,15 @@ class NMLLibrary(
     @overload
     def get_playlist(self, *, name: str | None = None) -> NMLPlaylist | None: ...
     @overload
-    def get_playlist(self, *, uuid: str | None = None) -> NMLPlaylist | None: ...
-    @overload
-    def get_playlist(self, *, ids: PlaylistIDs | None = None) -> NMLPlaylist | None: ...
+    def get_playlist(
+        self, *, id: PlaylistID | str | UUID | None = None
+    ) -> NMLPlaylist | None: ...
 
     def get_playlist(
         self,
         *,
-        ids: PlaylistIDs | None = None,
+        id: PlaylistID | str | UUID | None = None,
         name: str | None = None,
-        uuid: str | None = None,
     ) -> NMLPlaylist | None:
         """Get a specific playlist.
 
@@ -110,26 +110,45 @@ class NMLLibrary(
 
         If Ids are not found this raises, but if names are not found it retuns None.
         """
-        if sum(arg is not None for arg in [name, uuid, ids]) != 1:
-            raise ValueError("Exactly one of name, ids or uuid must be provided")
+        if (name is None) == (id is None):
+            raise ValueError("Exactly one of name or id must be provided")
 
-        if ids and (traktor_id := ids.get("traktor_id")):
-            uuid = traktor_id
-
-        root_node: _Element | None = None
-
-        if uuid is not None:
-            root_node = self._get_playlist_root_node_by_uuid(uuid)
-        elif name is not None:
+        # resolve name via user playlists
+        if name is not None:
             s_name = sanitize_plist_name(name)
             if s_name != name:
                 log.warning(
                     f"Playlist name changed from `{name}` to `{s_name}`"
                     " to avoid issues with Traktor.",
                 )
+
             root_node = self._get_playlist_root_node_by_name(s_name)
 
+            if root_node is None:
+                log.debug(f"No playlist found for name={name!r}")
+                return None
+
+            return NMLPlaylist(self, root_node)
+
+        assert id is not None
+
+        # normalize into PlaylistID
+        if isinstance(id, PlaylistID):
+            playlist_id = id
+        else:
+            try:
+                playlist_id = NMLPlaylistID.parse(id)
+            except ValueError:
+                log.warning(f"Invalid playlist id format: {id!r}")
+                return None
+
+        # enforce traktor boundary
+        if not isinstance(playlist_id, NMLPlaylistID):
+            raise TypeError(f"Expected NMLPlaylistID, got {type(playlist_id).__name__}")
+
+        root_node = self._get_playlist_root_node_by_uuid(str(playlist_id))
         if root_node is None:
+            log.debug(f"No playlist found for id={id!r}")
             return None
 
         return NMLPlaylist(self, root_node)

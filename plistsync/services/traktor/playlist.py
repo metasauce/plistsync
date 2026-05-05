@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
-from uuid import uuid4
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
+from uuid import UUID, uuid4
 
 from lxml.etree import Element, SubElement, _Element
 
 from plistsync.core.collection import LocalLookup
 from plistsync.core.playlist import (
-    PlaylistIDs,
+    PlaylistID,
     PlaylistInfo,
     ServicePlaylist,
     Snapshot,
@@ -26,6 +28,52 @@ from .utility import (
 
 if TYPE_CHECKING:
     from .library import NMLLibrary
+
+
+@dataclass(frozen=True)
+class NMLPlaylistID(PlaylistID):
+    service_name: ClassVar[str] = "traktor"
+    id: UUID  # uuid
+
+    @classmethod
+    def parse(cls, value: str | UUID) -> NMLPlaylistID:
+        """Parse from UUID, NML URI, or Traktor export formats."""
+
+        if isinstance(value, UUID):
+            return cls(value)
+
+        value = str(value).strip()
+
+        # direct UUID validation (strict)
+        try:
+            return cls(UUID(value))
+        except (ValueError, AttributeError):
+            pass
+
+        # known URI formats
+        if m := re.search(
+            r"(?:nml:playlist:|traktor:playlist:)([0-9a-fA-F-]{36})", value
+        ):
+            try:
+                return cls(UUID(m.group(1)))
+            except ValueError:
+                pass
+
+        # XML / export formats
+        if m := re.search(r"uuid=['\"]([0-9a-fA-F-]{36})['\"]", value):
+            try:
+                return cls(UUID(m.group(1)))
+            except ValueError:
+                pass
+
+        raise ValueError(f"Invalid Traktor/NML playlist ID: {value!r}")
+
+    def serialize(self) -> str:
+        """Canonical Traktor URI."""
+        return f"traktor:playlist:{self.id.hex}"
+
+    def __str__(self) -> str:
+        return str(self.id.hex)  # Uses hex in internal repr
 
 
 class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
@@ -112,9 +160,9 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
         self._tracks = list(map(convert, value))
 
     @property
-    def ids(self) -> PlaylistIDs:
+    def id(self) -> NMLPlaylistID:
         """Unique identifiers of the playlist."""
-        return PlaylistIDs(traktor_id=self.uuid)
+        return NMLPlaylistID.parse(self.uuid)
 
     @property
     def uuid(self) -> str:
