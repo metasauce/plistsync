@@ -5,10 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.6.1] - Upcoming
+## [0.7.0] - Upcoming
 
 ### Added
 
+- Added typed `Service` marker class with `track_cls`, `library_cls`, `playlist_cls` attributes and module-inferred `name` property, enabling single-handle access to all a service's core types. (#95)
 - Added a migration example to fully copy a playlist from an arbitrary service to another. (#60)
 
 ### Fixed
