@@ -24,7 +24,7 @@ from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, Self, TypedDict
+from typing import ClassVar, Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
 
@@ -33,37 +33,30 @@ from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import OfflineTrack, Track
 
 
-class PlaylistIDs(TypedDict, total=False):
-    """Unique identifiers for a playlist.
+@dataclass(frozen=True)
+class PlaylistID(ABC):
+    """Immutable base for service-specific playlist identifiers.
 
-    Each identifier in this object uniquely identifies a playlist
-    within a specific service. While it is unlikely that multiple
-    IDs are set at the same time, this may be possible in the future.
+    Should contain a unique identifier for a playlist
+    within a specific service.
     """
 
-    spotify_id: str
-    """Spotify ID of the playlist.
+    service_name: ClassVar[str]
 
-    Unique within the Spotify service.
-    """
+    @classmethod
+    @abstractmethod
+    def parse(cls, value: str) -> Self:
+        """Parse from user input (URL, URI, or raw id)."""
+        raise NotImplementedError
 
-    tidal_id: str
-    """Tidal playlist ID.
+    @abstractmethod
+    def serialize(self) -> str:
+        """Canonical service-prefixed representation."""
+        raise NotImplementedError
 
-    Unique within the Tidal service.
-    """
-
-    plex_id: int
-    """Plex ratingKey
-
-    Unique within a plex server.
-    """
-
-    traktor_id: str
-    """Traktor uuid
-
-    Unique within a single nml file.
-    """
+    def __str__(self) -> str:
+        """For domain specific usage"""
+        return self.serialize()
 
 
 class PlaylistInfo(TypedDict, total=False):
@@ -142,7 +135,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
 
     @property
     @abstractmethod
-    def ids(self) -> PlaylistIDs:
+    def id(self) -> PlaylistID:
         """Get the unique identifiers of the playlist."""
         ...
 
