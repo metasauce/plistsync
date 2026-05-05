@@ -1,4 +1,5 @@
 from plistsync.errors import check_imports
+from plistsync.services import Service
 
 check_imports(
     service="plex",
@@ -10,9 +11,17 @@ from .library import PlexLibrary
 from .playlist import PlexPlaylist
 from .track import PlexTrack
 
+
+class PlexService(Service):
+    library_cls = PlexLibrary
+    track_cls = PlexTrack
+    playlist_cls = PlexPlaylist
+
+
 __all__ = [
-    "api",
     "PlexLibrary",
     "PlexPlaylist",
+    "PlexService",
     "PlexTrack",
+    "api",
 ]

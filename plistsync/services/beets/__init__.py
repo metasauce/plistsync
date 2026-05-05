@@ -1,4 +1,5 @@
 from plistsync.errors import check_imports
+from plistsync.services import Service
 
 check_imports(
     service="beets",
@@ -9,4 +10,14 @@ from .collection import BeetsCollection
 from .database import BeetsDatabase
 from .track import BeetsTrack
 
-__all__ = ["BeetsCollection", "BeetsDatabase", "BeetsTrack"]
+
+class BeetsService(Service):
+    track_cls = BeetsTrack
+
+
+__all__ = [
+    "BeetsCollection",
+    "BeetsDatabase",
+    "BeetsService",
+    "BeetsTrack",
+]
