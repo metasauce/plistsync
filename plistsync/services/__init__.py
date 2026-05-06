@@ -51,7 +51,7 @@ class ServiceRegistry:
         """Dynamically import services.NAME module, find Service ABC, instantiate."""
         try:
             module = importlib.import_module(f"{__name__}.{name}")
-        except DependencyError:
+        except (DependencyError, ModuleNotFoundError):
             return None
 
         # Find first Service subclass (assumes 1/module)
