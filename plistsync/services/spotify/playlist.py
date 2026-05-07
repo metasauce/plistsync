@@ -38,7 +38,6 @@ class SpotifyPlaylistID(PlaylistID):
     def parse(cls, value: str) -> SpotifyPlaylistID:
         """Parse from URL, URI, or raw id."""
         value = value.strip()
-
         # URL (https://open.spotify.com/playlist/<id>)
         if m := re.search(r"open\.spotify\.com/playlist/([A-Za-z0-9]{22})", value):
             return cls(m.group(1))

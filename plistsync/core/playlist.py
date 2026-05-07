@@ -23,7 +23,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar, Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
@@ -53,10 +53,6 @@ class PlaylistID(ABC):
     def serialize(self) -> str:
         """Canonical service-prefixed representation."""
         raise NotImplementedError
-
-    def __str__(self) -> str:
-        """For domain specific usage"""
-        return self.serialize()
 
 
 class PlaylistInfo(TypedDict, total=False):
@@ -183,6 +179,69 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
         return len(self.tracks)
 
 
+@dataclass(frozen=True)
+class OfflinePlaylistID(PlaylistID):
+    """A wrapper for one or more service-specific playlist IDs.
+
+    Used for playlists that exist offline and may correspond to multiple
+    service playlists (e.g. a merged playlist spanning Spotify and Plex).
+    """
+
+    service_name: ClassVar[str] = "offline"
+    ids: list[PlaylistID] = field(default_factory=lambda: [])
+
+    def serialize(self) -> str:
+        """Canonical representation: ``offline[<id1>][<id2>][...]``."""
+        parts = "".join(f"[{id_.serialize()}]" for id_ in self.ids)
+        return f"offline{parts}"
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse an offline playlist ID string.
+
+        Format: ``offline[<id1>][<id2>][...]`` where each <idN> is a
+        service-prefixed canonical ID (e.g. ``spotify:playlist:abc123``).
+        """
+        from plistsync.services import ServiceRegistry
+
+        value = value.strip()
+        if not value.startswith("offline["):
+            raise ValueError(f"Invalid OfflinePlaylistID: {value!r}")
+
+        inner = value[len("offline") :]
+        if not inner:
+            raise ValueError(f"Empty OfflinePlaylistID: {value!r}")
+
+        ids: list[PlaylistID] = []
+        while inner:
+            end = inner.find("]")
+            if end == -1:
+                raise ValueError("Unterminated bracket in OfflinePlaylistID")
+            part = inner[:end]
+            inner = inner[end + 1 :]
+            if not inner.startswith("["):
+                if inner:
+                    raise ValueError(f"Expected more IDs but got: {inner!r}")
+                break
+
+            colon_idx = part.find(":")
+            if colon_idx == -1:
+                raise ValueError(f"Cannot determine service for ID part: {part!r}")
+            service_str = part[:colon_idx]
+
+            if not (service := ServiceRegistry.get(service_str)):
+                raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
+
+            if not (playlist_id_cls := service.playlist_id_cls):
+                raise ValueError(
+                    f"Service {service!r} has no PlalistID class registered"
+                )
+
+            ids.append(playlist_id_cls.parse(part))
+
+        return cls(ids)
+
+
 class OfflinePlaylist(Playlist[OfflineTrack]):
     """A offline (in memory) playlist with no service synchronization.
 
@@ -194,7 +253,7 @@ class OfflinePlaylist(Playlist[OfflineTrack]):
 
     _tracks: list[OfflineTrack]
     _info: PlaylistInfo
-    _ids: PlaylistIDs
+    _id: OfflinePlaylistID
 
     def __init__(
         self,
@@ -207,11 +266,11 @@ class OfflinePlaylist(Playlist[OfflineTrack]):
             description=description,
         )
         self._tracks = list(tracks or [])
-        self._ids = PlaylistIDs()
+        self._id = OfflinePlaylistID()
 
     @property
-    def ids(self) -> PlaylistIDs:
-        return self._ids
+    def id(self) -> OfflinePlaylistID:
+        return self._id
 
     @property
     def info(self) -> PlaylistInfo:
@@ -289,7 +348,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         before committing. Use the `edit()` context manager for better
         performance/fewer API requests.
         """
-        truth = self.library.get_playlist_or_raise(ids=self.ids)
+        truth = self.library.get_playlist_or_raise(id=self.id)
         snapshot_before = truth.get_snapshot()
         snapshot_after = self.get_snapshot()
         self._remote_commit(snapshot_before, snapshot_after)

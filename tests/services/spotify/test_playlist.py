@@ -24,21 +24,39 @@ class TestSpotifyPlaylistID:
         "input_str, expected_id",
         [
             # ID only
-            ("abcde", "abcde"),
+            ("37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DXcBWIGoYBM5M"),
             # Short URI format
-            ("spotify:abcde", "abcde"),
+            ("spotify:37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DXcBWIGoYBM5M"),
             # URI formats
-            ("spotify:playlist:abcde", "abcde"),
+            ("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M", "37i9dQZF1DXcBWIGoYBM5M"),
             # URL formats with protocol
-            ("https://open.spotify.com/playlist/abcde", "abcde"),
-            ("http://open.spotify.com/playlist/abcde", "abcde"),
+            (
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
+            (
+                "http://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
             # URL formats without protocol
-            ("open.spotify.com/playlist/abcde", "abcde"),
+            (
+                "open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
             # URLs with query parameters
-            ("https://open.spotify.com/playlist/abcde?si=abc123", "abcde"),
+            (
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc123",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
             # URLs with fragments
-            ("https://open.spotify.com/playlist/abcde#section", "abcde"),
-            ("https://open.spotify.com/playlist/abcde?si=abc123#section", "abcde"),
+            (
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M#section",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
+            (
+                "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M?si=abc123#section",
+                "37i9dQZF1DXcBWIGoYBM5M",
+            ),
         ],
     )
     def test_valid_inputs(self, input_str, expected_id):

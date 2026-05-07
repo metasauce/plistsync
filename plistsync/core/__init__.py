@@ -8,7 +8,7 @@ and path rewriting.
 
 from .collection import Collection, Library
 from .matching import Matches
-from .playlist import Playlist, ServicePlaylist
+from .playlist import Playlist, PlaylistID, ServicePlaylist
 from .rewrite import PathRewrite
 from .track import GlobalTrackIDs, Track
 
@@ -19,6 +19,7 @@ __all__ = [
     "Track",
     "GlobalTrackIDs",
     "Playlist",
+    "PlaylistID",
     "ServicePlaylist",
     "Matches",
 ]
