@@ -179,116 +179,6 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
         return len(self.tracks)
 
 
-@dataclass(frozen=True)
-class OfflinePlaylistID(PlaylistID):
-    """A wrapper for one or more service-specific playlist IDs.
-
-    Used for playlists that exist offline and may correspond to multiple
-    service playlists (e.g. a merged playlist spanning Spotify and Plex).
-    """
-
-    service_name: ClassVar[str] = "offline"
-    ids: list[PlaylistID] = field(default_factory=lambda: [])
-
-    def serialize(self) -> str:
-        """Canonical representation: ``offline[<id1>][<id2>][...]``."""
-        parts = "".join(f"[{id_.serialize()}]" for id_ in self.ids)
-        return f"offline{parts}"
-
-    @classmethod
-    def parse(cls, value: str) -> Self:
-        """Parse an offline playlist ID string.
-
-        Format: ``offline[<id1>][<id2>][...]`` where each <idN> is a
-        service-prefixed canonical ID (e.g. ``spotify:playlist:abc123``).
-        """
-        from plistsync.services import ServiceRegistry
-
-        value = value.strip()
-        if not value.startswith("offline["):
-            raise ValueError(f"Invalid OfflinePlaylistID: {value!r}")
-
-        inner = value[len("offline") :]
-        if not inner:
-            raise ValueError(f"Empty OfflinePlaylistID: {value!r}")
-
-        ids: list[PlaylistID] = []
-        while inner:
-            end = inner.find("]")
-            if end == -1:
-                raise ValueError("Unterminated bracket in OfflinePlaylistID")
-            part = inner[:end]
-            inner = inner[end + 1 :]
-            if not inner.startswith("["):
-                if inner:
-                    raise ValueError(f"Expected more IDs but got: {inner!r}")
-                break
-
-            colon_idx = part.find(":")
-            if colon_idx == -1:
-                raise ValueError(f"Cannot determine service for ID part: {part!r}")
-            service_str = part[:colon_idx]
-
-            if not (service := ServiceRegistry.get(service_str)):
-                raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
-
-            if not (playlist_id_cls := service.playlist_id_cls):
-                raise ValueError(
-                    f"Service {service!r} has no PlalistID class registered"
-                )
-
-            ids.append(playlist_id_cls.parse(part))
-
-        return cls(ids)
-
-
-class OfflinePlaylist(Playlist[OfflineTrack]):
-    """A offline (in memory) playlist with no service synchronization.
-
-    This class provides a concrete implementation of `Playlist` for
-    managing playlists in memory without any connection to online music services.
-    It is useful for testing, temporary playlist manipulation, or as an intermediate
-    representation during playlist conversions.
-    """
-
-    _tracks: list[OfflineTrack]
-    _info: PlaylistInfo
-    _id: OfflinePlaylistID
-
-    def __init__(
-        self,
-        name: str,
-        description: str | None = None,
-        tracks: Sequence[OfflineTrack] | None = None,
-    ) -> None:
-        self._info = PlaylistInfo(
-            name=name,
-            description=description,
-        )
-        self._tracks = list(tracks or [])
-        self._id = OfflinePlaylistID()
-
-    @property
-    def id(self) -> OfflinePlaylistID:
-        return self._id
-
-    @property
-    def info(self) -> PlaylistInfo:
-        return self._info
-
-    @info.setter
-    def info(self, value: PlaylistInfo) -> None:
-        self._info = value
-
-    @property
-    def tracks(self) -> list[OfflineTrack]:
-        return self._tracks
-
-    @tracks.setter
-    def tracks(self, value: list[OfflineTrack]) -> None:
-        self._tracks = value
-
-
 class ServicePlaylist(Generic[T], Playlist[T], ABC):
     """Abstract base class for playlists synchronized with music services.
 
@@ -567,3 +457,121 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
         across service lifetime (track ID, URI, etc).
         """
         ...
+
+
+# ----------------------------- Offline Playlist ----------------------------- #
+# TODO: We should move this into another file
+
+
+@dataclass(frozen=True)
+class OfflinePlaylistID(PlaylistID):
+    """A wrapper for one or more service-specific playlist IDs.
+
+    Used for playlists that exist offline and may correspond to multiple
+    service playlists (e.g. a merged playlist spanning Spotify and Plex).
+    """
+
+    service_name: ClassVar[str] = "offline"
+    ids: list[PlaylistID] = field(default_factory=lambda: [])
+
+    def serialize(self) -> str:
+        """Canonical representation: ``offline[<id1>][<id2>][...]``."""
+        parts = "".join(f"[{id_.serialize()}]" for id_ in self.ids)
+        return f"offline{parts}"
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse an offline playlist ID string.
+
+        Format: ``offline[<id1>][<id2>][...]`` where each <idN> is a
+        service-prefixed canonical ID (e.g. ``spotify:playlist:abc123``).
+        """
+        from plistsync.services import ServiceRegistry
+
+        value = value.strip()
+        if not value.startswith("offline["):
+            raise ValueError(f"Invalid OfflinePlaylistID: {value!r}")
+
+        inner = value[len("offline") :]
+        if not inner:
+            raise ValueError(f"Empty OfflinePlaylistID: {value!r}")
+
+        ids: list[PlaylistID] = []
+        while inner:
+            if not inner.startswith("["):
+                raise ValueError(f"Expected '[' but got: {inner!r}")
+            inner = inner[1:]  # skip opening bracket
+            end = inner.find("]")
+            if end == -1:
+                raise ValueError("Unterminated bracket in OfflinePlaylistID")
+            part = inner[:end]
+            inner = inner[end + 1 :]
+            if not part:
+                raise ValueError("Empty ID part in OfflinePlaylistID")
+
+            colon_idx = part.find(":")
+            if colon_idx == -1:
+                raise ValueError(f"Cannot determine service for ID part: {part!r}")
+            service_str = part[:colon_idx]
+
+            if not (service := ServiceRegistry.get(service_str)):
+                raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
+
+            if not (playlist_id_cls := service.playlist_id_cls):
+                raise ValueError(
+                    f"Service {service!r} has no PlalistID class registered"
+                )
+
+            ids.append(playlist_id_cls.parse(part))
+
+        if inner:
+            raise ValueError(f"Expected more IDs but got: {inner!r}")
+
+        return cls(ids)
+
+
+class OfflinePlaylist(Playlist[OfflineTrack]):
+    """A offline (in memory) playlist with no service synchronization.
+
+    This class provides a concrete implementation of `Playlist` for
+    managing playlists in memory without any connection to online music services.
+    It is useful for testing, temporary playlist manipulation, or as an intermediate
+    representation during playlist conversions.
+    """
+
+    _tracks: list[OfflineTrack]
+    _info: PlaylistInfo
+    _id: OfflinePlaylistID
+
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: Sequence[OfflineTrack] | None = None,
+    ) -> None:
+        self._info = PlaylistInfo(
+            name=name,
+            description=description,
+        )
+        self._tracks = list(tracks or [])
+        self._id = OfflinePlaylistID()
+
+    @property
+    def id(self) -> OfflinePlaylistID:
+        return self._id
+
+    @property
+    def info(self) -> PlaylistInfo:
+        return self._info
+
+    @info.setter
+    def info(self, value: PlaylistInfo) -> None:
+        self._info = value
+
+    @property
+    def tracks(self) -> list[OfflineTrack]:
+        return self._tracks
+
+    @tracks.setter
+    def tracks(self, value: list[OfflineTrack]) -> None:
+        self._tracks = value
