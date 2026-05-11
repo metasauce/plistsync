@@ -28,20 +28,47 @@ class TestTidalPlaylistID:
         "input_str, expected_id",
         [
             # ID only (numeric)
-            ("12345678", "12345678"),
+            (
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
             # URI format
-            ("tidal:playlist:12345678", "12345678"),
+            (
+                "tidal:playlist:33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
             # URL formats with protocol
-            ("https://listen.tidal.com/playlist/12345678", "12345678"),
-            ("http://listen.tidal.com/playlist/12345678", "12345678"),
+            (
+                "https://listen.tidal.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
+            (
+                "http://listen.tidal.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
             # URL formats without protocol
-            ("listen.tidal.com/playlist/12345678", "12345678"),
+            (
+                "listen.tidal.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
             # Alternate browse URL
-            ("https://tidal.com/browse/playlist/12345678", "12345678"),
+            (
+                "https://tidal.com/browse/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
             # URLs with query parameters / fragments
-            ("https://listen.tidal.com/playlist/12345678?foo=bar", "12345678"),
-            ("https://listen.tidal.com/playlist/12345678#section", "12345678"),
-            ("https://tidal.com/browse/playlist/12345678?x=1#y", "12345678"),
+            (
+                "https://listen.tidal.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157?foo=bar",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
+            (
+                "https://listen.tidal.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157#section",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
+            (
+                "https://tidal.com/browse/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157?x=1#y",
+                "33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            ),
         ],
     )
     def test_valid_inputs(self, input_str, expected_id):
@@ -52,19 +79,19 @@ class TestTidalPlaylistID:
         "invalid_input",
         [
             # Wrong type
-            "tidal:track:12345678",
-            "tidal:album:12345678",
+            "tidal:track:33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            "tidal:album:33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
             # Wrong domain / service
-            "https://open.spotify.com/playlist/12345678",
-            "https://music.apple.com/playlist/12345678",
-            "https://youtube.com/playlist/12345678",
+            "https://open.spotify.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            "https://music.apple.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
+            "https://youtube.com/playlist/33f585f7-3da8-4e4a-a7f9-403ac9cdd157",
             # Malformed
             "tidal:playlist:",  # no id
             "listen.tidal.com/playlist/",  # no id
             "https://listen.tidal.com/playlist/",  # no id
             # Non-numeric id
             "abcdefg",
-            "tidal:playlist:abc123",
+            "tidal:playlist:non_hex_chars",
             # Garbage
             "just a random string",
             "",

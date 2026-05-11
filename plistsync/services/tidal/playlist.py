@@ -37,15 +37,15 @@ class TidalPlaylistID(PlaylistID):
         value = value.strip()
 
         # URL (https://listen.tidal.com/playlist/<id>)
-        if m := re.search(r"tidal\.com/(?:browse/)?playlist/(\d+)", value):
+        if m := re.search(r"tidal\.com/(?:browse/)?playlist/([a-f0-9-]+)", value):
             return cls(m.group(1))
 
         # URI (tidal:playlist:<id>)
-        if m := re.match(r"tidal:playlist:(\d+)$", value):
+        if m := re.match(r"tidal:playlist:([a-f0-9-]+)$", value):
             return cls(m.group(1))
 
         # Plain id (numeric)
-        if re.fullmatch(r"\d+", value):
+        if re.fullmatch(r"[a-f0-9-]+", value):
             return cls(value)
 
         raise ValueError(f"Invalid TIDAL playlist id: {value!r}")
@@ -56,7 +56,11 @@ class TidalPlaylistID(PlaylistID):
         return f"tidal:playlist:{self.id}"
 
     def __str__(self) -> str:
-        """Compact display, undestood by Tidal API."""
+        """
+        Compact display, undestood by Tidal API.
+
+        Typical format: 33f585f7-3da8-4e4a-a7f9-403ac9cdd157
+        """
         return self.id
 
 
