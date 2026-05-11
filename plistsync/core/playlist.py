@@ -22,8 +22,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
-from copy import deepcopy
-from dataclasses import dataclass, field
+from copy import copy, deepcopy
+from dataclasses import dataclass
 from typing import ClassVar, Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
@@ -39,6 +39,13 @@ class PlaylistID(ABC):
 
     Should contain a unique identifier for a playlist
     within a specific service.
+    Should not be passed down to the API layer of a service.
+    There, the native, service-specific representation should be used,
+    e.g. a simple `id` string for spotify, or the int `id` for plex.
+
+    We need this abstraction to allow us to load and save playlists in a generic
+    way — i.e. to implement the loading logic only once but have it work for
+    all services.
     """
 
     service_name: ClassVar[str]
@@ -49,10 +56,23 @@ class PlaylistID(ABC):
         """Parse from user input (URL, URI, or raw id)."""
         raise NotImplementedError
 
+    @property
     @abstractmethod
-    def serialize(self) -> str:
-        """Canonical service-prefixed representation."""
+    def serial(self) -> str:
+        """
+        Plistsync's internal string-representation of service specific ID.
+
+        Should at least look like `service_name:your_custom:format` but
+        recommended to be similar to e.g. `spotify:playlist:actual_id`.
+
+        By convention, to get the _canonical_ representation that the service API
+        understands, you should define `__str__` or `__int__` methods to get the
+        shorter and convenient values.
+        """
         raise NotImplementedError
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(serial={self.serial!r})"
 
 
 class PlaylistInfo(TypedDict, total=False):
@@ -173,7 +193,10 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
         )
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
+        return (
+            f"{type(self).__name__}(id={self.id.serial!r}, "
+            f"name={self.name!r}, tracks={len(self)})"
+        )
 
     def __len__(self) -> int:
         return len(self.tracks)
@@ -218,11 +241,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
-        offline = OfflinePlaylist(
-            self.name,
-            self.description,
-            [OfflineTrack.from_track(t) for t in self.tracks],
-        )
+        offline = OfflinePlaylist.from_playlist(self)
         self._remote_delete()
         return offline
 
@@ -463,73 +482,6 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
 # TODO: We should move this into another file
 
 
-@dataclass(frozen=True)
-class OfflinePlaylistID(PlaylistID):
-    """A wrapper for one or more service-specific playlist IDs.
-
-    Used for playlists that exist offline and may correspond to multiple
-    service playlists (e.g. a merged playlist spanning Spotify and Plex).
-    """
-
-    service_name: ClassVar[str] = "offline"
-    ids: list[PlaylistID] = field(default_factory=lambda: [])
-
-    def serialize(self) -> str:
-        """Canonical representation: ``offline[<id1>][<id2>][...]``."""
-        parts = "".join(f"[{id_.serialize()}]" for id_ in self.ids)
-        return f"offline{parts}"
-
-    @classmethod
-    def parse(cls, value: str) -> Self:
-        """Parse an offline playlist ID string.
-
-        Format: ``offline[<id1>][<id2>][...]`` where each <idN> is a
-        service-prefixed canonical ID (e.g. ``spotify:playlist:abc123``).
-        """
-        from plistsync.services import ServiceRegistry
-
-        value = value.strip()
-        if not value.startswith("offline["):
-            raise ValueError(f"Invalid OfflinePlaylistID: {value!r}")
-
-        inner = value[len("offline") :]
-        if not inner:
-            raise ValueError(f"Empty OfflinePlaylistID: {value!r}")
-
-        ids: list[PlaylistID] = []
-        while inner:
-            if not inner.startswith("["):
-                raise ValueError(f"Expected '[' but got: {inner!r}")
-            inner = inner[1:]  # skip opening bracket
-            end = inner.find("]")
-            if end == -1:
-                raise ValueError("Unterminated bracket in OfflinePlaylistID")
-            part = inner[:end]
-            inner = inner[end + 1 :]
-            if not part:
-                raise ValueError("Empty ID part in OfflinePlaylistID")
-
-            colon_idx = part.find(":")
-            if colon_idx == -1:
-                raise ValueError(f"Cannot determine service for ID part: {part!r}")
-            service_str = part[:colon_idx]
-
-            if not (service := ServiceRegistry.get(service_str)):
-                raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
-
-            if not (playlist_id_cls := service.playlist_id_cls):
-                raise ValueError(
-                    f"Service {service!r} has no PlalistID class registered"
-                )
-
-            ids.append(playlist_id_cls.parse(part))
-
-        if inner:
-            raise ValueError(f"Expected more IDs but got: {inner!r}")
-
-        return cls(ids)
-
-
 class OfflinePlaylist(Playlist[OfflineTrack]):
     """A offline (in memory) playlist with no service synchronization.
 
@@ -541,24 +493,46 @@ class OfflinePlaylist(Playlist[OfflineTrack]):
 
     _tracks: list[OfflineTrack]
     _info: PlaylistInfo
-    _id: OfflinePlaylistID
+    _id_serial: str
 
     def __init__(
         self,
-        name: str,
-        description: str | None = None,
+        id_serial: str,
+        info: PlaylistInfo,
         tracks: Sequence[OfflineTrack] | None = None,
     ) -> None:
-        self._info = PlaylistInfo(
-            name=name,
-            description=description,
-        )
+        self._info = info
         self._tracks = list(tracks or [])
-        self._id = OfflinePlaylistID()
+        self._id_serial = id_serial
+
+    @classmethod
+    def from_playlist(cls, playlist: Playlist) -> OfflinePlaylist:
+        return OfflinePlaylist(
+            id_serial=playlist.id.serial,
+            info=copy(playlist.info),
+            tracks=[OfflineTrack.from_track(t) for t in playlist.tracks],
+        )
 
     @property
-    def id(self) -> OfflinePlaylistID:
-        return self._id
+    def id(self) -> PlaylistID:
+        """PlaylistID retreived from serializid string."""
+
+        from plistsync.services import ServiceRegistry
+
+        colon_idx = self._id_serial.find(":")
+        if colon_idx == -1:
+            raise ValueError(
+                f"Cannot determine service for serial: {self._id_serial!r}"
+            )
+        service_str = self._id_serial[:colon_idx]
+
+        if not (service := ServiceRegistry.get(service_str)):
+            raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
+
+        if not (playlist_id_cls := service.playlist_id_cls):
+            raise ValueError(f"Service {service!r} has no PlalistID class registered")
+
+        return playlist_id_cls.parse(self._id_serial)
 
     @property
     def info(self) -> PlaylistInfo:

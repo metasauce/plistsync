@@ -58,14 +58,17 @@ class PlexPlaylistID(PlaylistID):
 
         raise ValueError(f"Invalid Plex playlist ID: {value!r}")
 
-    def serialize(self) -> str:
-        """Canonical Plex URI."""
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation Plex URI."""
         return f"plex:playlist:{self.id}"
 
     def __str__(self) -> str:
+        """Compact display, understood by Plex API."""
         return str(self.id)
 
     def __int__(self) -> int:
+        """Compact display, understood by Plex API."""
         return self.id
 
 

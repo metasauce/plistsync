@@ -52,8 +52,9 @@ class SpotifyPlaylistID(PlaylistID):
 
         raise ValueError(f"Invalid Spotify playlist id: {value!r}")
 
-    def serialize(self) -> str:
-        """Canonical Spotify URI."""
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation (here matches canonical Spotify URI)."""
         return f"spotify:playlist:{self.id}"
 
     def __str__(self) -> str:

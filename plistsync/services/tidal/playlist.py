@@ -50,12 +50,13 @@ class TidalPlaylistID(PlaylistID):
 
         raise ValueError(f"Invalid TIDAL playlist id: {value!r}")
 
-    def serialize(self) -> str:
-        """Canonical TIDAL URI."""
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for playlistid on Tidal."""
         return f"tidal:playlist:{self.id}"
 
     def __str__(self) -> str:
-        """Compact display."""
+        """Compact display, undestood by Tidal API."""
         return self.id
 
 

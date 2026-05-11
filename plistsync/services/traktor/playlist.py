@@ -68,7 +68,8 @@ class NMLPlaylistID(PlaylistID):
 
         raise ValueError(f"Invalid Traktor/NML playlist ID: {value!r}")
 
-    def serialize(self) -> str:
+    @property
+    def serial(self) -> str:
         """Canonical Traktor URI."""
         return f"traktor:playlist:{self.id.hex}"
 
