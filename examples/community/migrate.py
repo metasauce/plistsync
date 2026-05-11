@@ -12,8 +12,7 @@ import typer
 
 from plistsync.core import Library, Matches, ServicePlaylist, Track
 from plistsync.logger import log
-from plistsync.services.spotify import SpotifyLibrary
-from plistsync.services.tidal import TidalLibrary
+from plistsync.services import ServiceRegistry
 
 
 class MigrationContext(NamedTuple):
@@ -113,12 +112,6 @@ def migrate_library(
         )
 
 
-service_mapping: dict[str, type[SpotifyLibrary] | type[TidalLibrary]] = {
-    "spotify": SpotifyLibrary,
-    "tidal": TidalLibrary,
-}
-
-
 def main(
     from_service: Annotated[
         str,
@@ -145,25 +138,41 @@ def main(
         ),
     ] = True,
 ):
-    if not (from_library := service_mapping.get(from_service.lower())):
+    if not (_from_service := ServiceRegistry.get(from_service.lower())):
         log.error(
-            f"Invalid from_service {from_service!r}."
-            f"Pick one of {service_mapping.keys()}"
-        )
-        sys.exit(1)
-    if not (to_library := service_mapping.get(to_service.lower())):
-        log.error(
-            f"Invalid to_service {to_service!r}. "
-            f"Pick one of {list(service_mapping.keys())}."
+            f"Invalid from_service {from_service!r}.\n"
+            f"Pick one of {list(ServiceRegistry.dict().keys())}"
         )
         sys.exit(1)
 
-    if from_library == to_library:
-        raise ValueError("from_service and to_service must be different!")
+    if _from_service.library_cls is None:
+        log.error(
+            f"Invalid from_service {_from_service}.\n"
+            "Does not support library based operations."
+        )
+        sys.exit(1)
+
+    if not (_to_service := ServiceRegistry.get(to_service.lower())):
+        log.error(
+            f"Invalid to_service {to_service!r}.\n"
+            f"Pick one of {list(ServiceRegistry.dict().keys())}."
+        )
+        sys.exit(1)
+
+    if _to_service.library_cls is None:
+        log.error(
+            f"Invalid to_service {_to_service}.\n"
+            "Does not support library based operations."
+        )
+        sys.exit(1)
+
+    if _from_service == _to_service:
+        log.error("from_service and to_service must be different!")
+        sys.exit(1)
 
     migrate_library(
-        from_library(),
-        to_library(),
+        _from_service.library_cls(),
+        _to_service.library_cls(),
         MigrationContext(overwrite=overwrite, skip_empty=skip_empty),
     )
 
