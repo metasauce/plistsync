@@ -1,7 +1,9 @@
 import logging
+from uuid import UUID
 
 import pytest
 from plistsync.services.traktor import NMLPlaylist, NMLLibrary
+from plistsync.services.traktor.playlist import NMLPlaylistID
 from tests.abc.playlist import (
     TestServicePlaylistBase,
 )
@@ -34,7 +36,7 @@ class TestTidalPlaylistIntegration:
 
         assert len(list(collection._playlist_nodes())) == count_before + 1
         # and it's retrievable via public API
-        fetched = collection.get_playlist_or_raise(uuid=pl_collection.uuid)
+        fetched = collection.get_playlist_or_raise(id=pl_collection.uuid)
         assert fetched.name == "A name"
         assert fetched.uuid == pl_collection.uuid
 
@@ -86,14 +88,11 @@ class TestTidalPlaylistIntegration:
     def test_get(self, collection: NMLLibrary):
         existing_uuid = "6868ecd66b354d37a33b965dae7a82e7"
 
-        pl = collection.get_playlist(ids={"traktor_id": existing_uuid})
+        pl = collection.get_playlist(id=NMLPlaylistID.parse(existing_uuid))
         assert pl is not None
 
         with pytest.raises(ValueError, match="Could not find playlist"):
-            pl = collection.get_playlist_or_raise(ids={"traktor_id": "nope"})
-
-        with pytest.raises(ValueError, match="Could not find playlist"):
-            pl = collection.get_playlist_or_raise(ids={})
+            pl = collection.get_playlist_or_raise(id="nope")
 
     def test_remote_delete(
         self,
@@ -104,4 +103,72 @@ class TestTidalPlaylistIntegration:
         # Remove should work as upserted before
         pl_collection.delete()
 
-        assert collection.get_playlist(uuid=pl_collection.uuid) is None
+        assert collection.get_playlist(id=pl_collection.uuid) is None
+
+
+class TestNMLPlaylistID:
+    @pytest.mark.parametrize(
+        "input_value, expected_id",
+        [
+            # UUID object (direct support)
+            (
+                UUID("550e8400-e29b-41d4-a716-446655440000"),
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            # UUID string (canonical form)
+            (
+                "550e8400-e29b-41d4-a716-446655440000",
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            # Traktor URI formats
+            (
+                "traktor:playlist:550e8400-e29b-41d4-a716-446655440000",
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            (
+                "nml:playlist:550e8400-e29b-41d4-a716-446655440000",
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            # XML / export formats
+            (
+                '<playlist uuid="550e8400-e29b-41d4-a716-446655440000">',
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+            (
+                "<Playlist uuid='550e8400-e29b-41d4-a716-446655440000'>",
+                "550e8400-e29b-41d4-a716-446655440000",
+            ),
+        ],
+    )
+    def test_valid_inputs(self, input_value, expected_id):
+        """Test parsing of valid Traktor/NML UUID inputs."""
+        result = NMLPlaylistID.parse(input_value)
+
+        assert isinstance(result, NMLPlaylistID)
+        assert str(result.id) == expected_id
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            # Wrong services
+            "spotify:playlist:550e8400-e29b-41d4-a716-446655440000",
+            "tidal:playlist:12345678",
+            # Invalid UUIDs
+            "550e8400-e29b-41d4-a716-zzzzzzzzzzzz",
+            "550e8400-e29b-41d4-a716-44665544000",  # too short
+            "550e8400-e29b-41d4-a716-446655440000-extra",
+            # Missing values
+            "traktor:playlist:",
+            "nml:playlist:",
+            "<playlist uuid=''>",
+            # Garbage
+            "not a uuid",
+            "",
+            "12345",
+            "playlist://invalid",
+        ],
+    )
+    def test_invalid_inputs(self, invalid_input):
+        """Test invalid inputs raise ValueError."""
+        with pytest.raises(ValueError):
+            NMLPlaylistID.parse(invalid_input)

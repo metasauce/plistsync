@@ -8,7 +8,7 @@ from abc import ABC
 from functools import cache
 from typing import ClassVar
 
-from plistsync.core import Library, Playlist, Track
+from plistsync.core import Library, Playlist, PlaylistID, Track
 from plistsync.errors import DependencyError
 
 
@@ -26,6 +26,7 @@ class Service(ABC):
     track_cls: ClassVar[type[Track]]
     library_cls: ClassVar[type[Library] | None] = None
     playlist_cls: ClassVar[type[Playlist] | None] = None
+    playlist_id_cls: ClassVar[type[PlaylistID] | None] = None
 
     @property
     def name(self) -> str:

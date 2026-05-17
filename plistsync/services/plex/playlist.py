@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistIDs,
+    PlaylistID,
     PlaylistInfo,
 )
 from plistsync.logger import log
@@ -19,6 +21,55 @@ from .track import PlexTrack
 
 if TYPE_CHECKING:
     from .library import PlexLibrary
+
+
+@dataclass(frozen=True)
+class PlexPlaylistID(PlaylistID):
+    service_name: ClassVar[str] = "plex"
+    id: int
+    # TODO: maybe we can add the server name to truely
+    # make it unique
+
+    @classmethod
+    def parse(cls, value: str | int) -> PlexPlaylistID:
+        """Parse Plex playlist ID from supported formats."""
+
+        if isinstance(value, int):
+            return cls(value)
+
+        value = str(value).strip()
+
+        # plain numeric string
+        if re.fullmatch(r"\d+", value):
+            return cls(int(value))
+
+        # extract first numeric ID after known plex patterns
+        patterns = [
+            r"ratingKey=(\d+)",
+            r"/playlists?/(\d+)",
+            r"playlist/(\d+)",
+            r"plex:playlist:(\d+)",
+            r"plex://[^/]+/.*?/(\d+)",  # plex protocol variants
+        ]
+
+        for pattern in patterns:
+            if m := re.search(pattern, value):
+                return cls(int(m.group(1)))
+
+        raise ValueError(f"Invalid Plex playlist ID: {value!r}")
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation Plex URI."""
+        return f"plex:playlist:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display, understood by Plex API."""
+        return str(self.id)
+
+    def __int__(self) -> int:
+        """Compact display, understood by Plex API."""
+        return self.id
 
 
 class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
@@ -106,19 +157,14 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
         self._tracks = list(value)
 
     @property
-    def ids(self) -> PlaylistIDs:
-        """Unique identifiers of the playlist."""
-        return PlaylistIDs(plex_id=self.id)
-
-    @property
-    def id(self) -> int:
+    def id(self) -> PlexPlaylistID:
         """Get the unique identifier of the playlist (ratingKey)."""
-        return int(self.data["ratingKey"])
+        return PlexPlaylistID(int(self.data["ratingKey"]))
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
 
     def _remote_delete(self):
-        self.api.playlist.delete(self.id)
+        self.api.playlist.delete(int(self.id))
 
     # -------------- Required (MultiRequestServicePlaylist protocol) ------------- #
 
@@ -132,7 +178,7 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
             track = [track]
 
         self.api.playlist.add_tracks(
-            playlist_id=self.id, item_ids=[t.id for t in track]
+            playlist_id=int(self.id), item_ids=[t.id for t in track]
         )
         self._refetch_tracks()
 
@@ -171,7 +217,7 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
 
             pl_item_id = t_data.get("playlistItemID", -1)
 
-            self.api.playlist.remove_track(self.id, pl_item_id)
+            self.api.playlist.remove_track(int(self.id), pl_item_id)
         self._refetch_tracks()
 
     def _remote_move_track(
@@ -198,12 +244,12 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
         if self.tracks_data[old_idx].get("ratingKey", -1) != track.id:
             raise ValueError(f"Key mismatch for {old_idx=} vs {track=}")
 
-        self.api.playlist.move_track(self.id, pl_item_id, after_id)
+        self.api.playlist.move_track(int(self.id), pl_item_id, after_id)
         self._refetch_tracks()
 
     def _remote_update_metadata(self, new_name=None, new_description=None):
         self.api.playlist.update(
-            self.id,
+            int(self.id),
             new_name,
             new_description,
         )
@@ -225,6 +271,6 @@ class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
 
         Only works if the playlist is online.
         """
-        self.tracks_data = self.api.playlist.get_items(self.id)
+        self.tracks_data = self.api.playlist.get_items(int(self.id))
         self._tracks = [PlexTrack(item) for item in self.tracks_data]
         return self._tracks

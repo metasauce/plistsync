@@ -6,6 +6,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
+from plistsync.core import PlaylistID
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     Playlist,
@@ -89,10 +90,10 @@ class TestPlaylistBase(ABC):
         assert len(playlist) == len(dummy_tracks)
         assert playlist.tracks == dummy_tracks
 
-    def test_ids(self, playlist: Playlist) -> None:
-        """Ids can be retrieved"""
+    def test_id(self, playlist: Playlist) -> None:
+        """Id can be retrieved"""
 
-        assert isinstance(playlist.ids, dict)
+        assert isinstance(playlist.id, PlaylistID)
 
     def test_property_name(self, playlist: Playlist) -> None:
         """Name property can be used and reflects the info."""
@@ -168,7 +169,7 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
 
         playlist.update()
 
-        playlist.library.get_playlist_or_raise.assert_called_once_with(ids=playlist.ids)
+        playlist.library.get_playlist_or_raise.assert_called_once_with(id=playlist.id)
         playlist._remote_commit.assert_called_once()
 
     def test_remote_edit(self, playlist: ServicePlaylist):

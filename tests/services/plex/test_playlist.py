@@ -4,7 +4,7 @@ from plistsync.services.plex.api_types import (
     PlexApiPlaylistResponse,
     PlexApiPlaylistTrackResponse,
 )
-from plistsync.services.plex.playlist import PlexPlaylist
+from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 
 
@@ -25,3 +25,59 @@ class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):
         return PlexPlaylist(Mock(), self.playlist_data, [self.playlist_track_data])
 
     # TODO: Add tests for remote_method implementations
+
+
+class TestPlexPlaylistID:
+    @pytest.mark.parametrize(
+        "input_value, expected_id",
+        [
+            # Integer ID (primary Plex format)
+            (12345, 12345),
+            # String integer
+            ("12345", 12345),
+            # ratingKey (common Plex identifier)
+            ("ratingKey=12345", 12345),
+            # Plex web URL
+            ("https://app.plex.tv/web/app#!/playlist/12345", 12345),
+            ("http://127.0.0.1:32400/playlists/12345", 12345),
+            # Plex protocol URL
+            ("plex://playlist/12345", 12345),
+            # Library section URLs
+            ("/playlists/12345", 12345),
+            ("plex://localhost:32400/playlists/12345", 12345),
+            # Common uri
+            ("plex:playlist:12345", 12345),
+        ],
+    )
+    def test_valid_inputs(self, input_value: str | int, expected_id: int) -> None:
+        """Test PlexPlaylistID.parse() extracts correct integer ID."""
+        result = PlexPlaylistID.parse(input_value)
+        assert result.id == expected_id
+        assert isinstance(result, PlexPlaylistID)
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            # Wrong Plex types
+            "ratingKey=abc123",  # non-numeric
+            "playlist=12345",  # wrong prefix
+            # Other services
+            "spotify:playlist:abc123",
+            "https://open.spotify.com/playlist/abc123",
+            "tidal:playlist:12345678",
+            # Malformed/missing ID
+            "https://app.plex.tv/web/app#!/playlist/",
+            "plex://playlist/",
+            "ratingKey=",
+            "",
+            # Non-Plex URLs
+            "https://youtube.com/playlist?v=abc123",
+            # Random garbage
+            "not a plex id",
+            "123.45",  # float
+        ],
+    )
+    def test_invalid_inputs(self, invalid_input: str | int) -> None:
+        """Test invalid inputs raise ValueError."""
+        with pytest.raises(ValueError, match="Invalid Plex playlist ID"):
+            PlexPlaylistID.parse(invalid_input)

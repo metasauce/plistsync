@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Hashable, Sequence
-from typing import TYPE_CHECKING, cast
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistIDs,
+    PlaylistID,
     PlaylistInfo,
     Snapshot,
 )
@@ -17,6 +19,49 @@ from .track import TidalPlaylistTrack, TidalTrack
 
 if TYPE_CHECKING:
     from .library import TidalLibrary
+
+
+@dataclass(frozen=True)
+class TidalPlaylistID(PlaylistID):
+    service_name: ClassVar[str] = "tidal"
+    id: str  # numeric playlist id
+
+    @property
+    def url(self) -> str:
+        """Public web URL."""
+        return f"https://listen.tidal.com/playlist/{self.id}"
+
+    @classmethod
+    def parse(cls, value: str) -> TidalPlaylistID:
+        """Parse from URL, URI, or raw id."""
+        value = value.strip()
+
+        # URL (https://listen.tidal.com/playlist/<id>)
+        if m := re.search(r"tidal\.com/(?:browse/)?playlist/([a-f0-9-]+)", value):
+            return cls(m.group(1))
+
+        # URI (tidal:playlist:<id>)
+        if m := re.match(r"tidal:playlist:([a-f0-9-]+)$", value):
+            return cls(m.group(1))
+
+        # Plain id (numeric)
+        if re.fullmatch(r"[a-f0-9-]+", value):
+            return cls(value)
+
+        raise ValueError(f"Invalid TIDAL playlist id: {value!r}")
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for playlistid on Tidal."""
+        return f"tidal:playlist:{self.id}"
+
+    def __str__(self) -> str:
+        """
+        Compact display, undestood by Tidal API.
+
+        Typical format: 33f585f7-3da8-4e4a-a7f9-403ac9cdd157
+        """
+        return self.id
 
 
 class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
@@ -112,19 +157,14 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         self._tracks = list(map(convert, value))
 
     @property
-    def ids(self) -> PlaylistIDs:
-        """Unique identifiers of the playlist."""
-        return PlaylistIDs(tidal_id=self.data["id"])
-
-    @property
-    def id(self) -> str:
+    def id(self) -> TidalPlaylistID:
         """Tidal Playlist ID."""
-        return self.data["id"]
+        return TidalPlaylistID(self.data["id"])
 
     # -------------------- Required (ServicePlaylist protocol) ------------------- #
 
     def _remote_delete(self):
-        self.api.playlist.delete(self.id)
+        self.api.playlist.delete(str(self.id))
 
     # -------------- Required (MultiRequestServicePlaylist protocol) ------------- #
 
@@ -138,12 +178,12 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
 
         if idx >= len(tracks_before):
             self.api.playlist.add_items(
-                playlist_id=self.id,
+                playlist_id=str(self.id),
                 ids=track_ids,
             )
         else:
             self.api.playlist.add_items(
-                playlist_id=self.id,
+                playlist_id=str(self.id),
                 ids=track_ids,
                 position_before=tracks_before[idx].item_id,
             )
@@ -163,7 +203,7 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
 
         # Deletion is done via itemId (unique in playlist)
         self.api.playlist.remove_items(
-            playlist_id=self.id,
+            playlist_id=str(self.id),
             item_ids=[(t.id, cast(str, t.item_id)) for t in track],
         )
 
@@ -173,7 +213,7 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         new_description: str | None = None,
     ) -> None:
         self.api.playlist.update(
-            id=self.id,
+            id=str(self.id),
             name=new_name,
             description=new_description,
         )

@@ -7,11 +7,11 @@ from requests import HTTPError
 
 from plistsync.core import GlobalTrackIDs, Library, PathRewrite
 from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
-from plistsync.core.playlist import PlaylistIDs
+from plistsync.core.playlist import PlaylistID
 from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 from plistsync.services.local.track import FileCache
-from plistsync.services.plex.playlist import PlexPlaylist
+from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
 from .api import PlexApi
 from .track import PlexTrack
@@ -79,50 +79,62 @@ class PlexLibrary(
         return playlists
 
     @overload
-    def get_playlist(
-        self, *, ids: PlaylistIDs | None = None
-    ) -> PlexPlaylist | None: ...
-    @overload
     def get_playlist(self, *, name: str | None = None) -> PlexPlaylist | None: ...
     @overload
-    def get_playlist(self, *, id: int | None = None) -> PlexPlaylist | None: ...
+    def get_playlist(
+        self, *, id: PlaylistID | str | int | None = None
+    ) -> PlexPlaylist | None: ...
 
     def get_playlist(
         self,
         *,
-        ids: PlaylistIDs | None = None,
         name: str | None = None,
-        id: int | None = None,
+        id: PlaylistID | str | int | None = None,
     ) -> PlexPlaylist | None:
         """Get a specific playlist.
 
         Exactly one of the kwargs must be given. Either search
-        by name or by id (rating_key).
+        by name or by id (rating_key, url...).
 
         Will return None if not found.
 
         Tracks are fetched eagerly.
         """
-        if sum(arg is not None for arg in [ids, name, id]) != 1:
+        if sum(arg is not None for arg in [name, id]) != 1:
             raise ValueError("Exactly one of name, ids or id must be provided")
-
-        if ids and (plex_id := ids.get("plex_id")):
-            id = plex_id
 
         if name is not None:
             id = self.api.converts.playlist_name_to_id(name)
+            if id is None:
+                log.debug(f"No playlist found for name={name!r}")
+                return None
 
-        if id is None:
-            return None
+        # normalize into PlaylistID
+        if isinstance(id, PlaylistID):
+            playlist_id = id
+        else:
+            try:
+                playlist_id = PlexPlaylistID.parse(id)  # type: ignore[arg-type]
+            except ValueError:
+                log.warning(f"Invalid playlist id format: {id!r}")
+                return None
+
+        # enforce plex boundary
+        if not isinstance(playlist_id, PlexPlaylistID):
+            raise TypeError(
+                f"Expected PlexPlaylistID, got {type(playlist_id).__name__}"
+            )
 
         try:
             return PlexPlaylist(
                 library=self,
-                data=self.api.playlist.get(id),
-                tracks_data=self.api.playlist.get_items(id),
+                data=self.api.playlist.get(int(playlist_id)),
+                tracks_data=self.api.playlist.get_items(int(playlist_id)),
             )
         except HTTPError as e:
-            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            log.debug(
+                f"Failed to get playlist for {playlist_id=}, likely invalid id: {e}"
+            )
             return None
 
     def create_playlist(

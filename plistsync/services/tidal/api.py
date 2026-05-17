@@ -808,20 +808,3 @@ def include_to_lookup(included: list[T_Included]) -> LookupDict[T_Included]:
     The key is a tuple of (type, id) and the value is the item dict.
     """
     return {(item["type"], item["id"]): item for item in included}
-
-
-def extract_tidal_playlist_id(url: str) -> str | None:
-    """Extract the Tidal playlist ID from a URL."""
-    # Example URL formats:
-    # https://tidal.com/browse/playlist/{playlist_id}
-    # https://tidal.com/playlist/{playlist_id}
-
-    import re
-
-    pattern = r"tidal\.com/(?:browse/)?playlist/([a-zA-Z0-9]+)"
-    match = re.search(pattern, url)
-    if match:
-        return match.group(1)
-    else:
-        log.debug(f"Invalid Tidal playlist URL: {url}")
-        return None

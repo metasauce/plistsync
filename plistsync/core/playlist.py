@@ -22,9 +22,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
-from copy import deepcopy
+from copy import copy, deepcopy
 from dataclasses import dataclass
-from typing import Generic, Self, TypedDict
+from typing import ClassVar, Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
 
@@ -33,37 +33,46 @@ from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import OfflineTrack, Track
 
 
-class PlaylistIDs(TypedDict, total=False):
-    """Unique identifiers for a playlist.
+@dataclass(frozen=True)
+class PlaylistID(ABC):
+    """Immutable base for service-specific playlist identifiers.
 
-    Each identifier in this object uniquely identifies a playlist
-    within a specific service. While it is unlikely that multiple
-    IDs are set at the same time, this may be possible in the future.
+    Should contain a unique identifier for a playlist
+    within a specific service.
+    Should not be passed down to the API layer of a service.
+    There, the native, service-specific representation should be used,
+    e.g. a simple `id` string for spotify, or the int `id` for plex.
+
+    We need this abstraction to allow us to load and save playlists in a generic
+    way — i.e. to implement the loading logic only once but have it work for
+    all services.
     """
 
-    spotify_id: str
-    """Spotify ID of the playlist.
+    service_name: ClassVar[str]
 
-    Unique within the Spotify service.
-    """
+    @classmethod
+    @abstractmethod
+    def parse(cls, value: str) -> Self:
+        """Parse from user input (URL, URI, or raw id)."""
+        raise NotImplementedError
 
-    tidal_id: str
-    """Tidal playlist ID.
+    @property
+    @abstractmethod
+    def serial(self) -> str:
+        """
+        Plistsync's internal string-representation of service specific ID.
 
-    Unique within the Tidal service.
-    """
+        Should at least look like `service_name:your_custom:format` but
+        recommended to be similar to e.g. `spotify:playlist:actual_id`.
 
-    plex_id: int
-    """Plex ratingKey
+        By convention, to get the _canonical_ representation that the service API
+        understands, you should define `__str__` or `__int__` methods to get the
+        shorter and convenient values.
+        """
+        raise NotImplementedError
 
-    Unique within a plex server.
-    """
-
-    traktor_id: str
-    """Traktor uuid
-
-    Unique within a single nml file.
-    """
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(serial={self.serial!r})"
 
 
 class PlaylistInfo(TypedDict, total=False):
@@ -142,7 +151,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
 
     @property
     @abstractmethod
-    def ids(self) -> PlaylistIDs:
+    def id(self) -> PlaylistID:
         """Get the unique identifiers of the playlist."""
         ...
 
@@ -184,57 +193,13 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
         )
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(name={self.name!r}, tracks={len(self)})"
+        return (
+            f"{type(self).__name__}(id={self.id.serial!r}, "
+            f"name={self.name!r}, tracks={len(self)})"
+        )
 
     def __len__(self) -> int:
         return len(self.tracks)
-
-
-class OfflinePlaylist(Playlist[OfflineTrack]):
-    """A offline (in memory) playlist with no service synchronization.
-
-    This class provides a concrete implementation of `Playlist` for
-    managing playlists in memory without any connection to online music services.
-    It is useful for testing, temporary playlist manipulation, or as an intermediate
-    representation during playlist conversions.
-    """
-
-    _tracks: list[OfflineTrack]
-    _info: PlaylistInfo
-    _ids: PlaylistIDs
-
-    def __init__(
-        self,
-        name: str,
-        description: str | None = None,
-        tracks: Sequence[OfflineTrack] | None = None,
-    ) -> None:
-        self._info = PlaylistInfo(
-            name=name,
-            description=description,
-        )
-        self._tracks = list(tracks or [])
-        self._ids = PlaylistIDs()
-
-    @property
-    def ids(self) -> PlaylistIDs:
-        return self._ids
-
-    @property
-    def info(self) -> PlaylistInfo:
-        return self._info
-
-    @info.setter
-    def info(self, value: PlaylistInfo) -> None:
-        self._info = value
-
-    @property
-    def tracks(self) -> list[OfflineTrack]:
-        return self._tracks
-
-    @tracks.setter
-    def tracks(self, value: list[OfflineTrack]) -> None:
-        self._tracks = value
 
 
 class ServicePlaylist(Generic[T], Playlist[T], ABC):
@@ -276,11 +241,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         as they existed before deletion. This allows the data to be preserved or
         migrated elsewhere even after the remote resource is gone.
         """
-        offline = OfflinePlaylist(
-            self.name,
-            self.description,
-            [OfflineTrack.from_track(t) for t in self.tracks],
-        )
+        offline = OfflinePlaylist.from_playlist(self)
         self._remote_delete()
         return offline
 
@@ -296,7 +257,7 @@ class ServicePlaylist(Generic[T], Playlist[T], ABC):
         before committing. Use the `edit()` context manager for better
         performance/fewer API requests.
         """
-        truth = self.library.get_playlist_or_raise(ids=self.ids)
+        truth = self.library.get_playlist_or_raise(id=self.id)
         snapshot_before = truth.get_snapshot()
         snapshot_after = self.get_snapshot()
         self._remote_commit(snapshot_before, snapshot_after)
@@ -515,3 +476,76 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
         across service lifetime (track ID, URI, etc).
         """
         ...
+
+
+# ----------------------------- Offline Playlist ----------------------------- #
+# TODO: We should move this into another file
+
+
+class OfflinePlaylist(Playlist[OfflineTrack]):
+    """A offline (in memory) playlist with no service synchronization.
+
+    This class provides a concrete implementation of `Playlist` for
+    managing playlists in memory without any connection to online music services.
+    It is useful for testing, temporary playlist manipulation, or as an intermediate
+    representation during playlist conversions.
+    """
+
+    _tracks: list[OfflineTrack]
+    _info: PlaylistInfo
+    _id_serial: str
+
+    def __init__(
+        self,
+        id_serial: str,
+        info: PlaylistInfo,
+        tracks: Sequence[OfflineTrack] | None = None,
+    ) -> None:
+        self._info = info
+        self._tracks = list(tracks or [])
+        self._id_serial = id_serial
+
+    @classmethod
+    def from_playlist(cls, playlist: Playlist) -> OfflinePlaylist:
+        return OfflinePlaylist(
+            id_serial=playlist.id.serial,
+            info=copy(playlist.info),
+            tracks=[OfflineTrack.from_track(t) for t in playlist.tracks],
+        )
+
+    @property
+    def id(self) -> PlaylistID:
+        """PlaylistID retreived from serializid string."""
+
+        from plistsync.services import ServiceRegistry
+
+        colon_idx = self._id_serial.find(":")
+        if colon_idx == -1:
+            raise ValueError(
+                f"Cannot determine service for serial: {self._id_serial!r}"
+            )
+        service_str = self._id_serial[:colon_idx]
+
+        if not (service := ServiceRegistry.get(service_str)):
+            raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
+
+        if not (playlist_id_cls := service.playlist_id_cls):
+            raise ValueError(f"Service {service!r} has no PlalistID class registered")
+
+        return playlist_id_cls.parse(self._id_serial)
+
+    @property
+    def info(self) -> PlaylistInfo:
+        return self._info
+
+    @info.setter
+    def info(self, value: PlaylistInfo) -> None:
+        self._info = value
+
+    @property
+    def tracks(self) -> list[OfflineTrack]:
+        return self._tracks
+
+    @tracks.setter
+    def tracks(self, value: list[OfflineTrack]) -> None:
+        self._tracks = value

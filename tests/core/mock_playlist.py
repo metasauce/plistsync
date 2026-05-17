@@ -1,18 +1,18 @@
 import random
 from typing import Any
 from unittest.mock import Mock
-from plistsync.core import Track
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     OfflinePlaylist,
     ServicePlaylist,
     Snapshot,
 )
+from plistsync.core.track import OfflineTrack
 
 
 class MockServicePlaylist(
     OfflinePlaylist,
-    ServicePlaylist[Track],
+    ServicePlaylist[OfflineTrack],
 ):
     """Mock PlaylistCollection implementation for testing."""
 
@@ -24,13 +24,15 @@ class MockServicePlaylist(
     def _remote_delete(self):
         self.log.append(("remote_delete",))
 
-    def _remote_commit(self, before: Snapshot[Track], after: Snapshot[Track]):
+    def _remote_commit(
+        self, before: Snapshot[OfflineTrack], after: Snapshot[OfflineTrack]
+    ):
         self.log.append(("remote_commit",))
 
 
 class MockMultiRequestServicePlaylist(
     OfflinePlaylist,
-    MultiRequestServicePlaylist[Track],
+    MultiRequestServicePlaylist[OfflineTrack],
 ):
     """Mock IncrementalPlaylistCollection implementation for testing."""
 

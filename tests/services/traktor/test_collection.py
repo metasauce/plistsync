@@ -35,19 +35,19 @@ class TestNMLLibrary(LibraryCollectionTestBase):
     def known_playlists(self):
         return [
             ("name", "Silvester Full Playthrough"),  # By name
-            ("uuid", "6868ecd66b354d37a33b965dae7a82e7"),  # By UUID
+            ("id", "6868ecd66b354d37a33b965dae7a82e7"),  # By UUID
         ]
 
     @property
     def unknown_playlists(self):
         return [
             ("name", "unknown playlist"),
-            ("uuid", "asdasdas"),
+            ("id", "asdasdas"),
         ]
 
-    def test_get_playlist_invalid_args(self, collection):
+    def test_get_playlist_invalid_args(self, collection: NMLLibrary):
         with pytest.raises(ValueError):
-            collection.get_playlist(name="Foo", uuid="bar")
+            collection.get_playlist(name="Foo", id="bar")  # type: ignore
 
     def test_len(self):
         """Test the length of the collection."""
@@ -78,13 +78,13 @@ class TestNMLLibrary(LibraryCollectionTestBase):
     def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
-        p = collection.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
+        p = collection.get_playlist_or_raise(id="6868ecd66b354d37a33b965dae7a82e7")
         p.name = new_name
         collection.write()
 
         # After reload should be persisteted!
         reloaded = NMLLibrary(collection.path)
-        p2 = reloaded.get_playlist_or_raise(uuid="6868ecd66b354d37a33b965dae7a82e7")
+        p2 = reloaded.get_playlist_or_raise(id="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
     def test_find_by_local_ids(self, collection: NMLLibrary):

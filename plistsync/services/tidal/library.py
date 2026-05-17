@@ -8,11 +8,11 @@ from plistsync.core.collection import (
     GlobalLookup,
     Library,
 )
-from plistsync.core.playlist import PlaylistIDs
+from plistsync.core.playlist import PlaylistID
 from plistsync.logger import log
 
-from .api import TidalApi, extract_tidal_playlist_id
-from .playlist import TidalPlaylist
+from .api import TidalApi
+from .playlist import TidalPlaylist, TidalPlaylistID
 from .track import TidalTrack
 
 
@@ -41,20 +41,17 @@ class TidalLibrary(
     @overload
     def get_playlist(self, *, name: str | None = None) -> TidalPlaylist | None: ...
     @overload
-    def get_playlist(self, *, id: str | None = None) -> TidalPlaylist | None: ...
+    def get_playlist(
+        self, *, id: PlaylistID | str | int | None = None
+    ) -> TidalPlaylist | None: ...
     @overload
     def get_playlist(self, *, url: str | None = None) -> TidalPlaylist | None: ...
-    @overload
-    def get_playlist(
-        self, *, ids: PlaylistIDs | None = None
-    ) -> TidalPlaylist | None: ...
 
     def get_playlist(
         self,
         *,
-        ids: PlaylistIDs | None = None,
+        id: PlaylistID | str | int | None = None,
         name: str | None = None,
-        id: str | None = None,
         url: str | None = None,
     ) -> TidalPlaylist | None:
         """Get a specific playlist.
@@ -63,38 +60,50 @@ class TidalLibrary(
 
         Returns None if not found.
         """
-        if sum(arg is not None for arg in [ids, name, id, url]) != 1:
-            raise ValueError("Exactly one of name, id, ids, or url must be provided")
+        if sum(arg is not None for arg in [id, name, url]) != 1:
+            raise ValueError("Exactly one of name, id, or url must be provided")
 
-        if ids and (tidal_id := ids.get("tidal_id")):
-            id = tidal_id
+        raw: str | PlaylistID
 
-        if url is not None:
-            id = extract_tidal_playlist_id(url)
-
-        # We fetch all playlists by the user and check if the name matches
-        # Resolve name to id
+        # resolve name via user playlists
         if name is not None:
             playlists, _ = self.api.playlist.get_many_by_user(
                 self.api.user.me()["id"], include=[]
             )
             found = [p for p in playlists if p["attributes"]["name"] == name]
             if len(found) == 0:
-                id = None
+                log.debug(f"No playlist found for name={name!r}")
+                return None
             else:
-                id = found[0]["id"]
+                raw = found[0]["id"]
 
             if len(found) > 1:
-                log.info(f"Found more than one playlist with name {name}, using {id}")
+                log.info(
+                    f"Found more than one playlist with name {name!r}, using {raw}"
+                )
+        else:
+            # exactly one guaranteed here!
+            raw = id or url  # type: ignore[assignment]
 
-        if id is None:
-            log.debug(f"Could not find playlist for {name=} {url=}")
-            return None
+        # normalize into PlaylistID
+        if isinstance(raw, PlaylistID):
+            playlist_id = raw
+        else:
+            try:
+                playlist_id = TidalPlaylistID.parse(raw)
+            except ValueError:
+                log.warning(f"Invalid playlist id format: {raw!r}")
+                return None
 
         try:
-            return TidalPlaylist(self, *self.api.playlist.get(id))
+            return TidalPlaylist(
+                self,
+                *self.api.playlist.get(str(playlist_id)),
+            )
         except HTTPError as e:
-            log.debug(f"Failed to get playlist for {id=}, likely invalid id: {e}")
+            log.debug(
+                f"Failed to get playlist for {playlist_id=}, likely invalid id: {e}"
+            )
             return None
 
     def create_playlist(

@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.0] - Upcoming
 
+### Breaking Changes
+
+- Refactored playlist identifier handling across the codebase by replacing service-specific `PlaylistIds` dictionaries with strongly typed, immutable `PlaylistID` dataclasses for each service (e.g. Spotify, Plex). 
+- Removed obsolete playlist ID extraction utilities that are no longer required under the new identifier system.
+- Updated all playlist operations and internal synchronization flows to use the new typed identifier model consistently.
+
+This improves type safety, clarity, and extensibility for playlist identification and lookup operations. All playlist-related APIs and synchronization logic now operate on explicit identifier types instead of loosely structured dictionaries.
+
 ### Added
 
 - Added typed `Service` marker class with `track_cls`, `library_cls`, `playlist_cls` attributes and module-inferred `name` property, enabling single-handle access to all a service's core types. (#95)

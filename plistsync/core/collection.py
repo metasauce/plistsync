@@ -65,7 +65,7 @@ P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
 
 if TYPE_CHECKING:
-    from .playlist import Playlist, PlaylistIDs
+    from .playlist import Playlist, PlaylistID
 
 Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
 
@@ -408,11 +408,11 @@ class Library(Generic[T, Plist], Collection[T]):
     def get_playlist(
         self,
         *,
-        ids: PlaylistIDs | None = None,
+        id: PlaylistID | str | None = None,
     ) -> Plist | None:
         """Get a playlist by identifier.
 
-        Implement with kwargs like ``name=``, ``id=``, ``url=``, or ``uri=``.
+        Implement with kwargs like ``name=``, ``ids=``, ``url=``, or ``uri=``.
         Return ``None`` for searches that fail.
         """
         ...
@@ -430,13 +430,13 @@ class Library(Generic[T, Plist], Collection[T]):
     def get_playlist_or_raise(
         self,
         *,
-        ids: PlaylistIDs | None = None,
+        id: PlaylistID | str | None = None,
         **kwargs,
     ) -> Plist:
         """Like get_playlist() but raises if no result is found."""
-        playlist = self.get_playlist(ids=ids, **kwargs)
+        playlist = self.get_playlist(id=id, **kwargs)
         if playlist is None:
-            kwargs["ids"] = ids
+            kwargs["id"] = id
             raise ValueError(f"Could not find playlist for {kwargs}")
         return playlist
 
