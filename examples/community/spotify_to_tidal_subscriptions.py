@@ -110,7 +110,7 @@ def transfer_playlist(
 
     # for now, the comparison is mostly isrc based
     tidal_isrcs = [t.isrc for t in tidal_plist.tracks if t.isrc is not None]
-    spotify_isrcs = [t.isrc for t in tidal_plist.tracks if t.isrc is not None]
+    spotify_isrcs = [t.isrc for t in spotify_plist.tracks if t.isrc is not None]
 
     if not insert_only:
         log.info("Removing old tracks from Tidal playlist")
@@ -118,6 +118,7 @@ def transfer_playlist(
             for t in reversed(tidal_plist.tracks):
                 if t.isrc not in spotify_isrcs:
                     tidal_plist.tracks.remove(t)
+        log.info(f"Tidal playlist now has {len(tidal_plist.tracks)} tracks")
 
     log.info("Finding tracks to add on Tidal")
     ids_to_lookup = [
@@ -132,6 +133,7 @@ def transfer_playlist(
     log.info(f"Adding {len(missing_tracks)} tracks to Tidal")
     with tidal_plist.edit():
         tidal_plist.tracks.extend(missing_tracks)
+    log.info(f"Tidal playlist now has {len(tidal_plist.tracks)} tracks")
 
     # log what we have synced
     console = Console()
