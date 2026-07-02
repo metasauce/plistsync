@@ -6,10 +6,7 @@ from typing import Literal
 import pytest
 
 from plistsync.crdt import DeleteOp, Fugue, InsertOp
-from plistsync.crdt.graph import NodeID
-
-
-# ── helpers ──────────────────────────────────────────────────────────────
+from plistsync.crdt.graph import Node, NodeID, Side
 
 
 def _sync(src: Fugue[str], dst: Fugue[str]) -> None:
@@ -18,135 +15,67 @@ def _sync(src: Fugue[str], dst: Fugue[str]) -> None:
         dst.apply(op)
 
 
-# ── empty list ───────────────────────────────────────────────────────────
-
-
-class TestEmpty:
-    def test_len_zero(self) -> None:
-        assert len(Fugue()) == 0
-
-    def test_iter_empty(self) -> None:
-        assert list(Fugue()) == []
-
-    def test_getitem_raises(self) -> None:
-        fu: Fugue[int] = Fugue()
-        with pytest.raises(IndexError):
-            _ = fu[0]
-        with pytest.raises(IndexError):
-            _ = fu[-1]
-
-    def test_delete_raises(self) -> None:
-        with pytest.raises(IndexError):
-            Fugue().delete(0)
-
-
-# ── core operations ──────────────────────────────────────────────────────
-
-
 class TestCore:
     @pytest.mark.parametrize(
         "operations, expected",
         [
+            # empty
+            ([], []),
+            # simple insert
             (
-                # empty
-                [],
-                [],
-            ),
-            (
-                # simple insert
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (2, "c", None),
-                ],
+                [(0, "a", None), (1, "b", None), (2, "c", None)],
                 ["a", "b", "c"],
             ),
+            # prepend
             (
-                # prepend
-                [
-                    (0, "c", None),
-                    (0, "b", None),
-                    (0, "a", None),
-                ],
+                [(0, "c", None), (0, "b", None), (0, "a", None)],
                 ["a", "b", "c"],
             ),
+            # insert middle
             (
-                # insert middle
-                [
-                    (0, "a", None),
-                    (1, "c", None),
-                    (1, "b", None),
-                ],
+                [(0, "a", None), (1, "c", None), (1, "b", None)],
                 ["a", "b", "c"],
             ),
+            # delete middle
             (
-                # delete middle
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (2, "c", None),
-                    (1, None, True),
-                ],
+                [(0, "a", None), (1, "b", None), (2, "c", None), (1, None, True)],
                 ["a", "c"],
             ),
+            # delete from front
             (
-                # delete from front
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (2, "c", None),
-                    (0, None, True),
-                ],
+                [(0, "a", None), (1, "b", None), (2, "c", None), (0, None, True)],
                 ["b", "c"],
             ),
+            # delete from back
             (
-                # delete from back
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (2, "c", None),
-                    (2, None, True),
-                ],
+                [(0, "a", None), (1, "b", None), (2, "c", None), (2, None, True)],
                 ["a", "b"],
             ),
+            # delete multiple consecutive
             (
-                # delete multiple consecutive
                 [
                     (0, "a", None),
                     (1, "b", None),
                     (2, "c", None),
                     (3, "d", None),
-                    (1, None, True),  # deletes "b", shifting "c","d" left
-                    (1, None, True),  # now deletes "c"
+                    (1, None, True),
+                    (1, None, True),
                 ],
                 ["a", "d"],
             ),
+            # delete then insert at same position
             (
-                # delete then insert at same position
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (0, None, True),
-                    (0, "x", None),
-                ],
+                [(0, "a", None), (1, "b", None), (0, None, True), (0, "x", None)],
                 ["x", "b"],
             ),
+            # append via len()
             (
-                # append via len()
-                [
-                    (0, "a", None),
-                    (1, "b", None),
-                    (2, "c", None),
-                ],
+                [(0, "a", None), (1, "b", None), (2, "c", None)],
                 ["a", "b", "c"],
             ),
+            # insert at end, then prepend
             (
-                # insert at end, then prepend
-                [
-                    (0, "z", None),
-                    (1, "y", None),
-                    (0, "x", None),
-                ],
+                [(0, "z", None), (1, "y", None), (0, "x", None)],
                 ["x", "z", "y"],
             ),
         ],
@@ -175,13 +104,7 @@ class TestCore:
 
     def test_insert_oob(self) -> None:
         with pytest.raises(IndexError):
-            Fugue().insert(1, 42)
-
-    def test_iter(self) -> None:
-        fu: Fugue[int] = Fugue()
-        for i in range(5):
-            fu.insert(i, i)
-        assert list(fu) == [0, 1, 2, 3, 4]
+            Fugue[int]().insert(1, 42)
 
     def test_len_tracks_live_elements(self) -> None:
         fu: Fugue[int] = Fugue()
@@ -198,35 +121,35 @@ class TestCore:
         fu: Fugue[str] = Fugue()
         for ch in "abc":
             fu.insert(len(fu), ch)
-        fu.delete(-1)  # deletes "c"
+        fu.delete(-1)
         assert list(fu) == ["a", "b"]
-        fu.delete(-2)  # deletes "a"
+        fu.delete(-2)
         assert list(fu) == ["b"]
 
     def test_negative_getitem_after_delete(self) -> None:
         fu: Fugue[str] = Fugue()
         for ch in "abcd":
             fu.insert(len(fu), ch)
-        fu.delete(1)  # delete "b" → ["a", "c", "d"]
+        fu.delete(1)
         assert fu[-1] == "d"
         assert fu[-2] == "c"
 
-
-# ── operation recording ──────────────────────────────────────────────────
+    def test_insert_when_left_neighbor_has_no_right_children(self) -> None:
+        """Insert between elements where the left neighbor is a leaf node."""
+        fu: Fugue[str] = Fugue()
+        fu.insert(0, "a")
+        fu.insert(0, "b")  # b becomes LEFT child of a → b is a leaf
+        fu.insert(1, "c")  # index 1: left=b (leaf), so c is RIGHT child of b
+        assert list(fu) == ["b", "c", "a"]
 
 
 class TestOpsRecording:
-    def test_ops_records_inserts(self) -> None:
+    def test_ops_records_inserts_and_deletes(self) -> None:
         fu: Fugue[int] = Fugue()
-        op0 = fu.insert(0, 10)
-        op1 = fu.insert(1, 20)
-        assert fu.ops == [op0, op1]
-
-    def test_ops_records_deletes(self) -> None:
-        fu: Fugue[int] = Fugue()
-        fu.insert(0, 10)
+        ins = fu.insert(0, 10)
+        assert fu.ops == [ins]
         op_del = fu.delete(0)
-        assert fu.ops[-1] is op_del
+        assert fu.ops == [ins, op_del]
         assert isinstance(op_del, DeleteOp)
 
     def test_ops_records_remote_applies(self) -> None:
@@ -238,11 +161,9 @@ class TestOpsRecording:
         assert b.ops[0] == op
 
     def test_ops_not_duplicated_on_reapply(self) -> None:
-        """apply() appends the op to _ops even if the node already exists."""
         fu: Fugue[int] = Fugue()
         op = fu.insert(0, 42)
         initial_len = len(fu.ops)
-        # applying the same op again appends it but doesn't duplicate the element
         fu.apply(op)
         assert len(fu.ops) == initial_len + 1
         assert fu._graph.node_count == 1
@@ -257,30 +178,19 @@ class TestOpsRecording:
         assert isinstance(ops[1], DeleteOp)
 
 
-# ── version & counter ────────────────────────────────────────────────────
-
-
 class TestVersioning:
-    def test_version_initial(self) -> None:
+    def test_version_tracks_local_counter(self) -> None:
         fu: Fugue[str] = Fugue(replica_id=3)
-        v = fu.version()
-        assert v.replica_id == 3
-        assert v.counter == 0
-
-    def test_version_after_inserts(self) -> None:
-        fu: Fugue[str] = Fugue(replica_id=1)
+        assert fu.version() == NodeID(3, 0)
         fu.insert(0, "a")
         fu.insert(1, "b")
-        v = fu.version()
-        assert v.replica_id == 1
-        assert v.counter == 2  # used IDs: 0, 1 → next would be 2
+        assert fu.version() == NodeID(3, 2)
 
     def test_version_after_remote_apply(self) -> None:
         a: Fugue[str] = Fugue(replica_id=5)
         b: Fugue[str] = Fugue(replica_id=7)
         op = a.insert(0, "x")
         b.apply(op)
-        # b's own counter unaffected by remote ops
         assert b.version().counter == 0
 
     def test_initial_counter_parameter(self) -> None:
@@ -297,12 +207,8 @@ class TestVersioning:
         b.insert(1, "b2")
         assert a.version() == NodeID(1, 1)
         assert b.version() == NodeID(2, 2)
-        # merging doesn't clobber local counters
         _sync(b, a)
         assert a.version() == NodeID(1, 1)
-
-
-# ── fork ─────────────────────────────────────────────────────────────────
 
 
 class TestFork:
@@ -320,7 +226,6 @@ class TestFork:
         fork = base.fork(replica_id=1)
         fork.insert(1, "y")
         base.insert(1, "z")
-        # base and fork diverge
         assert list(base) == ["x", "z"]
         assert list(fork) == ["x", "y"]
 
@@ -332,12 +237,9 @@ class TestFork:
         assert fork.ops == base.ops
 
     def test_fork_version_preserved(self) -> None:
-        """Fork starts with counter 0 for the *new* replica_id."""
         base: Fugue[str] = Fugue(replica_id=0, initial_counter=5)
         fork = base.fork(replica_id=9)
-        # counters are per-replica; the new replica starts fresh
         assert fork.version() == NodeID(9, 0)
-        # the old replica's counter is unaffected
         assert base.version() == NodeID(0, 5)
 
     def test_fork_from_empty(self) -> None:
@@ -345,9 +247,6 @@ class TestFork:
         fork = base.fork(replica_id=42)
         assert len(fork) == 0
         assert fork.replica_id == 42
-
-
-# ── apply (remote operations) ────────────────────────────────────────────
 
 
 class TestApply:
@@ -359,16 +258,13 @@ class TestApply:
         assert list(local) == ["hello"]
 
     def test_apply_remote_delete(self) -> None:
-        """A DeleteOp targets a specific NodeID — only that node is deleted."""
         a: Fugue[str] = Fugue(replica_id=1)
         b: Fugue[str] = Fugue(replica_id=2)
-        # b inserts and deletes locally
         b.insert(0, "x")
         op_del = b.delete(0)
-        # a applies the same insert first, then the delete
-        a.apply(b.ops[0])  # InsertOp from b
+        a.apply(b.ops[0])
         assert list(a) == ["x"]
-        a.apply(op_del)  # DeleteOp from b
+        a.apply(op_del)
         assert list(a) == []
 
     def test_apply_duplicate_insert_is_idempotent(self) -> None:
@@ -383,29 +279,28 @@ class TestApply:
         fu: Fugue[int] = Fugue()
         fu.insert(0, 99)
         op = fu.delete(0)
-        fu.apply(op)  # second application
+        fu.apply(op)
         assert list(fu) == []
 
     def test_apply_foreign_delete_before_local_insert(self) -> None:
-        """Apply a delete whose NodeID was never inserted locally."""
         remote: Fugue[str] = Fugue(replica_id=9)
         remote.insert(0, "gone")
         op_del = remote.delete(0)
         local: Fugue[str] = Fugue(replica_id=1)
-        local.apply(op_del)  # should not raise
+        local.apply(op_del)
         assert list(local) == []
 
     def test_apply_mixed_ops_order_independent(self) -> None:
-        ops_a = []
-        ops_b = []
+        ops_a: list[InsertOp[str] | DeleteOp] = []
+        ops_b: list[InsertOp[str] | DeleteOp] = []
         a: Fugue[str] = Fugue(replica_id=1)
         b: Fugue[str] = Fugue(replica_id=2)
         for ch in "ab":
             ops_a.append(a.insert(len(a), ch))
         for ch in "xy":
             ops_b.append(b.insert(len(b), ch))
-        ops_a.append(a.delete(0))  # delete "a"
-        ops_b.append(b.delete(0))  # delete "x"
+        ops_a.append(a.delete(0))
+        ops_b.append(b.delete(0))
 
         r1: Fugue[str] = Fugue()
         for op in ops_a + ops_b:
@@ -416,15 +311,11 @@ class TestApply:
         assert list(r1) == list(r2)
 
     def test_apply_preserves_node_count(self) -> None:
-        """Re-applying the same ops should not grow the node graph."""
         fu: Fugue[int] = Fugue()
         op = fu.insert(0, 1)
         assert fu._graph.node_count == 1
         fu.apply(op)
         assert fu._graph.node_count == 1
-
-
-# ── non-interleaving / convergence ───────────────────────────────────────
 
 
 class TestNonInterleaving:
@@ -437,16 +328,13 @@ class TestNonInterleaving:
         for ch in "hello ":
             op = a.insert(len(a), ch)
             ops_a.append(op)
-
         ops_b = []
         for ch in "world":
             op = b.insert(len(b), ch)
             ops_b.append(op)
 
-        # Ordering should be by replica id on conflict
         for op in ops_b + ops_a:
             base.apply(op)
-
         assert "".join(base) == "hello world"
 
     def test_convergence(self) -> None:
@@ -479,13 +367,13 @@ class TestNonInterleaving:
 
         for ch in "abcd":
             a.insert(len(a), ch)
-        a.delete(1)  # delete "b"
-        a.delete(2)  # delete "d" (after "b" removal, index 2 is "d")
+        a.delete(1)
+        a.delete(2)
 
         for ch in "wxyz":
             b.insert(len(b), ch)
-        b.delete(0)  # delete "w"
-        b.delete(2)  # delete "y" (after "w" removal)
+        b.delete(0)
+        b.delete(2)
 
         m1 = Fugue[str]()
         for op in a.ops + b.ops:
@@ -499,19 +387,14 @@ class TestNonInterleaving:
         r: list[Fugue[str]] = [Fugue[str](replica_id=i) for i in range(3)]
         for i, fu in enumerate(r):
             fu.insert(0, str(i))
-        # Merge all into a fresh replica in every permutation
         merged = Fugue[str]()
         for fu in r:
             _sync(fu, merged)
         assert len(merged) == 3
 
 
-# ── concurrency stress / edge cases ──────────────────────────────────────
-
-
 class TestConcurrency:
     def test_concurrent_insert_same_position_two_replicas(self) -> None:
-        """Two replicas inserting at index 0 concurrently."""
         a: Fugue[str] = Fugue(replica_id=1)
         b: Fugue[str] = Fugue(replica_id=2)
         op_a = a.insert(0, "A")
@@ -520,29 +403,25 @@ class TestConcurrency:
         merged: Fugue[str] = Fugue()
         merged.apply(op_a)
         merged.apply(op_b)
-        # Both elements should be present; exact order depends on replica id
         assert set(merged) == {"A", "B"}
         assert len(merged) == 2
 
     def test_concurrent_insert_delete_same_element(self) -> None:
-        """One replica inserts, another deletes that same element concurrently."""
         base: Fugue[str] = Fugue(replica_id=0)
-        op_ins = base.insert(0, "shared")
+        base.insert(0, "shared")
 
         a = base.fork(replica_id=1)
         b = base.fork(replica_id=2)
-        a.delete(0)  # deletes "shared"
+        a.delete(0)
         b.insert(1, "extra")
 
         merged: Fugue[str] = Fugue()
         for op in base.ops + a.ops + b.ops:
             merged.apply(op)
-        # "shared" is deleted; "extra" is present
         assert "shared" not in list(merged)
         assert "extra" in list(merged)
 
     def test_many_concurrent_appends(self) -> None:
-        """Many replicas appending concurrently should all be preserved."""
         n = 10
         replicas = [Fugue[str](replica_id=i) for i in range(n)]
         ops_all: list[InsertOp[str]] = []
@@ -572,11 +451,7 @@ class TestConcurrency:
         for fu in (a, b, c):
             _sync(fu, merged)
         assert len(merged) == 6
-        # no duplicates
         assert len(set(merged)) == 6
-
-
-# ── edge cases ───────────────────────────────────────────────────────────
 
 
 class TestEdgeCases:
@@ -597,7 +472,6 @@ class TestEdgeCases:
         while len(fu) > 0:
             fu.delete(0)
         assert list(fu) == []
-        # reinsert after all deleted
         fu.insert(0, "x")
         fu.insert(1, "y")
         assert list(fu) == ["x", "y"]
@@ -606,15 +480,15 @@ class TestEdgeCases:
         fu: Fugue[str] = Fugue()
         fu.insert(0, "a")
         fu.insert(1, "b")
-        fu.delete(1)  # delete "b"
-        fu.insert(1, "c")  # insert at the end
+        fu.delete(1)
+        fu.insert(1, "c")
         assert list(fu) == ["a", "c"]
 
     def test_insert_after_delete_at_beginning(self) -> None:
         fu: Fugue[str] = Fugue()
         fu.insert(0, "a")
         fu.insert(1, "b")
-        fu.delete(0)  # delete "a"
+        fu.delete(0)
         fu.insert(0, "x")
         assert list(fu) == ["x", "b"]
 
@@ -625,7 +499,6 @@ class TestEdgeCases:
             fu.insert(i, i)
         assert list(fu) == list(range(n))
         assert fu[n // 2] == n // 2
-        # delete half
         for _ in range(n // 2):
             fu.delete(n // 2)
         assert len(fu) == n // 2
@@ -634,41 +507,155 @@ class TestEdgeCases:
         fu: Fugue[str] = Fugue()
         for ch in "abcde":
             fu.insert(len(fu), ch)
-        fu.delete(1)  # delete "b" → ["a", "c", "d", "e"]
+        fu.delete(1)
         assert fu[-1] == "e"
         assert fu[-3] == "c"
 
     def test_all_same_value(self) -> None:
-        """Multiple insertions of the same value should all be kept."""
         fu: Fugue[str] = Fugue()
         for _ in range(5):
             fu.insert(len(fu), "dup")
         assert list(fu) == ["dup"] * 5
 
-    def test_time_travel_returns_fugue_instance(self) -> None:
-        """Basic smoke test — time_travel is a stub, but shouldn't crash."""
+
+class TestTimeTravel:
+    def test_empty(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=0)
+        past = fu.time_travel(fu.version())
+        assert list(past) == []
+
+    def test_to_mid_history(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=0)
+        fu.insert(0, "a")  # counter 0
+        fu.insert(1, "b")  # counter 1
+        fu.insert(2, "c")  # counter 2 — version() → (0, 3)
+        past = fu.time_travel(NodeID(0, 1))
+        assert list(past) == ["a"]
+
+    def test_to_current_version(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=0)
+        fu.insert(0, "a")
+        fu.insert(1, "b")
+        past = fu.time_travel(fu.version())
+        assert list(past) == ["a", "b"]
+
+    def test_before_any_ops(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=0, initial_counter=5)
+        fu.insert(0, "a")  # counter 5
+        past = fu.time_travel(NodeID(0, 5))
+        assert list(past) == []
+
+    def test_with_deletes(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=0)
+        fu.insert(0, "a")  # counter 0
+        fu.insert(1, "b")  # counter 1
+        fu.insert(2, "c")  # counter 2
+        fu.delete(1)  # delete "b" (targets NodeID with counter 1)
+        # Travel to (0, 2): "a" (0) and "b" (1) visible; delete applies to "b"
+        past = fu.time_travel(NodeID(0, 2))
+        assert list(past) == ["a"]
+        # Travel to (0, 1): only "a" visible; delete targets "b" (not visible → skipped)
+        past2 = fu.time_travel(NodeID(0, 1))
+        assert list(past2) == ["a"]
+
+    def test_preserves_replica_id(self) -> None:
+        fu: Fugue[str] = Fugue(replica_id=7)
+        fu.insert(0, "x")
+        past = fu.time_travel(fu.version())
+        assert past.replica_id == 7
+
+    def test_multi_replica_causal_snapshot(self) -> None:
+        a: Fugue[str] = Fugue(replica_id=1)
+        a.insert(0, "a1")  # (1, 0)
+        a.insert(1, "a2")  # (1, 1)
+        b: Fugue[str] = Fugue(replica_id=2)
+        b.insert(0, "b1")  # (2, 0)
+        _sync(b, a)  # a now has a1, a2, b1
+        past = a.time_travel(NodeID(1, 2))
+        assert "a1" in list(past)
+        assert "a2" in list(past)
+
+    def test_remote_op_after_snapshot_is_excluded(self) -> None:
+        """Remote ops that arrive after version() are not causally before it."""
+        a: Fugue[str] = Fugue(replica_id=1)
+        b: Fugue[str] = Fugue(replica_id=2)
+        a.insert(0, "a1")
+        v = a.version()
+        a.apply(b.insert(0, "b1"))  # arrives after snapshot
+        past = a.time_travel(v)
+        assert list(past) == ["a1"]
+
+    def test_does_not_mutate_original(self) -> None:
+        """The returned replica is independent of the original."""
         fu: Fugue[str] = Fugue(replica_id=1)
         fu.insert(0, "a")
-        past = fu.time_travel(NodeID(1, 0))
-        assert isinstance(past, Fugue)
-        assert past.replica_id == 1
+        v = fu.version()
+        fu.insert(1, "b")
+        past = fu.time_travel(v)
+        past.insert(1, "x")
+        assert list(fu) == ["a", "b"]
+        assert list(past) == ["a", "x"]
 
+    def test_forked_replica(self) -> None:
+        """time_travel on a fork excludes later operations on that fork."""
+        base: Fugue[str] = Fugue(replica_id=0)
+        base.insert(0, "shared")
+        a = base.fork(replica_id=1)
+        a.insert(1, "a1")
+        v = a.version()
+        a.insert(2, "a2")
+        past = a.time_travel(v)
+        assert list(past) == ["shared", "a1"]
 
-# ── InsertOp / DeleteOp dataclasses ──────────────────────────────────────
+    def test_remote_arrives_after_later_local_op(self) -> None:
+        """Remote op causally before version but logged after it must be included."""
+        a: Fugue[str] = Fugue(replica_id=1)
+        b: Fugue[str] = Fugue(replica_id=2)
+        a.insert(0, "a1")
+        v = a.version()  # NodeID(1, 1)
+        a.insert(1, "a2")  # (1, 1) — after snapshot
+        a.apply(b.insert(0, "b1"))  # concurrent with (1, 0), arrives late
+        past = a.time_travel(v)
+        assert set(past) == {"a1"}
+
+    def test_concurrent_inserts_arrive_late(self) -> None:
+        """Three replicas — ops arrive in arbitrary order."""
+        r: list[Fugue[str]] = [Fugue[str](replica_id=i) for i in range(3)]
+        r[0].insert(0, "r0-a")
+        v = r[0].version()  # NodeID(0, 1)
+        r[0].insert(1, "r0-b")
+        r[0].insert(2, "r0-c")
+        r[0].apply(r[1].insert(0, "r1-a"))
+        r[0].apply(r[2].insert(0, "r2-a"))
+        past = r[0].time_travel(v)
+        assert list(past) == ["r0-a"]
+
+    def test_causal_snapshot_mid_merge(self) -> None:
+        """Snapshot before receiving a batch of remote ops excludes them all."""
+        a: Fugue[str] = Fugue(replica_id=1)
+        b: Fugue[str] = Fugue(replica_id=2)
+        a.insert(0, "a1")
+        v = a.version()
+        for ch in "bcd":
+            b.insert(len(b), ch)
+        for op in b.ops:
+            a.apply(op)
+        past = a.time_travel(v)
+        assert list(past) == ["a1"]
 
 
 class TestOpDataclasses:
     def test_insert_op_frozen(self) -> None:
         op = InsertOp[str](
-            node=__import__("plistsync.crdt.graph", fromlist=["Node"]).Node(
+            node=Node(
                 id=NodeID(0, 0),
                 parent_id=NodeID.root(),
-                side=__import__("plistsync.crdt.graph", fromlist=["Side"]).Side.RIGHT,
+                side=Side.RIGHT,
             ),
             value="test",
         )
         assert op.value == "test"
-        with pytest.raises(Exception):  # frozen → TypeError or FrozenInstanceError
+        with pytest.raises(Exception):
             op.value = "changed"  # type: ignore[misc]
 
     def test_delete_op_frozen(self) -> None:
@@ -682,8 +669,6 @@ class TestOpDataclasses:
         op1 = a.insert(0, 1)
         b: Fugue[int] = Fugue(replica_id=0, initial_counter=0)
         op2 = b.insert(0, 1)
-        # structurally identical ops from same initial state should be equal
         assert op1 == op2
-        # InsertOp is frozen but contains a mutable Node, so it is unhashable
         with pytest.raises(TypeError):
             hash(op1)

@@ -31,11 +31,7 @@ class DeleteOp:
 
 
 class Fugue(Generic[T]):
-    """Replicatable list .
-
-    Allows concurrent insertions and deletions, while minimizing interleaving
-    of operations from different replicas.
-    """
+    """Replicatable list with non-interleaving concurrent operations."""
 
     def __init__(self, replica_id: int = 0, initial_counter: int = 0) -> None:
         self.replica_id = replica_id
@@ -58,19 +54,16 @@ class Fugue(Generic[T]):
 
     @property
     def ops(self) -> list[InsertOp[T] | DeleteOp]:
-        """Return the list of operations that have been applied to this replica."""
         return self._ops
 
     def insert(self, index: int, value: T) -> InsertOp[T]:
-        """Insert a value at a specific position."""
-        if index < 0 or index > len(self):
+        if not 0 <= index <= len(self):
             raise IndexError(index)
         op = self._make_insert(index, value)
         self._ops.append(op)
         return op
 
     def delete(self, index: int) -> DeleteOp:
-        """Mark a items at a specific position as deleted."""
         if index < 0:
             index += len(self)
         nid = self._graph.nth_live(index)
@@ -80,9 +73,9 @@ class Fugue(Generic[T]):
         return op
 
     def apply(self, op: InsertOp[T] | DeleteOp) -> None:
-        """Apply an remote operation to this replica."""
+        """Apply a remote operation to this replica."""
         if isinstance(op, InsertOp):
-            if op.node.id not in self._graph._nodes:  # type: ignore[attr-defined]
+            if op.node.id not in self._graph:
                 rid = op.node.id.replica_id
                 self._counters[rid] = max(
                     self._counters.get(rid, -1), op.node.id.counter + 1
@@ -102,25 +95,34 @@ class Fugue(Generic[T]):
         self._ops.append(op)
 
     def version(self) -> NodeID:
-        """Return the current version of this replica."""
         c = self._counters.get(self.replica_id, 0)
         return NodeID(self.replica_id, c)
 
     def fork(self, replica_id: int) -> Fugue[T]:
+        """Return an independent copy with a new *replica_id*."""
         new = deepcopy(self)
         new.replica_id = replica_id
         return new
 
     def time_travel(self, version: NodeID) -> Fugue[T]:
-        """Return a new replica at a specific version.
+        """Return a new replica containing only operations causally before *version*."""
+        visible: set[NodeID] = set()
+        root = NodeID.root()
+        nodes = self._graph._nodes
+        for nid in nodes:
+            if nid.replica_id == version.replica_id and nid.counter < version.counter:
+                cur = nid
+                while cur != root and cur not in visible:
+                    visible.add(cur)
+                    cur = nodes[cur].parent_id
 
-        The new replica will contain all operations up to the specified version.
-        """
         new = Fugue[T](replica_id=self.replica_id)
-        # Select all older versions by using the graph stucture
-        # we cant use direct comparisn of the id here and need to use the graph
-        # strucutre
-        # TODO
+        for op in self._ops:
+            if isinstance(op, InsertOp):
+                if op.node.id in visible:
+                    new.apply(op)
+            elif op.node_id in visible:
+                new.apply(op)
         return new
 
     def _next_id(self) -> NodeID:
@@ -131,40 +133,31 @@ class Fugue(Generic[T]):
     def _make_insert(self, index: int, value: T) -> InsertOp[T]:
         nid = self._next_id()
         g = self._graph
-        left = NodeID.root() if index == 0 else g.nth_live(index - 1)
 
-        # Fast path: appending at the end (index == len).
-        # Also covers the first element (len==0, index==0).
         if index == len(g):
+            # Fast path: append (also covers the first element, len==0).
             left = g._full_order[-1] if g._full_order else NodeID.root()
             node = Node(id=nid, parent_id=left, side=Side.RIGHT, right_of_id=None)
             g.fast_append(node)
-            self._values[nid] = value
-            return InsertOp(
-                node=Node(
-                    id=node.id,
-                    parent_id=node.parent_id,
-                    side=node.side,
-                    right_of_id=node.right_of_id,
-                ),
-                value=value,
-            )
-
-        # General path.
-        if not g.has_right(left):
-            node = Node(
-                id=nid,
-                parent_id=left,
-                side=Side.RIGHT,
-                right_of_id=g.right_origin(left),
-            )
-            self._graph.add(node)
-        elif (right := g.right_origin(left)) is not None:
-            node = Node(id=nid, parent_id=right, side=Side.LEFT)
-            self._graph.add(node)
         else:
-            raise RuntimeError("right_origin is None but left has right children")
+            left = NodeID.root() if index == 0 else g.nth_live(index - 1)
+            right = g.right_origin(left)
+
+            if not g.has_right(left):
+                node = Node(id=nid, parent_id=left, side=Side.RIGHT, right_of_id=right)
+            elif right is None:
+                raise RuntimeError("right_origin is None but left has right children")
+            else:
+                node = Node(id=nid, parent_id=right, side=Side.LEFT)
+
+            g.add(node)
+
         self._values[nid] = value
+        return self._op(node, value)
+
+    @staticmethod
+    def _op(node: Node, value: T) -> InsertOp[T]:
+        """Build a serialisable InsertOp (strips internal ``_deleted``)."""
         return InsertOp(
             node=Node(
                 id=node.id,
