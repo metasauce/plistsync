@@ -71,6 +71,8 @@ class Fugue(Generic[T]):
 
     def delete(self, index: int) -> DeleteOp:
         """Mark a items at a specific position as deleted."""
+        if index < 0:
+            index += len(self)
         nid = self._graph.nth_live(index)
         self._graph.delete(nid)
         op = DeleteOp(node_id=nid)
@@ -130,21 +132,38 @@ class Fugue(Generic[T]):
         nid = self._next_id()
         g = self._graph
         left = NodeID.root() if index == 0 else g.nth_live(index - 1)
-        right = g.right_origin(left)
 
+        # Fast path: appending at the end (index == len).
+        # Also covers the first element (len==0, index==0).
+        if index == len(g):
+            left = g._full_order[-1] if g._full_order else NodeID.root()
+            node = Node(id=nid, parent_id=left, side=Side.RIGHT, right_of_id=None)
+            g.fast_append(node)
+            self._values[nid] = value
+            return InsertOp(
+                node=Node(
+                    id=node.id,
+                    parent_id=node.parent_id,
+                    side=node.side,
+                    right_of_id=node.right_of_id,
+                ),
+                value=value,
+            )
+
+        # General path.
         if not g.has_right(left):
             node = Node(
                 id=nid,
                 parent_id=left,
                 side=Side.RIGHT,
-                right_of_id=right,
+                right_of_id=g.right_origin(left),
             )
-        else:
-            if right is None:
-                raise RuntimeError("right_origin is None but left has right children")
+            self._graph.add(node)
+        elif (right := g.right_origin(left)) is not None:
             node = Node(id=nid, parent_id=right, side=Side.LEFT)
-
-        self._graph.add(node)
+            self._graph.add(node)
+        else:
+            raise RuntimeError("right_origin is None but left has right children")
         self._values[nid] = value
         return InsertOp(
             node=Node(
