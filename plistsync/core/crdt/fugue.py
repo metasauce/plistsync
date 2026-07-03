@@ -10,7 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from plistsync.crdt.graph import Graph, Node, NodeID, Side
+from .graph import Graph, Node, NodeID, Side
 
 T = TypeVar("T")
 

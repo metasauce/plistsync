@@ -5,8 +5,8 @@ from typing import Literal
 
 import pytest
 
-from plistsync.crdt import DeleteOp, Fugue, InsertOp, InsertPos
-from plistsync.crdt.graph import NodeID, Side
+from plistsync.core.crdt import DeleteOp, Fugue, InsertOp, InsertPos
+from plistsync.core.crdt.graph import NodeID, Side
 
 
 def _sync(src: Fugue[str], dst: Fugue[str]) -> None:
