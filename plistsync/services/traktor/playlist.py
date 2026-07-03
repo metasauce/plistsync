@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from lxml.etree import Element, SubElement, _Element
@@ -32,7 +32,6 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NMLPlaylistID(PlaylistID):
-    service_name: ClassVar[str] = "traktor"
     id: UUID  # uuid
 
     @classmethod

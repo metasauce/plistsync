@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
@@ -26,7 +26,6 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class SpotifyPlaylistID(PlaylistID):
-    service_name: ClassVar[str] = "spotify"
     id: str
 
     @property

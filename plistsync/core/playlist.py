@@ -24,7 +24,7 @@ from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import copy, deepcopy
 from dataclasses import dataclass
-from typing import ClassVar, Generic, Self, TypedDict
+from typing import Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
 
@@ -37,6 +37,9 @@ from .track import OfflineTrack, Track
 class PlaylistID(ABC):
     """Immutable base for service-specific playlist identifiers.
 
+    Decouples the service-specific representation from the generic playlist
+    management logic.
+
     Should contain a unique identifier for a playlist
     within a specific service.
     Should not be passed down to the API layer of a service.
@@ -44,11 +47,9 @@ class PlaylistID(ABC):
     e.g. a simple `id` string for spotify, or the int `id` for plex.
 
     We need this abstraction to allow us to load and save playlists in a generic
-    way — i.e. to implement the loading logic only once but have it work for
+    way i.e. to implement the loading logic only once but have it work for
     all services.
     """
-
-    service_name: ClassVar[str]
 
     @classmethod
     @abstractmethod
@@ -62,8 +63,8 @@ class PlaylistID(ABC):
         """
         Plistsync's internal string-representation of service specific ID.
 
-        Should at least look like `service_name:your_custom:format` but
-        recommended to be similar to e.g. `spotify:playlist:actual_id`.
+        By convention it should look like `service_name:your_custom:format` e.g.
+        `spotify:playlist:actual_id`. This is not enforced but recommended.
 
         By convention, to get the _canonical_ representation that the service API
         understands, you should define `__str__` or `__int__` methods to get the

@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from collections.abc import Hashable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class TidalPlaylistID(PlaylistID):
-    service_name: ClassVar[str] = "tidal"
     id: str  # numeric playlist id
 
     @property
