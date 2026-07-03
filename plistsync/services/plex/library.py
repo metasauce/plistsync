@@ -5,23 +5,22 @@ from typing import overload
 
 from requests import HTTPError
 
-from plistsync.core import GlobalTrackIDs, Library, PathRewrite
-from plistsync.core.collection import GlobalLookup, LocalLookup, TrackStream
+from plistsync.core import Library, PathRewrite, TrackID
+from plistsync.core.collection import IDLookup, TrackStream
+from plistsync.core.ids import ISRC, FilePath
 from plistsync.core.playlist import PlaylistID
-from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 from plistsync.services.local.track import FileCache
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
 from .api import PlexApi
-from .track import PlexTrack
+from .track import PlexTrack, PlexTrackID
 
 
 class PlexLibrary(
     Library[PlexTrack, PlexPlaylist],
     TrackStream[PlexTrack],
-    LocalLookup[PlexTrack],
-    GlobalLookup[PlexTrack],
+    IDLookup[PlexTrack],
 ):
     """A collection of all tracks in a Plex library section.
 
@@ -197,73 +196,42 @@ class PlexLibrary(
 
         self._fetched = True
 
-    # --------------------------- Lookup Protocols --------------------------- #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_global_ids(
+    def find_by_ids(
         self,
-        global_ids: GlobalTrackIDs,
+        ids: Iterable[TrackID],
         path_rewrite: PathRewrite | None = None,
         file_cache: FileCache | None = None,
-    ):
-        """Find a plex track via isrc.
+    ) -> PlexTrack | None:
+        """Find a track by its identifiers.
 
-        Note: Since isrc is not part of Plex's internal metadata, we have to do file
-        lookups. This will be slow, and requires you to mount the volume that holds
-        the actual tracks on your server.
-
-        Parameters
-        ----------
-        global_ids : GlobalTrackIDs
-            Needs to hold "isrc", otherwise no search is performed.
-        path_rewrite: PathRewrite
-            Rewrite rule to apply on the tracks, before metadata is looked up.
-            Set this if you run plistsync from another machine than your Plex server.
-            In the PathRewrite, "old" would be the Plex server, "new" the local mount.
-        file_cache: FileCache
-            Store the results of costly metadata lookups.
+        Prioritizes PlexTrackID, then FilePath, then ISRC (via file metadata).
         """
-        isrc = global_ids.get("isrc")
-        if isrc is None:
-            return None
-
-        for track in self.tracks:
-            local_track = track.get_local_track(
-                path_rewrite=path_rewrite,
-                file_cache=file_cache,
-            )
-            if local_track.global_ids.get("isrc") == isrc:
-                # TODO: PS 2026-02-13 this needs better abstraction.
-                # -> we want the isrc in the PlexTrack, too.
-                # We should have a library level cache.
-                # It can be auto-generated, preloaded, or gets filled as we fetch here.
-                track.global_ids["isrc"] = isrc
-                return track
-
-    def find_by_local_ids(
-        self, local_ids: LocalTrackIDs, path_rewrite: PathRewrite | None = None
-    ):
-        """Find a track by its plex ID (rating key) or file path.
-
-        Plex id is prioritized.
-
-        Parameters
-        ----------
-        local_ids : LocalTrackIDs
-            may contain plex_id and/pr file_path
-        path_rewrite: PathRewrite
-            Rewrite rule to apply on the tracks, before they are compared to local_ids.
-            Set this if you run plistsync from another machine than your Plex server.
-            In the PathRewrite, "old" would be the Plex server, "new" the local mount.
-        """
-
-        plex_id = local_ids.get("plex_id")
-        file_path = local_ids.get("file_path")
-
-        if path_rewrite is not None and file_path is not None:
-            file_path = path_rewrite.invert.apply(file_path)
+        # Extract known ID types
+        plex_id: str | None = None
+        file_paths: list[FilePath] = []
+        isrc: str | None = None
+        for tid in ids:
+            if isinstance(tid, PlexTrackID):
+                plex_id = str(tid)
+            elif isinstance(tid, FilePath):
+                file_paths.append(tid)
+            elif isinstance(tid, ISRC):
+                isrc = str(tid)
 
         for track in self.tracks:
             if plex_id and track.id == plex_id:
                 return track
-            if file_path and track.path and file_path == track.path:
-                return track
+            for fp in file_paths:
+                if track.path and fp.path == track.path:
+                    return track
+            if isrc:
+                local_track = track.get_local_track(
+                    path_rewrite=path_rewrite,
+                    file_cache=file_cache,
+                )
+                if local_track.isrc == isrc:
+                    return track
+
+        return None

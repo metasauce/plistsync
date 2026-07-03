@@ -1,12 +1,11 @@
-# see also
-# https://www.plexopedia.com/plex-media-server/api/library/music-albums-tracks/
-
 from __future__ import annotations
 
-from pathlib import Path
+from dataclasses import dataclass
+from pathlib import PurePath
+from typing import ClassVar, Self
 
-from plistsync.core import GlobalTrackIDs, PathRewrite, Track
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.core import PathRewrite, Track, TrackID, TrackInfo
+from plistsync.core.ids import FilePath, Scope
 from plistsync.logger import log
 from plistsync.services.plex.api_types import (
     PlexApiPlaylistTrackResponse,
@@ -16,17 +15,48 @@ from plistsync.services.plex.api_types import (
 from ..local.track import FileCache, LocalTrack
 
 
+@dataclass(frozen=True)
+class PlexTrackID(TrackID):
+    """A Plex track identifier (rating key)."""
+
+    # Only unique within a single server
+    scope: ClassVar[Scope] = Scope.LOCAL
+
+    id: str
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse from serial format or raw ID."""
+        value = value.strip()
+        if value.lower().startswith("plex:track:"):
+            value = value[11:]
+        if not value.isdigit():
+            raise ValueError(f"Invalid Plex track id: {value!r}")
+        return cls(value)
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for trackid on Plex."""
+        return f"plex:track:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display, understood by Plex API."""
+        return self.id
+
+
 class PlexTrack(Track):
     """
     Track on a plex media server.
 
-    Ids are specific to one secdion (library) of one server instance.
+    Ids are specific to one section (library) of one server instance.
     (No global lookups)
 
     For the Plex Service, we currently do not distinguish Tracks and PlaylistTracks.
     The reason is that tracks in plex playlists only get one single extra piece
     of information (the playlist_item_id), but we have no info about when they were
     added to the playlist etc.
+
+    see also https://www.plexopedia.com/plex-media-server/api/library/music-albums-tracks/
     """
 
     data: PlexApiTrackResponse | PlexApiPlaylistTrackResponse
@@ -99,29 +129,17 @@ class PlexTrack(Track):
     # --------------------------------- Contracts -------------------------------- #
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        return GlobalTrackIDs()
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        lids = LocalTrackIDs()
-
-        # file path
+    def ids(self) -> frozenset[TrackID]:
+        idents: set[TrackID] = {PlexTrackID(self.id)}
         try:
             p_str = self.data.get("Media", [])[0].get("Part", [])[0].get("file")
-            if p_str is None:
-                raise IndexError("File attribute is None")
-            lids["file_path"] = Path(p_str)
+            if p_str is not None:
+                idents.add(FilePath(PurePath(p_str)))
         except IndexError:
             log.debug(
-                # Plex used to support remote tracks from Tidal.
                 "Could not get path from plex metadata, might be an old tidal track."
             )
-
-        # plex_id
-        lids["plex_id"] = self.id
-
-        return lids
+        return frozenset(idents)
 
     @property
     def info(self) -> TrackInfo:
