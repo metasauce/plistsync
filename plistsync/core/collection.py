@@ -65,7 +65,9 @@ P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
 
 if TYPE_CHECKING:
-    from .playlist import Playlist, PlaylistID
+    from .ids import PlaylistID
+    from .playlist import Playlist
+
 
 Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
 

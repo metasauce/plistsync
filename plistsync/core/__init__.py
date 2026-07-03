@@ -7,8 +7,9 @@ and path rewriting.
 """
 
 from .collection import Collection, Library
+from .ids import PlaylistID
 from .matching import Matches
-from .playlist import Playlist, PlaylistID, ServicePlaylist
+from .playlist import Playlist, ServicePlaylist
 from .rewrite import PathRewrite
 from .track import GlobalTrackIDs, Track
 
