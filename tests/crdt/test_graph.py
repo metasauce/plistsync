@@ -202,3 +202,13 @@ class TestGraphComplex:
         g = _linear_graph(5)
         g.delete(NodeID(0, 2))
         assert g.node_count == 5
+
+    def test_insert_after_delete_uses_correct_live_position(self) -> None:
+        """Adding a node after a deletion must land at the correct live index."""
+        g = _linear_graph(4)
+        g.delete(NodeID(0, 1))
+        # Insert right child of NodeID(0,2): full_pos lands at 4,
+        # but live_order has only 3 elements after the deletion.
+        # The old bug would crash with IndexError on live_order.insert(4, _).
+        g.add(_node(4, NodeID(0, 2), Side.RIGHT))
+        assert g.order() == [NodeID(0, 0), NodeID(0, 2), NodeID(0, 3), NodeID(0, 4)]

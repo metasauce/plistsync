@@ -1,9 +1,4 @@
-"""Graph topology for Fugue — in-order tree with left/right children.
-
-Maintains full-order and live-order lists incrementally so that
-``full_order()``, ``order()``, ``nth_live()`` and ``__len__`` are O(1).
-Subtree sizes are computed lazily with versioned caching.
-"""
+"""Graph topology: in-order tree with left/right children."""
 
 from __future__ import annotations
 
@@ -48,6 +43,7 @@ class Graph:
     """In-order tree with FugueMax sibling ordering."""
 
     __slots__ = (
+        "_full_index",
         "_full_order",
         "_global_version",
         "_left",
@@ -64,6 +60,7 @@ class Graph:
         self._right: defaultdict[NodeID, list[NodeID]] = defaultdict(list)
         self._full_order: list[NodeID] = []
         self._live_order: list[NodeID] = []
+        self._full_index: dict[NodeID, int] = {}
         self._subtree_sizes: dict[NodeID, int] = {}
         self._subtree_versions: dict[NodeID, int] = {}
         self._global_version = 0
@@ -83,7 +80,14 @@ class Graph:
         )
 
         self._full_order.insert(full_pos, node.id)
-        self._live_order.insert(full_pos, node.id)
+        self._full_index[node.id] = full_pos
+        self._rebuild_full_index_from(full_pos + 1)
+
+        # Compute live position: count non-deleted nodes before full_pos
+        live_pos = sum(
+            1 for nid in self._full_order[:full_pos] if not self._nodes[nid]._deleted
+        )
+        self._live_order.insert(live_pos, node.id)
         self._global_version += 1
 
     def fast_append(self, node: Node) -> None:
@@ -91,10 +95,12 @@ class Graph:
         if node.id in self._nodes:
             return
         self._nodes[node.id] = node
+        self._subtree_sizes[node.id] = 1
 
         pid = self._full_order[-1] if self._full_order else NodeID.root()
         self._right[pid].append(node.id)
         self._full_order.append(node.id)
+        self._full_index[node.id] = len(self._full_order) - 1
         self._live_order.append(node.id)
         self._global_version += 1
 
@@ -107,6 +113,7 @@ class Graph:
         if not n._deleted:
             n._deleted = True
             self._live_order.remove(node_id)
+            self._global_version += 1
 
     def __contains__(self, node_id: NodeID) -> bool:
         return node_id in self._nodes
@@ -114,11 +121,16 @@ class Graph:
     def __len__(self) -> int:
         return len(self._live_order)
 
+    def _rebuild_full_index_from(self, start: int) -> None:
+        """Rebuild ``_full_index`` entries from *start* onward."""
+        for i in range(start, len(self._full_order)):
+            self._full_index[self._full_order[i]] = i
+
     def order(self) -> list[NodeID]:
-        return self._live_order
+        return list(self._live_order)
 
     def full_order(self) -> list[NodeID]:
-        return self._full_order
+        return list(self._full_order)
 
     def has_right(self, node_id: NodeID) -> bool:
         return bool(self._right[node_id])
@@ -132,9 +144,9 @@ class Graph:
         if left_id == NodeID.root():
             return full[0] if full else None
         try:
-            i = full.index(left_id)
+            i = self._full_index[left_id]
             return full[i + 1] if i + 1 < len(full) else None
-        except ValueError:
+        except KeyError:
             return None
 
     @property
@@ -142,25 +154,34 @@ class Graph:
         return len(self._nodes)
 
     def ancestor_closure(self, nid: NodeID) -> frozenset[NodeID]:
-        """Return *nid* and all its ancestors (transitive parent chain)."""
+        """Return *nid* and all its ancestors (transitive parent chain).
+
+        Traversal stops early if a parent is missing from the graph or a
+        cycle is detected.
+        """
         nodes = self._nodes
         root = NodeID.root()
         result: set[NodeID] = set()
         cur = nid
         while cur != root and cur not in result:
             result.add(cur)
-            cur = nodes[cur].parent_id
+            try:
+                cur = nodes[cur].parent_id
+            except KeyError:
+                break
         return frozenset(result)
 
-    @staticmethod
-    def _ro_pos(full: list[NodeID], right_of_id: NodeID | None) -> int:
-        """Right-origin position, or ``_END`` if absent."""
+    def _ro_pos(self, right_of_id: NodeID | None) -> int:
+        """Right-origin position, or ``_END`` if absent.
+
+        Returns ``_END`` (a sentinel greater than any valid index) when
+        *right_of_id* is ``None``, and ``-1`` when the ID cannot be found.
+        This means a missing ``right_of_id`` sorts before every present
+        node, while ``None`` sorts after everything.
+        """
         if right_of_id is None:
             return _END
-        try:
-            return full.index(right_of_id)
-        except ValueError:
-            return -1
+        return self._full_index.get(right_of_id, -1)
 
     def _subtree_size(self, nid: NodeID) -> int:
         """Return the subtree node count for *nid* (iterative, version-cached)."""
@@ -202,7 +223,7 @@ class Graph:
         if anchor == NodeID.root():
             full_pos = 0
         else:
-            base = self._full_order.index(anchor)
+            base = self._full_index[anchor]
             full_pos = base if anchor == pid else base + self._subtree_size(anchor)
 
         children.insert(i, node.id)
@@ -211,18 +232,17 @@ class Graph:
     def _insert_right(self, pid: NodeID, node: Node) -> int:
         """Insert *node* as right child of *pid*; return full-order position."""
         children = self._right[pid]
-        full = self._full_order
 
-        my_ro = self._ro_pos(full, node.right_of_id)
+        my_ro = self._ro_pos(node.right_of_id)
         i = 0
         while i < len(children):
             child = self._nodes[children[i]]
-            their_ro = self._ro_pos(full, child.right_of_id)
+            their_ro = self._ro_pos(child.right_of_id)
             if my_ro > their_ro or (my_ro == their_ro and node.id < children[i]):
                 break
             i += 1
 
-        base = -1 if pid == NodeID.root() else full.index(pid)
+        base = -1 if pid == NodeID.root() else self._full_index[pid]
         full_pos = base + 1 + sum(self._subtree_size(children[j]) for j in range(i))
 
         children.insert(i, node.id)

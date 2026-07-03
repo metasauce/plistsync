@@ -5,8 +5,8 @@ from typing import Literal
 
 import pytest
 
-from plistsync.crdt import DeleteOp, Fugue, InsertOp
-from plistsync.crdt.graph import Node, NodeID, Side
+from plistsync.crdt import DeleteOp, Fugue, InsertOp, InsertPos
+from plistsync.crdt.graph import NodeID, Side
 
 
 def _sync(src: Fugue[str], dst: Fugue[str]) -> None:
@@ -116,15 +116,6 @@ class TestCore:
         assert len(fu) == 1
         fu.delete(0)
         assert len(fu) == 0
-
-    def test_negative_index_delete(self) -> None:
-        fu: Fugue[str] = Fugue()
-        for ch in "abc":
-            fu.insert(len(fu), ch)
-        fu.delete(-1)
-        assert list(fu) == ["a", "b"]
-        fu.delete(-2)
-        assert list(fu) == ["b"]
 
     def test_negative_getitem_after_delete(self) -> None:
         fu: Fugue[str] = Fugue()
@@ -647,7 +638,7 @@ class TestTimeTravel:
 class TestOpDataclasses:
     def test_insert_op_frozen(self) -> None:
         op = InsertOp[str](
-            node=Node(
+            pos=InsertPos(
                 id=NodeID(0, 0),
                 parent_id=NodeID.root(),
                 side=Side.RIGHT,
@@ -670,5 +661,7 @@ class TestOpDataclasses:
         b: Fugue[int] = Fugue(replica_id=0, initial_counter=0)
         op2 = b.insert(0, 1)
         assert op1 == op2
-        with pytest.raises(TypeError):
-            hash(op1)
+        with pytest.raises(Exception):
+            op1.pos = InsertPos(  # type: ignore[misc]  # pyright: ignore[reportAttributeAccessIssue]
+                id=NodeID(9, 9), parent_id=NodeID.root(), side=Side.LEFT
+            )

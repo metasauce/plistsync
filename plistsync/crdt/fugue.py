@@ -78,10 +78,28 @@ class Ops(Generic[T]):
     def __len__(self) -> int:
         return len(self._ops)
 
+    def __iter__(self) -> Iterator[InsertOp[T] | DeleteOp]:
+        return iter(self._ops)
+
     def append(self, op: InsertOp[T] | DeleteOp) -> None:
         self._ops.append(op)
         if isinstance(op, InsertOp):
             self._values[op.pos.id] = op.value
+
+    def __add__(self, other: Ops[T]) -> Ops[T]:
+        result: Ops[T] = Ops()
+        for op in self:
+            result.append(op)
+        for op in other:
+            result.append(op)
+        return result
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Ops):
+            return self._ops == other._ops
+        if isinstance(other, list):
+            return self._ops == other
+        return NotImplemented
 
     __slot__ = ("_ops", "_values")
 
@@ -103,9 +121,9 @@ class Fugue(Generic[T]):
     # List of replicas and their latest ingested counters. replicatid -> counter
     _counters: dict[int, int]
 
-    def __init__(self, replica_id: int = 0) -> None:
+    def __init__(self, replica_id: int = 0, initial_counter: int = 0) -> None:
         self.replica_id = replica_id
-        self._counters = {replica_id: 0}
+        self._counters = {replica_id: initial_counter}
         self.ops = Ops()
         self._graph = Graph()
 
