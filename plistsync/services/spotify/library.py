@@ -3,22 +3,23 @@ from typing import overload
 
 from requests import HTTPError
 
-from plistsync.core import GlobalTrackIDs
+from plistsync.core import TrackID
 from plistsync.core.collection import (
-    GlobalLookup,
+    IDLookup,
     Library,
 )
+from plistsync.core.ids import ISRC
 from plistsync.core.playlist import PlaylistID
 from plistsync.logger import log
 
 from .api import SpotifyApi
 from .playlist import SpotifyPlaylist, SpotifyPlaylistID
-from .track import SpotifyTrack
+from .track import SpotifyTrack, SpotifyTrackID
 
 
 class SpotifyLibrary(
     Library[SpotifyTrack, SpotifyPlaylist],
-    GlobalLookup[SpotifyTrack],
+    IDLookup[SpotifyTrack],
 ):
     """A collection representing the full spotify library.
 
@@ -134,63 +135,62 @@ class SpotifyLibrary(
 
         return pl
 
-    # --------------------------- GlobalLookup protocol -------------------------- #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> SpotifyTrack | None:
-        """Find a track by its global ID.
+    def find_by_ids(self, ids: Iterable[TrackID]) -> SpotifyTrack | None:
+        """Find a track by its identifiers.
 
-        Prioritizes spotify_id, but also supports lookup by isrc if available.
+        Prioritizes Spotify ID lookups over ISRC lookups.
         """
-        if spotify_id := global_ids.get("spotify_id"):
+        for spotify_id in (tid for tid in ids if isinstance(tid, SpotifyTrackID)):
             try:
-                return SpotifyTrack(self.api.track.get(spotify_id))
+                return SpotifyTrack(self.api.track.get(str(spotify_id)))
             except HTTPError as e:
                 if e.response.status_code == 404:
                     log.debug(f"Could not find track by spotify ID {spotify_id}: {e}")
                 else:
                     raise
 
-        if isrc := global_ids.get("isrc"):
-            if data := self.api.track.get_by_isrc(isrc):
+        for isrc in (tid for tid in ids if isinstance(tid, ISRC)):
+            if data := self.api.track.get_by_isrc(str(isrc)):
                 return SpotifyTrack(data)
 
         return None
 
-    def find_many_by_global_ids(
-        self, global_ids_list: Iterable[GlobalTrackIDs]
+    def find_many_by_ids(
+        self, ids_iter: Iterable[Iterable[TrackID]]
     ) -> Iterable[SpotifyTrack | None]:
-        """Find many tracks by their global IDs.
+        """Find many tracks by their identifiers.
 
-        Prioritizes spotify_id, but also supports lookup by isrc if available.
-        Performs batch lookup for all tracks with spotify_id if possible.
+        Prioritizes Spotify ID lookups over ISRC lookups.
+        Performs batch lookup for all tracks with Spotify IDs if possible.
         """
         found_tracks: dict[int, SpotifyTrack] = {}
-        # avoid consuming this, we iterate twice.
-        global_ids_list = list(global_ids_list)
+        ids_list = [frozenset(gids) for gids in ids_iter]
 
-        # Get all with spotify id for batch lookup
-        idxes = []
+        # Spotify IDs batch lookup
+        idxes: list[int] = []
         spotify_ids: list[str] = []
-        for idx, gids in enumerate(global_ids_list):
-            if "spotify_id" in gids:
-                idxes.append(idx)
-                spotify_ids.append(gids["spotify_id"])
+        for idx, gids in enumerate(ids_list):
+            for tid in gids:
+                if isinstance(tid, SpotifyTrackID):
+                    idxes.append(idx)
+                    spotify_ids.append(str(tid))
+                    break
 
         if spotify_ids:
             tracks = self.api.track.get_many(spotify_ids)
-
             if len(spotify_ids) != len(tracks):
                 log.warning(
                     f"Expected {len(spotify_ids)} tracks but received {len(tracks)} "
                     "tracks as result from spotify batch lookup."
                 )
-
             for idx, track in zip(idxes, tracks):
                 found_tracks[idx] = SpotifyTrack(track)
 
         # Individual lookup for all missing tracks
-        for idx, gids in enumerate(global_ids_list):
+        for idx, gids in enumerate(ids_list):
             if idx in found_tracks:
                 yield found_tracks[idx]
             else:
-                yield self.find_by_global_ids(gids)
+                yield self.find_by_ids(gids)
