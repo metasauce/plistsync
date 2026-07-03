@@ -112,10 +112,17 @@ class ISRC(TrackID):
     """International Standard Recording Code.
 
     A standardized identifier intended to be globally unique for a recording.
+
+    The ``id`` field is always normalised (uppercase, dashes stripped)
+    regardless of how the instance is constructed.
     """
 
     id: str
     """The raw 12-character ISRC (e.g. ``USRC17607839``)."""
+
+    def __init__(self, value: str) -> None:
+        normalised = value.replace("-", "").upper()
+        object.__setattr__(self, "id", normalised)
 
     @classmethod
     def parse(cls, value: str) -> Self:
@@ -125,14 +132,12 @@ class ISRC(TrackID):
         (``isrc:XXAAA0000000``), or the dashed format (``XX-AAA-00-00000``).
         """
         value = value.strip()
-        # Strip optional serial prefix
         if value.lower().startswith("isrc:"):
             value = value[5:]
-        # Strip dashes from standard notation (e.g. US-AT1-99-00001)
-        value = value.replace("-", "")
-        value = value.upper()
-        # Validate ISRC format: 12 characters, alphanumeric
-        if not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{3}\d{7}", value):
+        # __init__ handles dash-stripping and uppercasing
+        if not re.fullmatch(
+            r"[A-Z]{2}[A-Z0-9]{3}\d{7}", value.replace("-", "").upper()
+        ):
             raise ValueError(f"Invalid ISRC: {value!r}")
         return cls(value)
 

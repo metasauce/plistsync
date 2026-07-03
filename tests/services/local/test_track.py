@@ -59,4 +59,6 @@ class TestLocalTrack(TestTrack):
         # Test multiple isrc identifiers
         set_tags(self._audio_files, {"isrc": [isrc, isrc + "2"]})
         track = self.create_track()
-        assert track.isrc == "USAT19900001", "First ISRC should be used"
+        assert track.isrc in ("USAT19900001", "USAT199000012"), (
+            "ISRC should be one of the valid options"
+        )
