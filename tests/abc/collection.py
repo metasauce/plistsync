@@ -1,13 +1,12 @@
 import pytest
 from typing import Any, ClassVar
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 
 from plistsync.core import Library, Track, Collection
 from plistsync.core.collection import (
-    GlobalLookup,
+    IDLookup,
     InfoLookup,
-    Iterable,
-    LocalLookup,
     TrackStream,
 )
 from plistsync.core.matching import Matches
@@ -40,27 +39,14 @@ class CollectionTestBase(ABC):
         """
         pass
 
-    def test_global_lookup(self):
-        """Test collections that implement GlobalLookup."""
+    def test_id_lookup(self):
+        """Test collections that implement IDLookup."""
         track = self.create_sample_track()
         for collection in self.create_collection():
-            if isinstance(collection, GlobalLookup):
-                found_track = collection.find_by_global_ids(track.global_ids)
-                # assumptions on the track returned by global id lookup
+            if isinstance(collection, IDLookup):
+                found_track = collection.find_by_ids(track.ids)
                 assert found_track is None or found_track == track, (
-                    "Global lookup should return the matching track or None"
-                )
-
-    def test_local_lookup(self):
-        """Test collections that implement LocalLookup."""
-        track = self.create_sample_track()
-        for collection in self.create_collection():
-            if isinstance(collection, LocalLookup):
-                found_track = collection.find_by_local_ids(track.local_ids)
-                # assumptions on the track returned by local id lookup
-                # TODO PS@semohr how do we want to decide that "they are equal"?
-                assert found_track is None or found_track.diff(track) == {}, (
-                    "Local lookup should return the matching track or None"
+                    "ID lookup should return the matching track or None"
                 )
 
     def test_info_lookup(self):

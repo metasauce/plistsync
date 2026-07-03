@@ -75,4 +75,6 @@ class MockMultiRequestServicePlaylist(
 
     @staticmethod
     def _track_key(track) -> str:
-        return track.global_ids.get("isrc", str(random.randbytes(10)))
+        for tid in track.ids:
+            return tid.serial
+        return str(random.randbytes(10))

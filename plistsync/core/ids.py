@@ -121,13 +121,15 @@ class ISRC(TrackID):
     def parse(cls, value: str) -> Self:
         """Parse from user input (URL, URI, serial, or raw id).
 
-        Accepts both the raw 12-character ISRC and the serial format
-        (``isrc:XXAAA0000000``).
+        Accepts the raw 12-character ISRC, the serial format
+        (``isrc:XXAAA0000000``), or the dashed format (``XX-AAA-00-00000``).
         """
         value = value.strip()
         # Strip optional serial prefix
         if value.lower().startswith("isrc:"):
             value = value[5:]
+        # Strip dashes from standard notation (e.g. US-AT1-99-00001)
+        value = value.replace("-", "")
         value = value.upper()
         # Validate ISRC format: 12 characters, alphanumeric
         if not re.fullmatch(r"[A-Z]{2}[A-Z0-9]{3}\d{7}", value):

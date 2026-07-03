@@ -161,7 +161,7 @@ class LocalTrack(Track):
                 if not raw:
                     continue
                 try:
-                    idents.add(ISRC(raw))
+                    idents.add(ISRC.parse(raw))
                 except ValueError:
                     log.debug(f"Invalid ISRC in file tags: {raw!r}")
 

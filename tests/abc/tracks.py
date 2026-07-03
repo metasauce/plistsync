@@ -21,13 +21,9 @@ class TestTrack(ABC):
         track = self.create_track()
         assert isinstance(track.info, dict), "info should be a dict"
 
-    def test_property_global_ids(self):
+    def test_property_ids(self):
         track = self.create_track()
-        assert isinstance(track.global_ids, dict), "global_ids should be a dict"
-
-    def test_property_local_ids(self):
-        track = self.create_track()
-        assert isinstance(track.local_ids, dict), "local_ids should be a dict"
+        assert isinstance(track.ids, frozenset), "ids should be a frozenset"
 
     # -------------------------- Derived from contracts -------------------------- #
 
