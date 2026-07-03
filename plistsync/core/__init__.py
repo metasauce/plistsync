@@ -11,13 +11,14 @@ from .ids import PlaylistID, TrackID
 from .matching import Matches
 from .playlist import Playlist, ServicePlaylist
 from .rewrite import PathRewrite
-from .track import Track
+from .track import Track, TrackInfo
 
 __all__ = [
     "Collection",
     "Library",
     "PathRewrite",
     "Track",
+    "TrackInfo",
     "Playlist",
     "PlaylistID",
     "TrackID",

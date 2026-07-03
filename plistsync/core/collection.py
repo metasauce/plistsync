@@ -77,11 +77,13 @@ class IDLookup(Protocol, Generic[T]):
     """A collection that can find tracks by their :class:`TrackID` identifiers."""
 
     @abstractmethod
-    def find_by_ids(self, ids: set[TrackID]) -> T | None:
+    def find_by_ids(self, ids: Iterable[TrackID]) -> T | None:
         """Find a single track by its identifiers."""
         ...
 
-    def find_many_by_ids(self, ids_iter: Iterable[set[TrackID]]) -> Iterable[T | None]:
+    def find_many_by_ids(
+        self, ids_iter: Iterable[Iterable[TrackID]]
+    ) -> Iterable[T | None]:
         """Find multiple tracks by their identifiers.
 
         Default implementation iterates over the provided list and calls

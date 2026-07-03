@@ -45,7 +45,7 @@ class Track(ABC):
 
     @property
     @abstractmethod
-    def ids(self) -> set[TrackID]:
+    def ids(self) -> frozenset[TrackID]:
         """The identifiers of this track."""
         ...
 
@@ -157,7 +157,7 @@ class OfflineTrack(Track):
     """
 
     _info: TrackInfo
-    _ids: set[TrackID]
+    _ids: frozenset[TrackID]
 
     def __init__(
         self,
@@ -165,14 +165,14 @@ class OfflineTrack(Track):
         ids: Iterable[TrackID] | None = None,
     ):
         self._info = info
-        self._ids = set(ids) if ids is not None else set()
+        self._ids = frozenset(ids) if ids is not None else frozenset()
 
     @property
     def info(self) -> TrackInfo:
         return self._info
 
     @property
-    def ids(self) -> set[TrackID]:
+    def ids(self) -> frozenset[TrackID]:
         return self._ids
 
     def merge(self, track: Track) -> OfflineTrack:
@@ -184,7 +184,7 @@ class OfflineTrack(Track):
         info = copy(self.info)
         info.update(track.info)
 
-        ids = copy(self.ids)
+        ids = set(self.ids)
         ids.update(track.ids)
 
         return OfflineTrack(info, ids)
