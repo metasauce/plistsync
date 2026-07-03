@@ -3,74 +3,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from copy import copy
 from pathlib import PurePath
 from typing import TypedDict
 
-
-class GlobalTrackIDs(TypedDict, total=False):
-    """Global Unique identifiers for a track.
-
-    Each identifier in this collection should uniquely identify a track
-    across all systems and collections. Unlike local identifiers, these
-    are intended to allow unambiguous track matching across devices,
-    libraries, or services.
-
-    Corresponds to collections-protocol `GlobalLookup`.
-    """
-
-    tidal_id: str
-    """Tidal ID of the track.
-
-    Globally unique within the Tidal service.
-    """
-
-    isrc: str
-    """International Standard Recording Code.
-
-    A standardized identifier intended to be globally unique for a recording.
-    TODO: A track may have multiple ISRCs (e.g., different releases or regions),
-    so this field may need to support multiple values in the future.
-    """
-
-    spotify_id: str
-    """Spotify ID of the track.
-
-    Globally unique within the Spotify service.
-    """
-
-
-class LocalTrackIDs(TypedDict, total=False):
-    """Locally scoped identifiers for a track.
-
-    These identifiers are unique only within a specific collection or context,
-    such as a local library, playlist, database, or device. They are intended
-    for identifying a track within that local scope and may not be unique globally.
-
-    Corresponds to collections-protocol `LocalLookup`.
-    """
-
-    file_path: PurePath
-    """Local (pure) filesystem path to the track file.
-
-    This is not globally unique because file paths may differ across devices
-    or mount points, even if the underlying track is the same.
-    (This is also why we use PurePath, which is OS-agnostic, instead of Path.)
-    """
-
-    beets_id: int
-    """Track ID from a local Beets library.
-
-    Unique only within a local Beets library. Different libraries may assign
-    different IDs to the same track.
-    """
-
-    plex_id: str
-    """Track ID from a Plex media server library.
-
-    Unique only within a single Plex library. The same track in another Plex
-    server or library may have a different ID.
-    """
+from plistsync.core.ids import ISRC, FilePath, TrackID
+from plistsync.logger import log
 
 
 class TrackInfo(TypedDict, total=False):
@@ -106,14 +45,8 @@ class Track(ABC):
 
     @property
     @abstractmethod
-    def global_ids(self) -> GlobalTrackIDs:
-        """The globally unique identifiers of this track."""
-        ...
-
-    @property
-    @abstractmethod
-    def local_ids(self) -> LocalTrackIDs:
-        """The locally unique identifiers of this track."""
+    def ids(self) -> set[TrackID]:
+        """The identifiers of this track."""
         ...
 
     # ----------------------------- Info Getters ----------------------------- #
@@ -143,12 +76,18 @@ class Track(ABC):
     @property
     def path(self) -> PurePath | None:
         """The path to the file of the track."""
-        return self.local_ids.get("file_path", None)
+        paths = [id.path for id in self.ids if isinstance(id, FilePath)]
+        if len(paths) > 1:
+            log.warning(f"Found multiple paths: {paths}. Using the first one.")
+        return paths[0] if paths else None
 
     @property
     def isrc(self) -> str | None:
         """International Standard Recording Code."""
-        return self.global_ids.get("isrc", None)
+        isrcs = [id.id for id in self.ids if isinstance(id, ISRC)]
+        if len(isrcs) > 1:
+            log.warning(f"Found multiple ISRCs: {isrcs}. Using the first one.")
+        return isrcs[0] if isrcs else None
 
     @property
     def primary_artist(self) -> str | None:
@@ -157,8 +96,6 @@ class Track(ABC):
         If the track has no artist, return an empty string.
         """
         return self.artists[0] if self.artists else None
-
-    # --------------------------------- Contracts -------------------------------- #
 
     # ----------------------------------- Other ---------------------------------- #
 
@@ -174,17 +111,11 @@ class Track(ABC):
             if v1 != v2:
                 diffs[f"info.{key}"] = (v1, v2)
 
-        # Compare global_ids fields
-        for key in set(track1.global_ids.keys()).union(track2.global_ids.keys()):
-            v1, v2 = track1.global_ids.get(key), track2.global_ids.get(key)
-            if v1 != v2:
-                diffs[f"global_ids.{key}"] = (v1, v2)
-
-        # Compare local_ids fields
-        for key in set(track1.local_ids.keys()).union(track2.local_ids.keys()):
-            v1, v2 = track1.local_ids.get(key), track2.local_ids.get(key)
-            if v1 != v2:
-                diffs[f"local_ids.{key}"] = (v1, v2)
+        # Compare ids by serial
+        ids1 = {id.serial for id in track1.ids}
+        ids2 = {id.serial for id in track2.ids}
+        if ids1 != ids2:
+            diffs["ids"] = (ids1 - ids2, ids2 - ids1)
 
         return diffs
 
@@ -195,11 +126,7 @@ class Track(ABC):
 
         # TODO: Design choice:
         # when is a track from another serivce the same track?
-        return (
-            self.info == other.info
-            and self.global_ids == other.global_ids
-            and self.local_ids == other.local_ids
-        )
+        return self.info == other.info and self.ids == other.ids
 
     def __hash__(self) -> int:
         """Generate a hash based on the track's data."""
@@ -210,10 +137,9 @@ class Track(ABC):
                 for k, v in self.info.items()
             )
         )
-        global_ids_hash = tuple(sorted(self.global_ids.items()))
-        local_ids_hash = tuple(sorted(self.local_ids.items()))
+        ids_hash = hash(frozenset(self.ids))
 
-        return hash((info_hash, global_ids_hash, local_ids_hash))
+        return hash((info_hash, ids_hash))
 
     def __repr__(self) -> str:
         cls = type(self).__name__
@@ -231,30 +157,23 @@ class OfflineTrack(Track):
     """
 
     _info: TrackInfo
-    _local_ids: LocalTrackIDs
-    _global_ids: GlobalTrackIDs
+    _ids: set[TrackID]
 
     def __init__(
         self,
         info: TrackInfo,
-        local_ids: LocalTrackIDs | None = None,
-        global_ids: GlobalTrackIDs | None = None,
+        ids: Iterable[TrackID] | None = None,
     ):
         self._info = info
-        self._local_ids = local_ids or {}
-        self._global_ids = global_ids or {}
+        self._ids = set(ids) if ids is not None else set()
 
     @property
     def info(self) -> TrackInfo:
         return self._info
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        return self._global_ids
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        return self._local_ids
+    def ids(self) -> set[TrackID]:
+        return self._ids
 
     def merge(self, track: Track) -> OfflineTrack:
         """Merge another track into this one.
@@ -265,15 +184,12 @@ class OfflineTrack(Track):
         info = copy(self.info)
         info.update(track.info)
 
-        local_ids = copy(self.local_ids)
-        local_ids.update(track.local_ids)
+        ids = copy(self.ids)
+        ids.update(track.ids)
 
-        global_ids = copy(self.global_ids)
-        global_ids.update(track.global_ids)
-
-        return OfflineTrack(info, local_ids, global_ids)
+        return OfflineTrack(info, ids)
 
     @classmethod
     def from_track(cls, track: Track) -> OfflineTrack:
         """Create a offline track from arbitrary other track."""
-        return cls(track.info, track.local_ids, track.global_ids)
+        return cls(track.info, track.ids)
