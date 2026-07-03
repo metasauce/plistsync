@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 from lxml.etree import Element, SubElement
 
-from plistsync.core import GlobalTrackIDs, Track
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.core import Track, TrackID, TrackInfo
+from plistsync.core.ids import FilePath
 
 from .path import NMLPath
 
@@ -88,17 +88,9 @@ class NMLTrack(Track):
     # ------------------------------- Contracts ------------------------------ #
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        """Sadly no unique identifier in NML files.
-        There exists an audio_id, but no idea how to use it or what it is.
-        """  # noqa: D205
-        return GlobalTrackIDs()
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        return LocalTrackIDs(
-            file_path=self.path,
-        )
+    def ids(self) -> frozenset[TrackID]:
+        # TODO: Check what audio_id is in the xml
+        return frozenset([FilePath(self.path)])
 
     @property
     def info(self) -> TrackInfo:
@@ -231,16 +223,8 @@ class NMLPlaylistTrack(Track):
     # ------------------------------- Contracts ------------------------------ #
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        """NMLPlaylistTrack does not have identifiers."""
-        return GlobalTrackIDs()
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        """NMLPlaylistTrack does not have identifiers."""
-        return LocalTrackIDs(
-            file_path=self.path,
-        )
+    def ids(self) -> frozenset[TrackID]:
+        return frozenset([FilePath(self.path)])
 
     @property
     def info(self) -> TrackInfo:
