@@ -4,15 +4,15 @@ from typing import Any
 
 from sqlalchemy import Row, String, cast, select
 
-from plistsync.core.collection import Collection, GlobalLookup, LocalLookup, TrackStream
-from plistsync.core.track import GlobalTrackIDs, LocalTrackIDs
+from plistsync.core import TrackID
+from plistsync.core.collection import Collection, IDLookup, TrackStream
+from plistsync.core.ids import ISRC, FilePath
 
-from ...logger import log
 from .database import BeetsDatabase
-from .track import BeetsTrack
+from .track import BeetsTrack, BeetsTrackID
 
 
-class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
+class BeetsCollection(Collection, TrackStream, IDLookup):
     """A beets library collection."""
 
     db: BeetsDatabase
@@ -60,47 +60,30 @@ class BeetsCollection(Collection, TrackStream, GlobalLookup, LocalLookup):
             cols = table.columns.keys()
         return BeetsTrack(dict(zip(cols, row)))
 
-    # ------------------------------- Protocols ------------------------------ #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> BeetsTrack | None:
-        isrc = global_ids.get("isrc")
-        if isrc is not None:
-            tracks = self.get_by_isrc(isrc)
+    def find_by_ids(self, ids: Iterable[TrackID]) -> BeetsTrack | None:
+        """Find a track by its identifiers.
 
-            match len(tracks):
-                case 0:
-                    pass
-                case 1:
+        Prioritizes BeetsTrackID, then FilePath, then ISRC.
+        """
+        for tid in ids:
+            if isinstance(tid, BeetsTrackID):
+                return self.get_by_id(tid.id)
+
+        for tid in ids:
+            if isinstance(tid, FilePath):
+                tracks = self.get_by_path(tid.path)
+                if tracks:
                     return tracks[0]
-                case _:
-                    log.warning(
-                        f"Multiple tracks found for ISRC {isrc}."
-                        " Returning the first one."
-                    )
+
+        for tid in ids:
+            if isinstance(tid, ISRC):
+                tracks = self.get_by_isrc(str(tid))
+                if tracks:
                     return tracks[0]
 
         return None
-
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> BeetsTrack | None:
-        tracks: list[BeetsTrack] = []
-        if file_path := local_ids.get("file_path"):
-            tracks.extend(self.get_by_path(file_path))
-
-        if beets_id := local_ids.get("beets_id"):
-            track = self.get_by_id(beets_id)
-            if track:
-                tracks.append(track)
-
-        if len(tracks) == 0:
-            return None
-        elif len(tracks) == 1:
-            return tracks[0]
-        else:
-            log.warning(
-                f"Multiple tracks found for local IDs {local_ids}."
-                " Returning the first one."
-            )
-            return tracks[0]
 
     @property
     def tracks(self) -> Iterable[BeetsTrack]:
