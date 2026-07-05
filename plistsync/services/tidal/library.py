@@ -143,7 +143,7 @@ class TidalLibrary(
         return list(self.find_many_by_ids([ids]))[0]
 
     def find_many_by_ids(
-        self, ids_iter: Iterable[Iterable[TrackID]]
+        self, track_ids_batch: Iterable[Iterable[TrackID]]
     ) -> Iterable[TidalTrack | None]:
         """Find many tracks by their identifiers.
 
@@ -152,13 +152,14 @@ class TidalLibrary(
         found_tracks: dict[int, TidalTrack] = {}
 
         # avoid consuming this, we iterate twice.
-        ids_list = [frozenset(gids) for gids in ids_iter]
+        # inner: ids for one track, outer: tracks
+        ids_list = [frozenset(ids) for ids in track_ids_batch]
 
         # Tidal ids batch lookup
         idxes: list[int] = []
         tidal_ids: list[str] = []
-        for idx, gids in enumerate(ids_list):
-            for tid in gids:
+        for idx, ids in enumerate(ids_list):
+            for tid in ids:
                 if isinstance(tid, TidalTrackID):
                     idxes.append(idx)
                     tidal_ids.append(str(tid))
@@ -175,10 +176,10 @@ class TidalLibrary(
         # ISRC batch lookup for remaining ids
         idxes = []
         isrcs: list[str] = []
-        for idx, gids in enumerate(ids_list):
+        for idx, ids in enumerate(ids_list):
             if idx in found_tracks:
                 continue
-            for tid in gids:
+            for tid in ids:
                 if isinstance(tid, ISRC):
                     idxes.append(idx)
                     isrcs.append(str(tid))
@@ -192,5 +193,5 @@ class TidalLibrary(
                 else:
                     found_tracks[idx] = TidalTrack(track, lookup)
 
-        for idx, gids in enumerate(ids_list):
+        for idx, ids in enumerate(ids_list):
             yield found_tracks.get(idx, None)

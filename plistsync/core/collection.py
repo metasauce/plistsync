@@ -82,7 +82,7 @@ class IDLookup(Protocol, Generic[T]):
         ...
 
     def find_many_by_ids(
-        self, ids_iter: Iterable[Iterable[TrackID]]
+        self, track_ids_batch: Iterable[Iterable[TrackID]]
     ) -> Iterable[T | None]:
         """Find multiple tracks by their identifiers.
 
@@ -90,7 +90,7 @@ class IDLookup(Protocol, Generic[T]):
         ``find_by_ids`` for each entry. Collections can override this
         method to provide a more efficient batch lookup if supported.
         """
-        for ids in ids_iter:
+        for ids in track_ids_batch:
             yield self.find_by_ids(ids)
 
 
@@ -261,6 +261,7 @@ class Collection(ABC, Generic[T]):
         has_id_lookup = isinstance(self, IDLookup)
         has_info_lookup = isinstance(self, InfoLookup)
         is_stream = isinstance(self, TrackStream)
+        found_track: T
 
         # 1. ID lookup (global)
         # We search global ids first

@@ -158,7 +158,7 @@ class SpotifyLibrary(
         return None
 
     def find_many_by_ids(
-        self, ids_iter: Iterable[Iterable[TrackID]]
+        self, track_ids_batch: Iterable[Iterable[TrackID]]
     ) -> Iterable[SpotifyTrack | None]:
         """Find many tracks by their identifiers.
 
@@ -166,13 +166,16 @@ class SpotifyLibrary(
         Performs batch lookup for all tracks with Spotify IDs if possible.
         """
         found_tracks: dict[int, SpotifyTrack] = {}
-        ids_list = [frozenset(gids) for gids in ids_iter]
+
+        # avoid consuming this, we iterate twice.
+        # inner: ids for one track, outer: tracks
+        ids_list = [frozenset(ids) for ids in track_ids_batch]
 
         # Spotify IDs batch lookup
         idxes: list[int] = []
         spotify_ids: list[str] = []
-        for idx, gids in enumerate(ids_list):
-            for tid in gids:
+        for idx, ids in enumerate(ids_list):
+            for tid in ids:
                 if isinstance(tid, SpotifyTrackID):
                     idxes.append(idx)
                     spotify_ids.append(str(tid))
@@ -189,8 +192,8 @@ class SpotifyLibrary(
                 found_tracks[idx] = SpotifyTrack(track)
 
         # Individual lookup for all missing tracks
-        for idx, gids in enumerate(ids_list):
+        for idx, ids in enumerate(ids_list):
             if idx in found_tracks:
                 yield found_tracks[idx]
             else:
-                yield self.find_by_ids(gids)
+                yield self.find_by_ids(ids)
