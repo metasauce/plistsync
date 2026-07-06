@@ -12,6 +12,7 @@ from typing import Annotated
 
 import typer
 
+from plistsync.core.ids import FilePath
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
 from plistsync.services.plex.library import PlexLibrary
@@ -117,7 +118,7 @@ def main(
     with plex_playlist.edit():
         for p in missing_in_plex:
             p_for_plex = path_rewrite.invert.apply(p)
-            plex_track = plex_library.find_by_local_ids({"file_path": p_for_plex})
+            plex_track = plex_library.find_by_ids([FilePath(p_for_plex)])
             if plex_track is None:
                 log.warning(f"Could not find track in plex: {str(p_for_plex)}")
             else:

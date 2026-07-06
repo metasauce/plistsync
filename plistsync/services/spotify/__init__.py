@@ -9,7 +9,7 @@ check_imports(
 from . import api
 from .library import SpotifyLibrary
 from .playlist import SpotifyPlaylist, SpotifyPlaylistID
-from .track import SpotifyPlaylistTrack, SpotifyTrack
+from .track import SpotifyPlaylistTrack, SpotifyTrack, SpotifyTrackID
 
 
 class SpotifyService(Service):
@@ -26,5 +26,6 @@ __all__ = [
     "SpotifyPlaylistTrack",
     "SpotifyService",
     "SpotifyTrack",
+    "SpotifyTrackID",
     "api",
 ]
