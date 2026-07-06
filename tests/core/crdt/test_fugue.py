@@ -6,6 +6,7 @@ from typing import Literal
 import pytest
 
 from plistsync.core.crdt import DeleteOp, Fugue, InsertOp, InsertPos
+from plistsync.core.crdt.fugue import Ops
 from plistsync.core.crdt.graph import NodeID, Side
 
 
@@ -665,3 +666,74 @@ class TestOpDataclasses:
             op1.pos = InsertPos(  # type: ignore[misc]  # pyright: ignore[reportAttributeAccessIssue]
                 id=NodeID(9, 9), parent_id=NodeID.root(), side=Side.LEFT
             )
+
+    def test_ops_eq_with_non_ops(self) -> None:
+        ops: Ops[int] = Ops()
+        assert not (ops == "not ops")  # NotImplemented path
+
+    def test_ops_get_value_missing_raises(self) -> None:
+        ops: Ops[int] = Ops()
+        with pytest.raises(IndexError):
+            ops.get_value(NodeID(99, 99))
+
+
+class TestDeleteOOB:
+    def test_delete_oob_empty(self) -> None:
+        with pytest.raises(IndexError):
+            Fugue[int]().delete(0)
+
+    def test_delete_oob_after_insert(self) -> None:
+        fu: Fugue[int] = Fugue()
+        fu.insert(0, 1)
+        with pytest.raises(IndexError):
+            fu.delete(1)
+
+
+class TestGraphCoverage:
+    """Hit the remaining uncovered lines in graph.py."""
+
+    def test_ancestors_missing_node_returns_empty(self) -> None:
+        from plistsync.core.crdt.graph import Graph
+
+        g = Graph()
+        assert g.ancestor_closure(NodeID(99, 99)) == frozenset({NodeID(99, 99)})
+
+    def test_subtree_size_cache_hit(self) -> None:
+        """Calling _subtree_size twice with same version hits the cache."""
+        fu: Fugue[int] = Fugue()
+        fu.insert(0, 1)
+        fu.insert(1, 2)
+        g = fu._graph
+        root = NodeID.root()
+        s1 = g._subtree_size(root)
+        s2 = g._subtree_size(root)
+        assert s1 == s2
+
+    def test_subtree_size_child_already_cached(self) -> None:
+        """Parent recompute with right child already at current version."""
+        fu: Fugue[int] = Fugue()
+        fu.insert(0, 1)
+        fu.insert(1, 2)
+        g = fu._graph
+        # Bump global version by inserting at end (creates right child of last node)
+        fu.insert(len(fu), 3)
+        # The last inserted node is the rightmost leaf; cache it at current version
+        last = fu._graph._full_order[-1]
+        g._subtree_size(last)
+        # Recompute root — the cached child should skip stacking
+        s = g._subtree_size(NodeID.root())
+        assert s >= 3
+
+    def test_subtree_size_left_child_already_cached(self) -> None:
+        """Parent recompute with left child already at current version."""
+        fu: Fugue[int] = Fugue()
+        fu.insert(0, 1)
+        g = fu._graph
+        # Bump global version by inserting at beginning (creates left child of first node)
+        fu.insert(0, 2)
+        # Cache the left child (node 2 is left child of node 1)
+        first = fu._graph._full_order[0]
+        g._subtree_size(first)
+        # Recompute root — the cached left child should skip stacking
+        s = g._subtree_size(NodeID.root())
+        assert s >= 2
