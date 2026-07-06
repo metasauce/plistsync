@@ -144,3 +144,43 @@ class TestPlexTrack(TestTrack):
         assert track.path is not None, "Track should have a path"
         local_track = LocalTrack(track.path)
         assert local_track.isrc == "USAT19900001", "ISRC should be correct"
+
+
+class TestPlexTrackID:
+    @pytest.mark.parametrize(
+        "input_str, expected_id",
+        [
+            # Raw ID
+            ("58516", "58516"),
+            # Serial format
+            ("plex:track:58516", "58516"),
+            ("PLEX:TRACK:58516", "58516"),
+            # With whitespace
+            ("  58516  ", "58516"),
+            ("  plex:track:58516  ", "58516"),
+        ],
+    )
+    def test_valid_inputs(self, input_str, expected_id):
+        from plistsync.services.plex.track import PlexTrackID
+
+        assert PlexTrackID.parse(input_str).id == expected_id
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            # Non-numeric
+            "abc",
+            "plex:track:abc",
+            # Empty
+            "plex:track:",
+            "",
+            # Wrong prefix
+            "plex:playlist:58516",
+            "spotify:track:58516",
+        ],
+    )
+    def test_invalid_inputs(self, invalid_input):
+        from plistsync.services.plex.track import PlexTrackID
+
+        with pytest.raises(ValueError):
+            PlexTrackID.parse(invalid_input)
