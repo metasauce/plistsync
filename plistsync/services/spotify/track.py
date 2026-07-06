@@ -27,13 +27,13 @@ class SpotifyTrackID(TrackID):
         """Parse from URL, URI, or raw ID."""
         value = value.strip()
         # URL (https://open.spotify.com/track/<id>)
-        if m := re.search(r"spotify\.com/track/([a-zA-Z0-9]+)", value):
+        if m := re.search(r"spotify\.com/track/([a-zA-Z0-9]{22})", value):
             return cls(m.group(1))
         # URI (spotify:track:<id>)
-        if m := re.match(r"spotify:track:([a-zA-Z0-9]+)$", value):
+        if m := re.match(r"spotify:(?:track:)?([a-zA-Z0-9]{22})$", value):
             return cls(m.group(1))
         # Plain ID
-        if re.fullmatch(r"[a-zA-Z0-9]+", value):
+        if re.fullmatch(r"[a-zA-Z0-9]{22}", value):
             return cls(value)
         raise ValueError(f"Invalid Spotify track id: {value!r}")
 
