@@ -1,11 +1,44 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, Self
+from dataclasses import dataclass
+from pathlib import Path, PurePath
+from typing import Any, ClassVar, Self
 
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.core import Track, TrackID, TrackInfo
+from plistsync.core.ids import ISRC, FilePath, Scope
 
-from ...core import GlobalTrackIDs, Track
+
+@dataclass(frozen=True)
+class BeetsTrackID(TrackID):
+    """A Beets track identifier (database row ID)."""
+
+    # Only unique within a single beets database
+    scope: ClassVar[Scope] = Scope.LOCAL
+
+    id: int
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse from serial format or raw ID."""
+        value = value.strip()
+        if value.lower().startswith("beets:"):
+            value = value[6:]
+        if not value.isdigit():
+            raise ValueError(f"Invalid Beets track id: {value!r}")
+        return cls(int(value))
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for trackid on Beets."""
+        return f"beets:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display, understood by Beets API."""
+        return str(self.id)
+
+    def __int__(self) -> int:
+        """Compact display, understood by Beets API."""
+        return self.id
 
 
 class BeetsTrack(Track):
@@ -14,7 +47,6 @@ class BeetsTrack(Track):
     We might want to add more functionality in the future.
     """
 
-    # Option 1
     row: dict[str, Any]
 
     def __init__(self, row: dict) -> None:
@@ -74,32 +106,25 @@ class BeetsTrack(Track):
     # ------------------------------- Contracts ------------------------------ #
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        idents: GlobalTrackIDs = {}
-        # TODO: How to get tidal id from beets db?
+    def ids(self) -> frozenset[TrackID]:
+        idents: set[TrackID] = {BeetsTrackID(self.row["id"])}
+
+        # File path
+        path = self.path
+        if path is not None:
+            idents.add(FilePath(PurePath(path)))
+
+        # ISRC (already single-valued due to tracks_from_db_rows)
         isrc = self.row.get("isrc", None)
+        if isinstance(isrc, str) and isrc.strip():
+            try:
+                idents.add(ISRC(isrc.strip()))
+            except ValueError:
+                pass
 
-        if isinstance(isrc, str):
-            # If isrc is a string, we assume it is a single isrc
-            isrc = isrc.strip()
+        # TODO: beets support multiple identifiers, e.g. discogs, musicbrainz, etc.
 
-            if len(isrc) == 0:
-                isrc = None
-            else:
-                idents["isrc"] = isrc
-
-        return idents
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        """The local identifiers of this track.
-
-        This is the path to the file.
-        """
-        return LocalTrackIDs(
-            file_path=self.path,
-            beets_id=self.row["id"],
-        )
+        return frozenset(idents)
 
     @property
     def info(self) -> TrackInfo:

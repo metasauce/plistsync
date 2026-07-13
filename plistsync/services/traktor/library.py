@@ -10,9 +10,10 @@ from uuid import UUID
 from lxml import etree
 
 from plistsync.config import Config
-from plistsync.core.collection import Library, LocalLookup, TrackStream
+from plistsync.core import TrackID
+from plistsync.core.collection import IDLookup, Library, TrackStream
+from plistsync.core.ids import FilePath
 from plistsync.core.playlist import PlaylistID
-from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .path import NMLPath
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
 class NMLLibrary(
     Library[NMLTrack, NMLPlaylist],
     TrackStream[NMLTrack],
-    LocalLookup[NMLTrack],
+    IDLookup[NMLTrack],
 ):
     """A Traktor NML Library.
 
@@ -214,16 +215,16 @@ class NMLLibrary(
         else:
             return None
 
-    # --------------------------- LocalLookup protocol --------------------------- #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLTrack | None:
-        """Find a track by its local IDs.
+    def find_by_ids(self, ids: Iterable[TrackID]) -> NMLTrack | None:
+        """Find a track by its identifiers.
 
-        We only support lookup by path here.
+        Only FilePath lookups are supported.
         """
-        if file_path := local_ids.get("file_path"):
-            return self.find_by_traktor_path(NMLPath.from_path(file_path))
-
+        for tid in ids:
+            if isinstance(tid, FilePath):
+                return self.find_by_traktor_path(NMLPath.from_path(tid.path))
         return None
 
     def find_by_traktor_path(self, traktor_path: NMLPath) -> NMLTrack | None:

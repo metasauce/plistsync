@@ -9,7 +9,7 @@ check_imports(
 from . import api
 from .library import PlexLibrary
 from .playlist import PlexPlaylist, PlexPlaylistID
-from .track import PlexTrack
+from .track import PlexTrack, PlexTrackID
 
 
 class PlexService(Service):
@@ -25,5 +25,6 @@ __all__ = [
     "PlexPlaylistID",
     "PlexService",
     "PlexTrack",
+    "PlexTrackID",
     "api",
 ]

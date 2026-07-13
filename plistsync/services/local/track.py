@@ -6,9 +6,10 @@ from typing import cast
 
 from tinytag import TinyTag
 
-from plistsync.core import Collection, GlobalTrackIDs, Track
+from plistsync.core import Collection, Track, TrackID
 from plistsync.core.collection import TrackStream
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.core.ids import ISRC, FilePath
+from plistsync.core.track import TrackInfo
 
 from ...logger import log
 
@@ -26,6 +27,7 @@ class FileCache:
     TODO: what to have in cache when files are not available or cant be read?
     Empty dicts? None? Raise an error?
 
+    TODO: not sure if this is thread safe
     """
 
     _file_cache: dict[Path, TagDict] = {}
@@ -136,15 +138,13 @@ class LocalTrack(Track):
     # --------------------------------- Contracts -------------------------------- #
 
     @property
-    def global_ids(self) -> GlobalTrackIDs:
-        isrc_raw = self.tags.get("isrc", [])
-        isrc: str | None = None
+    def ids(self) -> frozenset[TrackID]:
+        idents: set[TrackID] = {FilePath(self.path)}
 
+        isrc_raw = self.tags.get("isrc", [])
         if not isinstance(isrc_raw, list):
-            # float, int does not make sense for isrc
             isrc_raw = [cast(str, isrc_raw)]
 
-        # Parse from array if necessary
         # Sometimes the isrc is a list of isrcs
         if len(isrc_raw) > 0:
             # For vorbis and other non id3 tags
@@ -156,30 +156,18 @@ class LocalTrack(Track):
             isrc_c: chain[str] = chain.from_iterable(
                 map(lambda x: x.split("\x00"), isrc_raw)
             )
-            isrc_raw = [x for x in isrc_c if x != ""]
+            for raw in isrc_c:
+                raw = raw.strip()
+                if not raw:
+                    continue
+                try:
+                    idents.add(ISRC(raw))
+                except ValueError:
+                    log.debug(f"Invalid ISRC in file tags: {raw!r}")
 
-            if len(isrc_raw) > 1:
-                log.warning(f"Multiple ISRCs found for {self.path}: {isrc_raw}")
-            isrc = isrc_raw[0]
-
-        # Create typechecked identifiers dict
-        res = GlobalTrackIDs()
-        if isrc is not None:
-            res["isrc"] = isrc
-
-        # TODO: recover beets meta data tidal_id, spotify_id, etc.
-
-        return res
-
-    @property
-    def local_ids(self) -> LocalTrackIDs:
-        """The local identifiers of this track.
-
-        This is the path to the file.
-        """
-        return LocalTrackIDs(
-            file_path=self.path,
-        )
+        # TODO: In theory we could also add more ids from the tags,
+        #  e.g. MusicBrainz IDs...
+        return frozenset(idents)
 
     @property
     def info(self) -> TrackInfo:

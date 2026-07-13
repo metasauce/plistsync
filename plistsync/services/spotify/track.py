@@ -1,10 +1,50 @@
-from plistsync.core import GlobalTrackIDs, Track
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+import re
+from dataclasses import dataclass
+from typing import Self
+
+from plistsync.core import Track, TrackID, TrackInfo
+from plistsync.core.ids import ISRC
 from plistsync.services.spotify.api_types import (
     AddedBy,
     SpotifyApiPlaylistTrack,
     SpotifyApiTrackResponse,
 )
+
+
+@dataclass(frozen=True)
+class SpotifyTrackID(TrackID):
+    """A Spotify track identifier."""
+
+    id: str
+
+    @property
+    def url(self) -> str:
+        """Public web URL."""
+        return f"https://open.spotify.com/track/{self.id}"
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse from URL, URI, or raw ID."""
+        value = value.strip()
+        # URL (https://open.spotify.com/track/<id>)
+        if m := re.search(r"spotify\.com/track/([a-zA-Z0-9]{22})", value):
+            return cls(m.group(1))
+        # URI (spotify:track:<id>)
+        if m := re.match(r"spotify:(?:track:)?([a-zA-Z0-9]{22})$", value):
+            return cls(m.group(1))
+        # Plain ID
+        if re.fullmatch(r"[a-zA-Z0-9]{22}", value):
+            return cls(value)
+        raise ValueError(f"Invalid Spotify track id: {value!r}")
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for trackid on Spotify."""
+        return f"spotify:track:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display, understood by Spotify API."""
+        return self.id
 
 
 class SpotifyTrack(Track):
@@ -33,21 +73,12 @@ class SpotifyTrack(Track):
         )
 
     @property
-    def local_ids(self) -> LocalTrackIDs:
-        return LocalTrackIDs()
-
-    @property
-    def global_ids(self) -> GlobalTrackIDs:
-        idents: GlobalTrackIDs = {
-            "spotify_id": self.data["id"],
-        }
-
-        # In theory ean and upc are also available here
+    def ids(self) -> frozenset[TrackID]:
+        idents: set[TrackID] = {SpotifyTrackID(self.data["id"])}
         external_ids = self.data.get("external_ids", {})
         if isrc := external_ids.get("isrc"):
-            idents["isrc"] = isrc
-
-        return idents
+            idents.add(ISRC(isrc))
+        return frozenset(idents)
 
     @property
     def name(self) -> str:

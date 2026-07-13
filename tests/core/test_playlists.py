@@ -1,6 +1,7 @@
 from typing import Any
 from unittest.mock import ANY, Mock
 import pytest
+from plistsync.core.ids import ISRC
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     OfflinePlaylist,
@@ -24,7 +25,7 @@ class TestOfflinePlaylist(TestPlaylistBase):
             info=PlaylistInfo(name=name, description="description"),
             id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
             tracks=[
-                OfflineTrack(info={"title": f"Track {i}"}, global_ids={"isrc": str(i)})
+                OfflineTrack(info={"title": f"Track {i}"}, ids={ISRC(str(i))})
                 for i in range(n_tracks)
             ],
         )
@@ -56,7 +57,7 @@ class TestMockServicePlaylist(TestServicePlaylistBase):
         return MockServicePlaylist(
             info=PlaylistInfo(name=name, description="description"),
             id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
-            tracks=[MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+            tracks=[MockTrack(ids={ISRC(str(i))}) for i in range(n_tracks)],
         )
 
 
@@ -65,7 +66,7 @@ class TestMockMultiRequestServicePlaylist(TestMultiRequestServicePlaylistBase):
         return MockMultiRequestServicePlaylist(
             info=PlaylistInfo(name=name, description="description"),
             id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
-            tracks=[MockTrack(global_ids={"isrc": str(i)}) for i in range(n_tracks)],
+            tracks=[MockTrack(ids={ISRC(str(i))}) for i in range(n_tracks)],
         )
 
     def test_default_remote_move_track(self, playlist: MultiRequestServicePlaylist):

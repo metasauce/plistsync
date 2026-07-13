@@ -10,8 +10,7 @@ Key Design Principles:
 1. Capability-based Design:
    Collections declare what operations they support by implementing specific protocols:
 
-   - **GlobalLookup**: Enables exact matching via globally unique identifiers.
-   - **LocalLookup**: Supports context-specific identifier matching.
+   - **IDLookup**: Enables exact matching via track identifiers (global or local).
    - **InfoLookup**: Facilitates metadata-based similarity searches.
    - **TrackStream**: Provides iteration and bulk processing abilities.
 
@@ -36,7 +35,7 @@ all relevant capabilities offered by the collection.
 
 .. code-block:: python
 
-    class MyTrackCollection(Collection, GlobalLookup, LocalLookup, TrackStream):
+    class MyTrackCollection(Collection, IDLookup, TrackStream):
         # Implement required methods...
 """
 
@@ -57,64 +56,42 @@ from typing import (
 
 from typing_extensions import TypeVar
 
+from .ids import Scope, TrackID
 from .matching import Matches, Similarity, fuzzy_match
-from .track import GlobalTrackIDs, LocalTrackIDs, Track, TrackInfo
+from .track import Track, TrackInfo
 
 R = TypeVar("R")
 P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
 
 if TYPE_CHECKING:
-    from .playlist import Playlist, PlaylistID
+    from .ids import PlaylistID
+    from .playlist import Playlist
+
 
 Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
 
 
 @runtime_checkable
-class GlobalLookup(Protocol, Generic[T]):
-    """A collection that can find tracks using global unique IDs."""
+class IDLookup(Protocol, Generic[T]):
+    """A collection that can find tracks by their :class:`TrackID` identifiers."""
 
     @abstractmethod
-    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> T | None:
-        """Find a single track by its global identifiers."""
+    def find_by_ids(self, ids: Iterable[TrackID]) -> T | None:
+        """Find a single track by its identifiers."""
         ...
 
-    def find_many_by_global_ids(
-        self, global_ids_list: Iterable[GlobalTrackIDs]
+    def find_many_by_ids(
+        self, track_ids_batch: Iterable[Iterable[TrackID]]
     ) -> Iterable[T | None]:
-        """Find multiple tracks by their global identifiers.
+        """Find multiple tracks by their identifiers.
 
         Default implementation iterates over the provided list and calls
-        `find_by_global_ids` for each entry. Collections can override this
+        ``find_by_ids`` for each entry. Collections can override this
         method to provide a more efficient batch lookup if supported.
         """
-        for global_ids in global_ids_list:
-            yield self.find_by_global_ids(global_ids)
-
-
-@runtime_checkable
-class LocalLookup(Protocol, Generic[T]):
-    """A collection that can find tracks using local context-specific IDs."""
-
-    @abstractmethod
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> T | None:
-        """Find a single track by its local identifiers."""
-        # TODO: local ids might potentially return multiple tracks.
-        # Not decided how to handle this 100% yet. For now, we raise warnings
-        # and return the first match. (Same goes for global ids, actually.)
-        ...
-
-    def find_many_by_local_ids(
-        self, local_ids_list: Iterable[LocalTrackIDs]
-    ) -> Iterable[T | None]:
-        """Find multiple tracks by their local identifiers.
-
-        Default implementation iterates over the provided list and calls
-        `find_by_local_ids` for each entry. Collections can override this
-        method to provide a more efficient batch lookup if supported.
-        """
-        for local_ids in local_ids_list:
-            yield self.find_by_local_ids(local_ids)
+        for ids in track_ids_batch:
+            yield self.find_by_ids(ids)
 
 
 @runtime_checkable
@@ -257,8 +234,8 @@ class Collection(ABC, Generic[T]):
 
         The method checks for matches in this order:
 
-        1. Global IDs (exact match, returns immediately if found)
-        2. Local IDs (exact match with similarity check)
+        1. IDs with global scope (exact match, returns immediately if found)
+        2. IDs with local scope (exact match with similarity check)
         3. Track info (similarity-based search)
         4. Fallback to iterating through all tracks if needed.
            This still uses the three methods above, but is way less efficient.
@@ -281,23 +258,27 @@ class Collection(ABC, Generic[T]):
 
         # Check capabilities of this collection,
         # protocol instance checks can be expensive
-        has_global_lookup = isinstance(self, GlobalLookup)
-        has_local_lookup = isinstance(self, LocalLookup)
+        has_id_lookup = isinstance(self, IDLookup)
         has_info_lookup = isinstance(self, InfoLookup)
         is_stream = isinstance(self, TrackStream)
+        found_track: T
 
-        # 1. Try global ID lookup first (exact match, highest priority)
-        if has_global_lookup:
-            if found_track := self.find_by_global_ids(track.global_ids):  # type: ignore[attr-defined]
+        # 1. ID lookup (global)
+        # We search global ids first
+        # (exact match, highest priority)
+        global_ids = {id for id in track.ids if id.scope is Scope.GLOBAL}
+        if has_id_lookup and global_ids:
+            if found_track := self.find_by_ids(global_ids):  # type: ignore[attr-defined]
                 return Matches(
                     truth=track, found=[found_track], found_similarities=[1.0]
                 )
 
-        # 2. Try local ID lookup (exact match with similarity check)
-        if has_local_lookup:
-            if found_track := self.find_by_local_ids(track.local_ids):  # type: ignore[attr-defined]
+        # 2. ID lookup (local)
+        # (exact match with similarity check)
+        local_ids = {id for id in track.ids if id.scope is Scope.LOCAL}
+        if has_id_lookup and local_ids:
+            if found_track := self.find_by_ids(local_ids):  # type: ignore[attr-defined]
                 similarity = _fuzzy_match_track(track, found_track)
-
                 if similarity >= cutoff:
                     found_tracks.append(found_track)
                     similarities.append(similarity)
@@ -334,38 +315,35 @@ class Collection(ABC, Generic[T]):
         # 4. Fallback to iterating through all tracks,
         # but only if the collection does not implement all other protocols
         # (in this case, we have already checked all three options)
-        if is_stream and not (
-            has_global_lookup and has_local_lookup and has_info_lookup
-        ):
+        if is_stream and not (has_id_lookup and has_info_lookup):
             # TODO: we might to skip the fuzzy match for the global
             # id case
             for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
                 _fuzzy_match_track, chunk_size=1000, b=track
             ):
-                if not has_global_lookup:
-                    for key, value in track.global_ids.items():
-                        if found_track.global_ids.get(key) == value:
-                            return Matches(
-                                truth=track,
-                                found=[found_track],
-                                found_similarities=[1.0],
-                            )
+                # Again global scope first
+                if not has_id_lookup:
+                    if global_ids & found_track.ids:  # Intersection
+                        return Matches(
+                            truth=track,
+                            found=[found_track],
+                            found_similarities=[1.0],
+                        )
 
                 if similarity < cutoff:
                     continue
 
-                if not has_local_lookup:
-                    for key, value in track.local_ids.items():
-                        if found_track.local_ids.get(key) == value:
-                            found_tracks.append(found_track)
-                            similarities.append(similarity)
+                if not has_id_lookup:
+                    if local_ids & found_track.ids:
+                        found_tracks.append(found_track)
+                        similarities.append(similarity)
 
-                            if skip_after_local_match:
-                                return Matches(
-                                    truth=track,
-                                    found=found_tracks,
-                                    found_similarities=similarities,
-                                )
+                        if skip_after_local_match:
+                            return Matches(
+                                truth=track,
+                                found=found_tracks,
+                                found_similarities=similarities,
+                            )
 
                 if not has_info_lookup:
                     found_tracks.append(found_track)

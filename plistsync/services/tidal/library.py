@@ -3,22 +3,23 @@ from typing import overload
 
 from requests import HTTPError
 
-from plistsync.core import GlobalTrackIDs
+from plistsync.core import TrackID
 from plistsync.core.collection import (
-    GlobalLookup,
+    IDLookup,
     Library,
 )
+from plistsync.core.ids import ISRC
 from plistsync.core.playlist import PlaylistID
 from plistsync.logger import log
 
 from .api import TidalApi
 from .playlist import TidalPlaylist, TidalPlaylistID
-from .track import TidalTrack
+from .track import TidalTrack, TidalTrackID
 
 
 class TidalLibrary(
     Library[TidalTrack, TidalPlaylist],
-    GlobalLookup[TidalTrack],
+    IDLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
 
@@ -132,39 +133,40 @@ class TidalLibrary(
                 return True
         return False
 
-    # --------------------------- GlobalLookup protocol -------------------------- #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_global_ids(self, global_ids: GlobalTrackIDs) -> TidalTrack | None:
-        """Find a track by its global IDs.
+    def find_by_ids(self, ids: Iterable[TrackID]) -> TidalTrack | None:
+        """Find a track by its identifiers.
 
-        Prioritizes isrc lookups over tidal_id lookups.
+        Prioritizes tidal ID lookups over ISRC lookups.
         """
-        return list(self.find_many_by_global_ids([global_ids]))[0]
+        return list(self.find_many_by_ids([ids]))[0]
 
-    def find_many_by_global_ids(
-        self, global_ids_list: Iterable[GlobalTrackIDs]
+    def find_many_by_ids(
+        self, track_ids_batch: Iterable[Iterable[TrackID]]
     ) -> Iterable[TidalTrack | None]:
-        """Find many tracks by their global IDs.
+        """Find many tracks by their identifiers.
 
-        Prioritizes isrc lookups over tidal_id lookups.
+        Prioritizes tidal ID lookups over ISRC lookups.
         """
-
         found_tracks: dict[int, TidalTrack] = {}
 
         # avoid consuming this, we iterate twice.
-        global_ids_list = list(global_ids_list)
+        # inner: ids for one track, outer: tracks
+        ids_list = [frozenset(ids) for ids in track_ids_batch]
 
         # Tidal ids batch lookup
-        idxes = []
+        idxes: list[int] = []
         tidal_ids: list[str] = []
-        for idx, gids in enumerate(global_ids_list):
-            if "tidal_id" in gids:
-                idxes.append(idx)
-                tidal_ids.append(gids["tidal_id"])
+        for idx, ids in enumerate(ids_list):
+            for tid in ids:
+                if isinstance(tid, TidalTrackID):
+                    idxes.append(idx)
+                    tidal_ids.append(str(tid))
+                    break
 
         if tidal_ids:
             tracks, lookup = self.api.tracks.get_many(tidal_ids)
-
             for idx, track in zip(idxes, tracks):
                 if not track:
                     log.debug(f"Track with tidal_id '{tidal_ids[idx]}' not found")
@@ -174,21 +176,22 @@ class TidalLibrary(
         # ISRC batch lookup for remaining ids
         idxes = []
         isrcs: list[str] = []
-        for idx, gids in enumerate(global_ids_list):
+        for idx, ids in enumerate(ids_list):
             if idx in found_tracks:
                 continue
-            if "isrc" in gids:
-                idxes.append(idx)
-                isrcs.append(gids["isrc"])
+            for tid in ids:
+                if isinstance(tid, ISRC):
+                    idxes.append(idx)
+                    isrcs.append(str(tid))
+                    break
 
         if isrcs:
             tracks, lookup = self.api.tracks.get_many_by_isrc(isrcs)
-
             for idx, track in zip(idxes, tracks):
                 if not track:
                     log.debug(f"Track with isrc '{isrcs[idx]}' not found")
                 else:
                     found_tracks[idx] = TidalTrack(track, lookup)
 
-        for idx, gids in enumerate(global_ids_list):
+        for idx, ids in enumerate(ids_list):
             yield found_tracks.get(idx, None)

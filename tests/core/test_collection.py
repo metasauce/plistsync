@@ -3,20 +3,18 @@
 import pytest
 
 from plistsync.core.collection import (
-    GlobalLookup,
-    LocalLookup,
+    IDLookup,
     InfoLookup,
     TrackStream,
 )
+from plistsync.core.ids import ISRC
 
 from .mock_collections import (
-    MockGlobalLookupCollection,
-    MockLocalLookupCollection,
+    MockIDLookupCollection,
     MockInfoLookupCollection,
     MockTrackStreamCollection,
     MockFullCapabilityCollection,
 )
-
 from .mock_track import MockTrack
 
 
@@ -26,20 +24,19 @@ class TestProtocolRuntimeChecking:
     @pytest.mark.parametrize(
         "collection_type, check",
         [
-            (MockGlobalLookupCollection, GlobalLookup),
-            (MockLocalLookupCollection, LocalLookup),
+            (MockIDLookupCollection, IDLookup),
             (MockInfoLookupCollection, InfoLookup),
             (MockTrackStreamCollection, TrackStream),
             (
                 MockFullCapabilityCollection,
-                (GlobalLookup, LocalLookup, InfoLookup, TrackStream),
+                (IDLookup, InfoLookup, TrackStream),
             ),
         ],
     )
-    def test_runtime_checkable_global_lookup(self, collection_type, check):
-        """Test runtime checking for GlobalLookup protocol."""
+    def test_runtime_checkable(self, collection_type, check):
+        """Test runtime checking for protocols."""
         col = collection_type([])
-        for ins in [GlobalLookup, LocalLookup, InfoLookup, TrackStream]:
+        for ins in [IDLookup, InfoLookup, TrackStream]:
             if (isinstance(check, tuple) and (ins in check)) or check == ins:
                 assert isinstance(col, ins)
             else:
@@ -49,24 +46,22 @@ class TestProtocolRuntimeChecking:
 class TestMatchingInCollections:
     """Test matching functionality in collections."""
 
-    def test_find_by_global_id(self):
-        """Test that NotImplementedError is raised for unimplemented method."""
-
+    def test_find_by_ids(self):
+        """Test find_by_ids for exact ID matches."""
         col = MockFullCapabilityCollection(
             [
-                MockTrack("1", global_ids={"isrc": "A"}),
-                MockTrack("2", global_ids={"isrc": "B"}),
+                MockTrack("1", ids={ISRC("A")}),
+                MockTrack("2", ids={ISRC("B")}),
             ]
         )
-
-        found = col.find_by_global_ids({"isrc": "A"})
+        found = col.find_by_ids({ISRC("A")})
         assert found is not None and found.title == "1"
 
-        found_many = col.find_many_by_global_ids(
+        found_many = col.find_many_by_ids(
             [
-                {"isrc": "A"},
-                {"isrc": "B"},
-                {"isrc": "C"},
+                {ISRC("A")},
+                {ISRC("B")},
+                {ISRC("C")},
             ]
         )
         tracks = list(filter(None, found_many))
@@ -83,25 +78,23 @@ class TestMatchingInCollections:
     @pytest.mark.parametrize(
         "collection_type",
         [
-            MockGlobalLookupCollection,
+            MockIDLookupCollection,
             MockTrackStreamCollection,
             MockFullCapabilityCollection,
         ],
     )
-    def test_match_global(self, skip_after_local, skip_after_fuzzy, collection_type):
-        """Test global matching in the collection.
-        E.g. by ISRC.
-        """
+    def test_match_id_lookup(self, skip_after_local, skip_after_fuzzy, collection_type):
+        """Test ID-based matching in the collection."""
         track = MockTrack(
             title="Test Track",
-            global_ids={"isrc": "id"},
+            ids={ISRC("id")},
         )
         col = collection_type([track])
 
         found = col.match(
             MockTrack(
                 title="FOOO",
-                global_ids={"isrc": "id"},
+                ids={ISRC("id")},
             ),
             skip_after_local_match=skip_after_local,
             skip_after_perfect_fuzzy_match=skip_after_fuzzy,
@@ -120,30 +113,26 @@ class TestMatchingInCollections:
     @pytest.mark.parametrize(
         "collection_type",
         [
-            MockLocalLookupCollection,
+            MockIDLookupCollection,
             MockTrackStreamCollection,
             MockFullCapabilityCollection,
         ],
     )
-    def test_match_local(self, skip_after_local, skip_after_fuzzy, collection_type):
-        """Test local matching in the collection.
-        E.g. by Plex local ID.
-        """
-        track = MockTrack(
-            title="Test Track",
-            local_ids={"plex_id": "local-id"},
-        )
-        col = collection_type([track])
+    def test_match_id_lookup_no_match(
+        self, skip_after_local, skip_after_fuzzy, collection_type
+    ):
+        """Test ID-based matching when no ID matches."""
+        col = collection_type([MockTrack("1", ids={ISRC("A")})])
 
         found = col.match(
             MockTrack(
-                local_ids={"plex_id": "local-id"},
+                title="Track 2",
+                ids={ISRC("B")},
             ),
             skip_after_local_match=skip_after_local,
             skip_after_perfect_fuzzy_match=skip_after_fuzzy,
         ).best_match
-        assert found is not None
-        assert found == track
+        assert found is None
 
     @pytest.mark.parametrize(
         "skip_after_local, skip_after_fuzzy",
@@ -162,20 +151,12 @@ class TestMatchingInCollections:
         ],
     )
     def test_match_info(self, skip_after_local, skip_after_fuzzy, collection_type):
-        """Test info matching in the collection.
-        E.g. by title.
-        """
-        track = MockTrack(
-            title="Unique Title",
-        )
+        """Test info matching in the collection."""
+        track = MockTrack(title="Unique Title")
         col = collection_type([track])
 
         found = col.match(
-            MockTrack(
-                title="Unique Title",
-                global_ids={"isrc": "non-matching-id"},
-                local_ids={"plex_id": "non-matching-local-id"},
-            ),
+            MockTrack(title="Unique Title"),
             skip_after_local_match=skip_after_local,
             skip_after_perfect_fuzzy_match=skip_after_fuzzy,
         ).best_match
@@ -186,15 +167,12 @@ class TestMatchingInCollections:
         """Test that cutoff works in matching."""
         track = MockTrack(
             title="Test Track",
-            global_ids={"isrc": "id"},
+            ids={ISRC("id")},
         )
         col = MockTrackStreamCollection([track])
 
-        # Matching with high cutoff should yield no results
         matches = col.match(
-            MockTrack(
-                title="Test",
-            ),
+            MockTrack(title="Test"),
             cutoff=1.0,
         )
         assert matches.best_match is None

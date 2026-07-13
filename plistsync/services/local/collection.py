@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from plistsync.core import Collection, GlobalTrackIDs
+from plistsync.core import Collection, TrackID
+from plistsync.core.collection import IDLookup
 
-from .track import LocalTrack
+from .track import FileCache, LocalTrack
 
 
-class LocalCollection(Collection):
+class LocalCollection(Collection, IDLookup):
     """A a lazy collection of tracks from a file system.
 
     This collection does not load all tracks into memory at once. Instead it
@@ -17,8 +18,9 @@ class LocalCollection(Collection):
     """
 
     path: Path
+    _cache: FileCache | None
 
-    def __init__(self, path: Path | str):
+    def __init__(self, path: Path | str, cache: FileCache | None = None):
         """
         Create a new lazy collection of tracks from a file system path.
 
@@ -26,55 +28,39 @@ class LocalCollection(Collection):
         ----------
         path: Path | str
             The path to the directory containing the tracks.
+        cache: FileCache | None
+            Optional shared cache for file metadata to avoid repeated disk reads.
         """
 
         if isinstance(path, str):
             path = Path(path)
 
         self.path = path
+        self._cache = cache
 
         # Check if the path exists
         if not path.exists():
             raise FileNotFoundError(f"Path {path} does not exist.")
 
-    def find_by_identifiers(self, identifiers: GlobalTrackIDs) -> LocalTrack | None:
-        if len(identifiers) == 0:
+    def find_by_ids(self, ids: Iterable[TrackID]) -> LocalTrack | None:
+        """Find a track by its IDs."""
+        identifiers = frozenset(ids)
+        if not identifiers:
             return None
 
-        # Not too sure if this has any performance benefits but
-        # at least for the first read it should be faster than
-        # doing it single threaded
-        # Should be IO bound in most cases
-        # TODO: max workers should be configurable
         with ThreadPoolExecutor(max_workers=4) as executor:
 
-            def _get_track_identifiers(track: LocalTrack) -> GlobalTrackIDs:
-                return track.global_ids
+            def _get_track_ids(track: LocalTrack) -> frozenset[TrackID]:
+                return track.ids
 
-            futures = {
-                executor.submit(_get_track_identifiers, track): track for track in self
-            }
+            futures = {executor.submit(_get_track_ids, track): track for track in self}
 
         for future in as_completed(futures):
             track = futures[future]
-            track_ids: GlobalTrackIDs = future.result()
+            track_ids: frozenset[TrackID] = future.result()
 
-            # Search for each identifier in the tracks metadata
-            for key, value in identifiers.items():
-                if value is None or not isinstance(value, str):
-                    continue
-
-                found_value = track_ids.get(key)
-                if found_value is None or not isinstance(found_value, str):
-                    continue
-
-                # Casefold comparison is more robust than
-                # doing .lower() or .upper() as it handles
-                # more edge cases
-                value = value.casefold()
-                found_value = found_value.casefold()
-                if value == found_value:
-                    return track
+            if identifiers & track_ids:
+                return track
 
         return None
 
@@ -82,6 +68,4 @@ class LocalCollection(Collection):
         # Use rglob to recursively find all files
         for file_path in self.path.rglob("*"):
             if file_path.is_file():
-                potential_track = LocalTrack(file_path)
-                if potential_track is not None:
-                    yield potential_track
+                yield LocalTrack(file_path, cache=self._cache)

@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from lxml.etree import Element, SubElement, _Element
 
-from plistsync.core.collection import LocalLookup
+from plistsync.core import TrackID
+from plistsync.core.collection import IDLookup
+from plistsync.core.ids import FilePath
 from plistsync.core.playlist import (
     PlaylistID,
     PlaylistInfo,
     ServicePlaylist,
     Snapshot,
 )
-from plistsync.core.track import LocalTrackIDs
 from plistsync.logger import log
 
 from .path import NMLPath
@@ -32,7 +33,6 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NMLPlaylistID(PlaylistID):
-    service_name: ClassVar[str] = "traktor"
     id: UUID  # uuid
 
     @classmethod
@@ -77,7 +77,7 @@ class NMLPlaylistID(PlaylistID):
         return str(self.id.hex)  # Uses hex in internal repr
 
 
-class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
+class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], IDLookup):
     """A Traktor NML playlist collection.
 
     Traktor playlists use file paths as the identifiers.
@@ -217,22 +217,16 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], LocalLookup):
         self._tracks = [NMLPlaylistTrack(entry) for entry in entries]
         return self._tracks
 
-    # --------------------------- LocalLookup protocol --------------------------- #
+    # --------------------------- IDLookup protocol ------------------------------ #
 
-    def find_by_local_ids(self, local_ids: LocalTrackIDs) -> NMLPlaylistTrack | None:
-        """Find a track by its local IDs.
+    def find_by_ids(self, ids: Iterable[TrackID]) -> NMLPlaylistTrack | None:
+        """Find a track by its identifiers.
 
-        Note
-        -----
-        We only support lookup by file_path here. Other local ids are ignored.
-
-        Parameter
-        ---------
-        local_ids : LocalTrackIDs
+        Only FilePath lookups are supported.
         """
-        if file_path := local_ids.get("file_path"):
-            # If the file_path is set, we can use it to find the track
-            return self.find_by_traktor_path(NMLPath.from_path(file_path))
+        for tid in ids:
+            if isinstance(tid, FilePath):
+                return self.find_by_traktor_path(NMLPath.from_path(tid.path))
         return None
 
     def find_by_traktor_path(self, traktor_path: NMLPath) -> NMLPlaylistTrack | None:

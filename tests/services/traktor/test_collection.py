@@ -1,6 +1,7 @@
 from pathlib import Path, PurePath
 import sys
 import pytest
+from plistsync.core.ids import FilePath
 from plistsync.services.traktor import NMLLibrary
 from plistsync.services.traktor import NMLPlaylist
 from plistsync.services.traktor import NMLPath
@@ -87,15 +88,15 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         p2 = reloaded.get_playlist_or_raise(id="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 
-    def test_find_by_local_ids(self, collection: NMLLibrary):
+    def test_find_by_ids(self, collection: NMLLibrary):
         # Test with a valid path
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
-        track = collection.find_by_local_ids({"file_path": example_path})
+        track = collection.find_by_ids({FilePath(example_path)})
         assert track is not None
 
-        track = collection.find_by_local_ids({})
+        track = collection.find_by_ids(set())
         assert track is None
 
     @pytest.mark.parametrize(
@@ -357,7 +358,7 @@ class TestNMLPlaylist(CollectionTestBase):
         track = p1.find_by_traktor_path(p1.tracks[-1].traktor_path)
         assert "duplicate" in caplog.text
 
-    def test_find_by_local_ids(self, collection: NMLLibrary):
+    def test_find_by_ids(self, collection: NMLLibrary):
         p1 = collection.get_playlist(name=self.name)
         assert p1 is not None
 
@@ -365,10 +366,10 @@ class TestNMLPlaylist(CollectionTestBase):
         example_path = Path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
         )
-        track = p1.find_by_local_ids({"file_path": example_path})
+        track = p1.find_by_ids({FilePath(example_path)})
         assert track is not None
 
-        track = p1.find_by_local_ids({})
+        track = p1.find_by_ids(set())
         assert track is None
 
 

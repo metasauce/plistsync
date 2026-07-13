@@ -1,16 +1,61 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime
 
-from plistsync.core import GlobalTrackIDs, Track
-from plistsync.core.track import LocalTrackIDs, TrackInfo
+from plistsync.core import Track, TrackID, TrackInfo
+from plistsync.core.ids import ISRC
 from plistsync.services.tidal.api_types import (
     PlaylistsItemsResourceIdentifierMeta,
     TrackResource,
 )
 
 from .api import LookupDict
+
+
+@dataclass(frozen=True)
+class TidalTrackID(TrackID):
+    """A Tidal track identifier.
+
+    This is a unique identifier for a track on Tidal.
+    """
+
+    id: str
+
+    @property
+    def url(self) -> str:
+        """Public web URL."""
+        return f"https://tidal.com/track/{self.id}"
+
+    @classmethod
+    def parse(cls, value: str) -> TidalTrackID:
+        """Parse from URL, URI, or raw id."""
+        value = value.strip()
+
+        # URL (https://listen.tidal.com/track/<id>)
+        if m := re.search(r"tidal\.com/(?:browse/)?track/([a-f0-9-]+)", value):
+            return cls(m.group(1))
+
+        # URI (tidal:track:<id>)
+        if m := re.match(r"tidal:track:([a-f0-9-]+)$", value):
+            return cls(m.group(1))
+
+        # Plain id (numeric)
+        if re.fullmatch(r"[a-f0-9-]+", value):
+            return cls(value)
+
+        raise ValueError(f"Invalid TIDAL track id: {value!r}")
+
+    @property
+    def serial(self) -> str:
+        """Plistsync's internal representation for trackid on Tidal."""
+        return f"tidal:track:{self.id}"
+
+    def __str__(self) -> str:
+        """Compact display, understood by Tidal API."""
+        return self.id
 
 
 class TidalTrack(Track):
@@ -99,20 +144,15 @@ class TidalTrack(Track):
         )
 
     @property
-    def local_ids(self) -> LocalTrackIDs:
-        return LocalTrackIDs()
-
-    @property
-    def global_ids(self) -> GlobalTrackIDs:
-        idents: GlobalTrackIDs = {}
-
+    def ids(self) -> frozenset[TrackID]:
+        ids: set[TrackID] = set()
         if isrc := self.data.get("attributes", {}).get("isrc"):
-            idents["isrc"] = isrc
+            ids.add(ISRC(isrc))
 
         if tidal_id := self.data.get("id"):
-            idents["tidal_id"] = tidal_id
+            ids.add(TidalTrackID(tidal_id))
 
-        return idents
+        return frozenset(ids)
 
 
 class TidalPlaylistTrack(TidalTrack):

@@ -122,17 +122,19 @@ class TestPlexTrack(TestTrack):
         )
 
     def test_local_ids(self):
-        # Test valid local_ids
+        # Test valid ids
         track = self.create_track()
-        lids = track.local_ids
-        assert isinstance(lids, dict), "local_ids should be a dict"
+        ids = track.ids
+        assert isinstance(ids, frozenset), "ids should be a frozenset"
 
-        # we only use local tracks in the test (not the tidal ones)
-        assert "file_path" in lids, "local_ids should contain file_path"
-        assert lids["file_path"] == track.path, "file_path should be correct"
+        # Check for FilePath
+        file_ids = [t for t in ids if hasattr(t, "path")]
+        assert len(file_ids) > 0, "ids should contain a FilePath"
 
-        assert "plex_id" in lids, "local_ids should contain plex_id"
-        assert lids["plex_id"] == track.id, "plex_id should be correct"
+        # Check for PlexTrackID
+        plex_ids = [t for t in ids if type(t).__name__ == "PlexTrackID"]
+        assert len(plex_ids) > 0, "ids should contain a PlexTrackID"
+        assert str(plex_ids[0]) == track.id, "plex_id should be correct"
 
     def test_global_ids_via_local_track(self):
         # plex has very little real metadata in its track-level api respones,
@@ -141,6 +143,44 @@ class TestPlexTrack(TestTrack):
         track = self.create_track()
         assert track.path is not None, "Track should have a path"
         local_track = LocalTrack(track.path)
-        assert local_track.global_ids.get("isrc") == "US-AT1-99-00001", (
-            "ISRC should be correct"
-        )
+        assert local_track.isrc == "USAT19900001", "ISRC should be correct"
+
+
+class TestPlexTrackID:
+    @pytest.mark.parametrize(
+        "input_str, expected_id",
+        [
+            # Raw ID
+            ("58516", "58516"),
+            # Serial format
+            ("plex:track:58516", "58516"),
+            ("PLEX:TRACK:58516", "58516"),
+            # With whitespace
+            ("  58516  ", "58516"),
+            ("  plex:track:58516  ", "58516"),
+        ],
+    )
+    def test_valid_inputs(self, input_str, expected_id):
+        from plistsync.services.plex.track import PlexTrackID
+
+        assert PlexTrackID.parse(input_str).id == expected_id
+
+    @pytest.mark.parametrize(
+        "invalid_input",
+        [
+            # Non-numeric
+            "abc",
+            "plex:track:abc",
+            # Empty
+            "plex:track:",
+            "",
+            # Wrong prefix
+            "plex:playlist:58516",
+            "spotify:track:58516",
+        ],
+    )
+    def test_invalid_inputs(self, invalid_input):
+        from plistsync.services.plex.track import PlexTrackID
+
+        with pytest.raises(ValueError):
+            PlexTrackID.parse(invalid_input)
