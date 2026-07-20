@@ -167,10 +167,14 @@ def batch_consecutive(
         yield batch
 
 
+T1 = TypeVar("T1")
+T2 = TypeVar("T2")
+
+
 def list_diff(
     old: Sequence[T],
     new: Sequence[T],
-    hash_func: Callable[[T], Hashable],
+    key_func: Callable[[T], Hashable],
 ) -> Operations[T]:
     """Compute minimal insert/delete/move operations between lists.
 
@@ -180,7 +184,7 @@ def list_diff(
         Original track list.
     new : list[T]
         Target track list.
-    hash_func : Callable[[T], Hashable]
+    key_func : Callable[[T], Hashable]
         Function that returns a hashable key for logical equality.
 
     Returns
@@ -195,8 +199,8 @@ def list_diff(
     """
     live_list: list[T] = []  # Keep track of the current operations
 
-    old_keys = [hash_func(t) for t in old]
-    new_keys = [hash_func(t) for t in new]
+    old_keys = [key_func(t) for t in old]
+    new_keys = [key_func(t) for t in new]
     new_counts = Counter(new_keys)
 
     # 1. Delete excess duplicates (keep first N occurrences of each key)
@@ -226,7 +230,7 @@ def list_diff(
     hash_to_indices: dict[Hashable, list[int]] = defaultdict(list)
     unmatched_old_indices = list(range(len(live_list)))
     for idx, item in enumerate(live_list):
-        hash_to_indices[hash_func(item)].append(idx)
+        hash_to_indices[key_func(item)].append(idx)
 
     def shift_indices(indices: list[int], threshold: int, delta: int) -> None:
         pos = bisect.bisect_left(indices, threshold)
@@ -234,7 +238,7 @@ def list_diff(
             indices[i] += delta
 
     for target_idx, target_item in enumerate(new):
-        hash = hash_func(target_item)
+        hash = key_func(target_item)
         matched_old_idx = None
         # Get first unmatched old item with matching key
         if hash_to_indices[hash]:
@@ -276,4 +280,99 @@ def list_diff(
             shift_indices(unmatched_old_indices, target_idx, +1)
             for lst in hash_to_indices.values():
                 shift_indices(lst, target_idx, +1)
+    return Operations(ops, list(old))
+
+
+def list_diff_eq(
+    old: Sequence[T],
+    new: Sequence[T],
+    eq_func: Callable[[T, T], bool],
+) -> Operations[T]:
+    """Compute minimal insert/delete/move operations between lists using equality.
+
+    Unlike `list_diff`, this uses a binary equality function instead of a hash
+    function, enabling partial matching (e.g., matching by track ID while
+    ignoring other metadata fields that may differ between services).
+
+    Parameters
+    ----------
+    old : Sequence[T]
+        Original list.
+    new : Sequence[T]
+        Target list.
+    eq_func : Callable[[T, T], bool]
+        Function that returns True if two items are considered equal.
+
+    Returns
+    -------
+    Operations[T]
+        Minimal operations to transform old into new.
+
+    Qwirks
+    ------
+    Delete operations are always done first.
+
+    Complexity is O(n*m) due to linear scans (no hashing).
+
+    """
+    # Phase 1: Greedily match old items to new items (first-come-first-served).
+    # This single matching pass determines both which old items survive
+    # and where they should end up, avoiding inconsistency between phases.
+    old_to_new: dict[int, int] = {}  # old_idx -> new_idx
+    new_to_old: dict[int, int] = {}  # new_idx -> old_idx
+    new_matched: set[int] = set()
+
+    for old_idx, old_item in enumerate(old):
+        for new_idx, new_item in enumerate(new):
+            if new_idx not in new_matched and eq_func(old_item, new_item):
+                old_to_new[old_idx] = new_idx
+                new_to_old[new_idx] = old_idx
+                new_matched.add(new_idx)
+                break
+
+    # Phase 2: Delete unmatched old items.
+    indices_to_delete = sorted(i for i in range(len(old)) if i not in old_to_new)
+    del_set = set(indices_to_delete)
+
+    live_list: list[T] = []
+    for idx, item in enumerate(old):
+        if idx not in del_set:
+            live_list.append(item)
+
+    ops: list[InsertOp[T] | DeleteOp[T] | MoveOp[T]] = []
+    for idx in reversed(indices_to_delete):
+        ops.append(DeleteOp(item=old[idx], idx=idx))
+
+    # Phase 3: Apply moves and inserts using the pre-computed matching.
+    # live_to_old tracks which original old_idx is at each live position;
+    # -1 marks positions occupied by newly inserted items.
+    live_to_old: list[int] = [idx for idx in range(len(old)) if idx not in del_set]
+
+    for target_idx, target_item in enumerate(new):
+        if target_idx in new_to_old:
+            # This new slot was matched to a surviving old item — move it.
+            matched_old_idx = new_to_old[target_idx]
+            try:
+                matched_live_idx = live_to_old.index(matched_old_idx)
+            except ValueError:
+                continue  # Should not happen with consistent matching.
+
+            if matched_live_idx != target_idx:
+                ops.append(
+                    MoveOp(
+                        old_idx=matched_live_idx,
+                        new_idx=target_idx,
+                        item=live_list[matched_live_idx],
+                    )
+                )
+                val = live_list.pop(matched_live_idx)
+                live_list.insert(target_idx, val)
+                old_idx_val = live_to_old.pop(matched_live_idx)
+                live_to_old.insert(target_idx, old_idx_val)
+        else:
+            # No old item matches this new slot — insert.
+            ops.append(InsertOp(idx=target_idx, item=target_item))
+            live_list.insert(target_idx, target_item)
+            live_to_old.insert(target_idx, -1)
+
     return Operations(ops, list(old))

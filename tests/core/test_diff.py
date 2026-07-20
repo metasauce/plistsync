@@ -1,3 +1,4 @@
+from __future__ import annotations
 import pytest
 
 from plistsync.core.diff import (
@@ -7,7 +8,15 @@ from plistsync.core.diff import (
     Operations,
     batch_consecutive,
     list_diff,
+    list_diff_eq,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.core.diff import (
+        Op,
+    )
+    from collections.abc import Callable
 
 
 class TestPlaylistDiff:
@@ -79,9 +88,9 @@ class TestPlaylistDiff:
                 [MoveOp(old_idx=1, new_idx=0, item="B")],
                 id="swap_two",
             ),
-       
+
         ],
-   
+
     )  # fmt: skip
     def test_playlist_diff(self, old, new, expected):
         """Comprehensive test suite for playlist_diff."""
@@ -162,6 +171,185 @@ class TestPlaylistDiff:
 
         for i, op in enumerate(ops.ops):
             assert ops[i] == op
+
+
+class TrackStub:
+    """Minimal stub for testing partial matching by ID."""
+
+    def __init__(self, track_id: str, title: str = "") -> None:
+        self.track_id = track_id
+        self.title = title
+
+    def __repr__(self) -> str:
+        return f"TrackStub({self.track_id!r}, {self.title!r})"
+
+
+class TestListDiffEq:
+    """Tests for list_diff_eq with equality-based partial matching."""
+
+    @staticmethod
+    def _ops_equal(
+        actual: list[Op],
+        expected: list[Op],
+        eq_func: Callable[[object, object], bool],
+    ) -> bool:
+        """Compare operation lists using eq_func for item fields."""
+        if len(actual) != len(expected):
+            return False
+        for a, e in zip(actual, expected):
+            if type(a) is not type(e):
+                return False
+            if isinstance(a, DeleteOp) and isinstance(e, DeleteOp):
+                if a.idx != e.idx or not eq_func(a.item, e.item):
+                    return False
+            elif isinstance(a, InsertOp) and isinstance(e, InsertOp):
+                if a.idx != e.idx or not eq_func(a.item, e.item):
+                    return False
+            elif isinstance(a, MoveOp) and isinstance(e, MoveOp):
+                if (
+                    a.old_idx != e.old_idx
+                    or a.new_idx != e.new_idx
+                    or not eq_func(a.item, e.item)
+                ):
+                    return False
+            else:
+                return False
+        return True
+
+    @staticmethod
+    def _round_trip(
+        old: list,
+        new: list,
+        ops: Operations,
+        eq_func: Callable[[object, object], bool],
+    ) -> None:
+        """Verify that applying operations reconstructs the target list."""
+        playlist = old.copy()
+        for step in ops.iter():
+            op = step.op
+            if isinstance(op, DeleteOp):
+                playlist.pop(op.idx)
+            elif isinstance(op, InsertOp):
+                playlist.insert(op.idx, op.item)
+            elif isinstance(op, MoveOp):
+                val = playlist.pop(op.old_idx)
+                playlist.insert(op.new_idx, val)
+            else:
+                raise ValueError(f"Unknown operation: {op}")
+        assert len(playlist) == len(new), (
+            f"Length mismatch: {len(playlist)} != {len(new)}"
+        )
+        for a, b in zip(playlist, new):
+            assert eq_func(a, b), f"Item mismatch: {a!r} != {b!r}"
+
+    @pytest.mark.parametrize(
+        "old, new, expected",
+        [
+            # --- Parity with list_diff (eq_func == equality) ---
+            pytest.param([], [], [], id="empty_to_empty"),
+            pytest.param(["A"], ["A"], [], id="single_identical"),
+            pytest.param(["A", "B", "C"], ["A", "B", "C"], [], id="identical_lists"),
+            pytest.param([], ["A"], [InsertOp(idx=0, item="A")], id="insert_single"),
+            pytest.param(["A"], [], [DeleteOp(idx=0, item="A")], id="delete_single"),
+            pytest.param(
+                ["A", "A"], ["A"], [DeleteOp(idx=1, item="A")], id="delete_duplicate"
+            ),
+            pytest.param(
+                ["A"], ["A", "A"], [InsertOp(idx=1, item="A")], id="insert_duplicate"
+            ),
+            pytest.param(
+                ["A", "B", "C"],
+                ["C", "A", "B"],
+                [MoveOp(old_idx=2, new_idx=0, item="C")],
+                id="move_last_to_front",
+            ),
+            pytest.param(
+                ["A", "B"],
+                ["B", "A"],
+                [MoveOp(old_idx=1, new_idx=0, item="B")],
+                id="swap_two",
+            ),
+            pytest.param(
+                ["A", "B", "C", "D"],
+                ["B", "D", "A", "C"],
+                [
+                    MoveOp(old_idx=1, new_idx=0, item="B"),
+                    MoveOp(old_idx=3, new_idx=1, item="D"),
+                ],
+                id="complex_reorder",
+            ),
+            # --- Partial matching: match by ID, different title ---
+            pytest.param(
+                [TrackStub("1", "Old Title")],
+                [TrackStub("1", "New Title")],
+                [],
+                id="partial_match_same_id_different_title",
+            ),
+            # --- Partial matching: IDs determine moves ---
+            pytest.param(
+                [TrackStub("1"), TrackStub("2")],
+                [TrackStub("2"), TrackStub("1")],
+                [MoveOp(old_idx=1, new_idx=0, item=TrackStub("2"))],
+                id="partial_swap_by_id",
+            ),
+            # --- Partial matching: delete unmatched, insert new ---
+            pytest.param(
+                [TrackStub("1"), TrackStub("2"), TrackStub("3")],
+                [TrackStub("2"), TrackStub("4")],
+                [
+                    DeleteOp(idx=2, item=TrackStub("3")),
+                    DeleteOp(idx=0, item=TrackStub("1")),
+                    InsertOp(idx=1, item=TrackStub("4")),
+                ],
+                id="partial_delete_and_insert",
+            ),
+            # --- Partial matching: keep first occurrence when duplicates ---
+            pytest.param(
+                [TrackStub("1", "a"), TrackStub("1", "b")],
+                [TrackStub("1", "c")],
+                [DeleteOp(idx=1, item=TrackStub("1", "b"))],
+                id="partial_duplicate_keep_first",
+            ),
+            # --- Full mix with partial matching ---
+            pytest.param(
+                [
+                    TrackStub("1", "foo"),
+                    TrackStub("2", "bar"),
+                    TrackStub("3", "baz"),
+                    TrackStub("4", "qux"),
+                ],
+                [
+                    TrackStub("3", "baz-new"),
+                    TrackStub("5", "new"),
+                    TrackStub("1", "foo-new"),
+                    TrackStub("2", "bar"),
+                ],
+                [
+                    DeleteOp(idx=3, item=TrackStub("4", "qux")),
+                    MoveOp(old_idx=2, new_idx=0, item=TrackStub("3", "baz")),
+                    InsertOp(idx=1, item=TrackStub("5", "new")),
+                ],
+                id="partial_full_mix",
+            ),
+        ],
+    )
+    def test_list_diff_eq(self, old, new, expected):
+        """Test list_diff_eq with both simple values and partial matching."""
+        if old and isinstance(old[0], TrackStub):
+
+            def eq_func(a, b):
+                return a.track_id == b.track_id
+        else:
+
+            def eq_func(a, b):
+                return a == b
+
+        ops = list_diff_eq(old, new, eq_func)
+        applied_ops = [op.op for op in ops.iter()]
+        assert self._ops_equal(applied_ops, expected, eq_func), (
+            f"Expected {expected}, got {applied_ops}"
+        )
+        self._round_trip(old, new, ops, eq_func)
 
 
 class TestBatchConsecutive:
