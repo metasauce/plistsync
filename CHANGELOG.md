@@ -26,6 +26,11 @@ This improves type safety, clarity, and extensibility for playlist identificatio
 - Added generic `Registry` base class that auto-registers concrete implementations by service name at class-definition time. `Track`, `Library`, `TrackID`, and `PlaylistID` are now registry roots, making service classes discoverable simply by importing their module.
 - Added `SerialID` base class unifying the identifier contract (`parse`/`serial`) with a service-derived namespace `prefix()` that is enforced on construction. `TrackID.from_serial()` and `PlaylistID.from_serial()` resolve a serial string to the correct service's identifier class via `ServiceLoader`.
 - Added a migration example to fully copy a playlist from an arbitrary service to another. (#60)
+- Added `SyncedPlaylist` class for bidirectional playlist synchronization across an arbitrary number of services. This class encapsulates the logic for detecting differences, applying updates, and maintaining a consistent state across all linked services. (#100)
+  - Conflict-free state replication via a CRDT (Fugue): each linked playlist acts as a replica, so changes made directly on a service (outside plistsync) merge cleanly without conflicts.
+  - Phased `sync()` pipeline: `refresh()` pulls the current state from each service, `merge()` reconciles external additions/removals/reorders into the internal collection, `enrich()` cross-links tracks between services and backfills missing identifiers (e.g. ISRCs), and `push()` writes the resolved state back to every linked playlist.
+  - Track association is availability-aware: tracks that cannot be resolved on a given service are skipped for that service instead of being dropped from the internal collection.
+  - Added `SyncedPlaylistID`, a UUID-based playlist identifier for synced playlists.
 
 ### Fixed
 
