@@ -2,17 +2,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import PurePath
-from typing import ClassVar, Self
+from typing import TYPE_CHECKING, ClassVar, Self
 
-from plistsync.core import PathRewrite, Track, TrackID, TrackInfo
+from plistsync.core import Track, TrackID, TrackInfo
 from plistsync.core.ids import FilePath, Scope
 from plistsync.logger import log
-from plistsync.services.plex.api_types import (
-    PlexApiPlaylistTrackResponse,
-    PlexApiTrackResponse,
-)
 
-from ..local.track import FileCache, LocalTrack
+from ..local.track import LocalTrack
+
+if TYPE_CHECKING:
+    from plistsync.core import PathRewrite
+    from plistsync.services.plex.api_types import (
+        PlexApiPlaylistTrackResponse,
+        PlexApiTrackResponse,
+    )
+
+    from ..local.track import FileCache
 
 
 @dataclass(frozen=True)

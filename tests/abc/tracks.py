@@ -1,7 +1,11 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from pathlib import PurePath
 
-from plistsync.core.track import Track
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.core.track import Track
 
 
 class TestTrack(ABC):

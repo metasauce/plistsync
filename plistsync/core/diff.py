@@ -3,9 +3,11 @@ from __future__ import annotations
 import bisect
 from abc import ABC
 from collections import Counter, defaultdict
-from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Generic, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeAlias, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Hashable, Iterable, Iterator, Sequence
 
 T = TypeVar("T")
 

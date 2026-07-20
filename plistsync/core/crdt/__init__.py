@@ -4,7 +4,7 @@ from .fugue import DeleteOp, Fugue, InsertOp, InsertPos
 
 __all__ = [
     "DeleteOp",
+    "Fugue",
     "InsertOp",
     "InsertPos",
-    "Fugue",
 ]

@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from copy import copy
-from pathlib import PurePath
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-from plistsync.core.ids import ISRC, FilePath, TrackID
+from plistsync.core.ids import ISRC, FilePath
 from plistsync.logger import log
 from plistsync.services.registry import Registry
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import PurePath
+
+    from plistsync.core.ids import TrackID
 
 
 class TrackInfo(TypedDict, total=False):

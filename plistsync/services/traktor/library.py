@@ -1,28 +1,31 @@
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from datetime import date, datetime
 from pathlib import Path
 from shutil import copyfile
 from typing import TYPE_CHECKING, overload
-from uuid import UUID
 
 from lxml import etree
 
 from plistsync.config import Config
-from plistsync.core import TrackID
 from plistsync.core.collection import IDLookup, Library, TrackStream
-from plistsync.core.ids import FilePath
-from plistsync.core.playlist import PlaylistID
+from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
 from .path import NMLPath
 from .playlist import NMLPlaylist, NMLPlaylistID
-from .track import NMLPlaylistTrack, NMLTrack
+from .track import NMLTrack
 from .utility import sanitize_plist_name, xpath_string_escape
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+    from uuid import UUID
+
     from lxml.etree import _Element, _ElementTree
+
+    from plistsync.core import TrackID
+
+    from .track import NMLPlaylistTrack
 
 
 class NMLLibrary(

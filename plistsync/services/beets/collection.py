@@ -1,15 +1,22 @@
-from collections.abc import Iterable
-from pathlib import Path, PurePath
-from typing import Any
+from __future__ import annotations
 
-from sqlalchemy import Row, String, cast, select
+from typing import TYPE_CHECKING, Any
 
-from plistsync.core import TrackID
+from sqlalchemy import String, cast, select
+
 from plistsync.core.collection import Collection, IDLookup, TrackStream
 from plistsync.core.ids import ISRC, FilePath
 
 from .database import BeetsDatabase
 from .track import BeetsTrack, BeetsTrackID
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import Path, PurePath
+
+    from sqlalchemy import Row
+
+    from plistsync.core import TrackID
 
 
 class BeetsCollection(Collection, TrackStream, IDLookup):
@@ -40,7 +47,7 @@ class BeetsCollection(Collection, TrackStream, IDLookup):
         table = self.db.get_table("items")
 
         stmt = select(table).filter(
-            cast(table.columns.path, String).like(f"%{str(path)}%")
+            cast(table.columns.path, String).like(f"%{path!s}%")
         )
         with self.db.session() as session:
             rows: Iterable[Any] = session.execute(stmt)

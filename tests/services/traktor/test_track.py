@@ -1,4 +1,5 @@
 from pathlib import PurePosixPath, PureWindowsPath
+from typing import ClassVar
 import pytest
 
 from plistsync.services.traktor import NMLTrack
@@ -10,7 +11,7 @@ from tests.abc.tracks import TestTrack
 
 class TestNMLTrack(TestTrack):
     track_class = NMLTrack
-    test_config = {
+    test_config: ClassVar[dict[str, bool]] = {
         "has_path": True,
     }
 

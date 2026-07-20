@@ -1,20 +1,24 @@
-from collections.abc import Iterable, Sequence
-from typing import overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, overload
 
 from requests import HTTPError
 
-from plistsync.core import TrackID
 from plistsync.core.collection import (
     IDLookup,
     Library,
 )
-from plistsync.core.ids import ISRC
-from plistsync.core.playlist import PlaylistID
+from plistsync.core.ids import ISRC, PlaylistID
 from plistsync.logger import log
 
 from .api import SpotifyApi
 from .playlist import SpotifyPlaylist, SpotifyPlaylistID
 from .track import SpotifyTrack, SpotifyTrackID
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from plistsync.core import TrackID
 
 
 class SpotifyLibrary(

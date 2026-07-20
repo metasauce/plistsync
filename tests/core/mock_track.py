@@ -1,5 +1,9 @@
-from plistsync.core import TrackID
+from __future__ import annotations
 from plistsync.core.track import Track, TrackInfo
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.core import TrackID
 
 
 class MockTrack(Track, service="test"):

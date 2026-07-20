@@ -7,11 +7,10 @@ happens on in the playlist.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import requests
@@ -21,14 +20,20 @@ from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSes
 from plistsync.utils.session import PlistsyncSession
 
 from .api_types import (
-    PlexApiConnection,
-    PlexApiPlaylistResponse,
-    PlexApiPlaylistTrackResponse,
-    PlexApiResourcesResponse,
-    PlexApiTrackResponse,
     PlexMediaTypes,
-    PlexServerIdentity,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from .api_types import (
+        PlexApiConnection,
+        PlexApiPlaylistResponse,
+        PlexApiPlaylistTrackResponse,
+        PlexApiResourcesResponse,
+        PlexApiTrackResponse,
+        PlexServerIdentity,
+    )
 
 
 class PlexToken(Token):
@@ -130,7 +135,7 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
             self.token.validated = True
         except requests.exceptions.RequestException as e:
             raise ValueError(
-                f"Plex token validation failed due to network error: {str(e)}"
+                f"Plex token validation failed due to network error: {e!s}"
             ) from e
 
     def request(

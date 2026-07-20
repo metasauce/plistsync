@@ -1,5 +1,9 @@
+from __future__ import annotations
 import pytest
-from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponseFull
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponseFull
 
 
 @pytest.fixture

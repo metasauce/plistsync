@@ -1,11 +1,15 @@
+from __future__ import annotations
 from unittest.mock import Mock
 import pytest
-from plistsync.services.plex.api_types import (
-    PlexApiPlaylistResponse,
-    PlexApiPlaylistTrackResponse,
-)
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.plex.api_types import (
+        PlexApiPlaylistResponse,
+        PlexApiPlaylistTrackResponse,
+    )
 
 
 class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):

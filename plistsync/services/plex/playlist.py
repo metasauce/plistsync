@@ -1,25 +1,26 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from plistsync.core.ids import PlaylistID
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistID,
     PlaylistInfo,
 )
 from plistsync.logger import log
 
-from .api import PlexApi
-from .api_types import (
-    PlexApiPlaylistResponse,
-    PlexApiPlaylistTrackResponse,
-)
 from .track import PlexTrack
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from .api import PlexApi
+    from .api_types import (
+        PlexApiPlaylistResponse,
+        PlexApiPlaylistTrackResponse,
+    )
     from .library import PlexLibrary
 
 

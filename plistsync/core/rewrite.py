@@ -32,7 +32,7 @@ class PathRewrite(NamedTuple):
 
     def _coerce_like(self, template: T, p: PurePath) -> T:
         """Coerce `p` into the same concrete path class as `template`."""
-        path_cls = cast(type[T], template.__class__)
+        path_cls = cast("type[T]", template.__class__)
         return path_cls(str(p))
 
     def apply(self, path: T) -> T:
@@ -58,4 +58,4 @@ class PathRewrite(NamedTuple):
         return PathRewrite(self.new, self.old)
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(old='{str(self.old)}', new='{str(self.new)}')"
+        return f"{type(self).__name__}(old='{self.old!s}', new='{self.new!s}')"

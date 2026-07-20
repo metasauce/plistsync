@@ -1,12 +1,16 @@
+from __future__ import annotations
 import pytest
 from unittest.mock import MagicMock, Mock
-from pathlib import Path
 from plistsync.services.plex.api import PlexApi
-from plistsync.services.plex.api_types import (
-    PlexApiPlaylistTrackResponse,
-    PlexApiTrackResponse,
-    PlexApiPlaylistResponse,
-)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.plex.api_types import (
+        PlexApiPlaylistTrackResponse,
+        PlexApiTrackResponse,
+        PlexApiPlaylistResponse,
+    )
+    from pathlib import Path
 
 
 def side_effect_section_name_to_id(name):

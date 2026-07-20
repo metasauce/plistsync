@@ -94,7 +94,7 @@ def auth(
         else:
             results = start_redirect_server(redirect_port, OAuthRedirectHandler, {})
     except AuthenticationError as e:
-        typer.echo(f"Authentication failed: {str(e)}")
+        typer.echo(f"Authentication failed: {e!s}")
         return typer.Exit(code=1)
 
     # Send request to get spotify token

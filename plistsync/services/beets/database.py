@@ -1,10 +1,18 @@
+from __future__ import annotations
+
 import os
-from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Engine, MetaData, Table, create_engine
-from sqlalchemy.orm import Session, scoped_session, sessionmaker
+from sqlalchemy import MetaData, Table, create_engine
+from sqlalchemy.orm import scoped_session, sessionmaker
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
+    from sqlalchemy import Engine
+    from sqlalchemy.orm import Session
 
 
 class BeetsDatabase:

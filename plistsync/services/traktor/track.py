@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 import re
-from pathlib import PurePath
 from typing import TYPE_CHECKING
 
 from lxml.etree import Element, SubElement
 
-from plistsync.core import Track, TrackID, TrackInfo
+from plistsync.core import Track, TrackInfo
 from plistsync.core.ids import FilePath
 
 from .path import NMLPath
 
 if TYPE_CHECKING:
+    from pathlib import PurePath
+
     from lxml.etree import _Element
+
+    from plistsync.core import TrackID
 
     from .library import NMLLibrary
 
@@ -26,7 +29,7 @@ class NMLTrack(Track):
         MODIFIED_DATE="2024/5/27"
         MODIFIED_TIME="11734"
         AUDIO_ID="API...AAA=="
-        TITLE="It’s Not My Time"
+        TITLE="It's Not My Time"
         ARTIST="3 Doors Down"
     >
         <LOCATION

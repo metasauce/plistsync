@@ -5,7 +5,6 @@ from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 
 import requests
-from requests.structures import CaseInsensitiveDict
 
 from plistsync.logger import log
 from plistsync.utils import chunk_list
@@ -16,16 +15,15 @@ from plistsync.utils.auth.bearer_token import (
 )
 from plistsync.utils.session import PlistsyncSession
 
-from .api_types import (
-    PlaylistTracks,
-    PlaylistTracksBase,
-    SpotifyApiPlaylistTrack,
-)
-
 if TYPE_CHECKING:
+    from requests.structures import CaseInsensitiveDict
+
     from .api_types import (
+        PlaylistTracks,
+        PlaylistTracksBase,
         SpotifyApiPlaylistResponseFull,
         SpotifyApiPlaylistResponseSimplified,
+        SpotifyApiPlaylistTrack,
         SpotifyApiTrackResponse,
     )
 

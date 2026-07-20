@@ -1,9 +1,13 @@
-from pathlib import Path
+from __future__ import annotations
 from unittest.mock import patch
 from plistsync.errors import ConfigurationError
 import pytest
 import os
 from plistsync.config import Config
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture

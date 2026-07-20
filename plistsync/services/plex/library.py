@@ -1,20 +1,25 @@
-from collections.abc import Iterable, Sequence
+from __future__ import annotations
+
 from functools import cached_property
 from pathlib import Path
-from typing import overload
+from typing import TYPE_CHECKING, overload
 
 from requests import HTTPError
 
-from plistsync.core import Library, PathRewrite, TrackID
+from plistsync.core import Library
 from plistsync.core.collection import IDLookup, TrackStream
-from plistsync.core.ids import ISRC, FilePath
-from plistsync.core.playlist import PlaylistID
+from plistsync.core.ids import ISRC, FilePath, PlaylistID
 from plistsync.logger import log
-from plistsync.services.local.track import FileCache
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
 from .api import PlexApi
 from .track import PlexTrack, PlexTrackID
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from plistsync.core import PathRewrite, TrackID
+    from plistsync.services.local.track import FileCache
 
 
 class PlexLibrary(

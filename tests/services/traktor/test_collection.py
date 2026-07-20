@@ -10,7 +10,10 @@ from plistsync.services.traktor.utility import xpath_string_escape
 from tests.abc.collection import CollectionTestBase, LibraryCollectionTestBase
 
 from lxml import etree
-from lxml.etree import _Element
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element
 
 
 class TestNMLLibrary(LibraryCollectionTestBase):
@@ -345,7 +348,7 @@ class TestNMLPlaylist(CollectionTestBase):
         assert p1 is not None
 
         # Test with a valid traktor path
-        example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"  # noqa: E501
+        example_path = "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/:04 Dragger [1028kbps].flac"
         track = p1.find_by_traktor_path(NMLPath(example_path))
         assert track is not None
 

@@ -4,11 +4,14 @@ This module provides functionality to manage Bearer tokens, including loading, s
 json.
 """
 
+from __future__ import annotations
+
 import json
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     ClassVar,
     Generic,
@@ -17,9 +20,11 @@ from typing import (
 )
 
 import requests
-from requests.structures import CaseInsensitiveDict
 from requests_oauth2client import BearerToken as BearerTokenOauth2Client
 from requests_oauth2client.tokens import ExpiredAccessToken
+
+if TYPE_CHECKING:
+    from requests.structures import CaseInsensitiveDict
 
 
 class Token(ABC):
@@ -242,8 +247,8 @@ class TokenSession(Generic[T], requests.Session, ABC):
 
 
 __all__ = [
-    "Token",
-    "Oauth2Token",
-    "TokenSession",
     "InvalidTokenError",
+    "Oauth2Token",
+    "Token",
+    "TokenSession",
 ]

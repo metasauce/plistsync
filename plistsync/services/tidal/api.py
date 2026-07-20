@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import time
-from typing import Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 import requests
-from requests.structures import CaseInsensitiveDict
 
 from plistsync.logger import log
 from plistsync.utils import chunk_list
@@ -16,22 +15,28 @@ from plistsync.utils.auth.bearer_token import (
 from plistsync.utils.session import PlistsyncSession
 
 from .api_types import (
-    MultiRelationshipDataDocument,
-    MultiResourceDataDocument,
-    PlaylistDocument,
-    PlaylistIncludedResource,
-    PlaylistListDocument,
-    PlaylistResource,
-    PlaylistsItemsResourceIdentifier,
-    RelationshipResource,
     T_Included,
-    TrackDocument,
-    TrackIncludedResource,
-    TrackListDocument,
-    TrackResource,
-    UserDocument,
-    UserResource,
 )
+
+if TYPE_CHECKING:
+    from requests.structures import CaseInsensitiveDict
+
+    from .api_types import (
+        MultiRelationshipDataDocument,
+        MultiResourceDataDocument,
+        PlaylistDocument,
+        PlaylistIncludedResource,
+        PlaylistListDocument,
+        PlaylistResource,
+        PlaylistsItemsResourceIdentifier,
+        RelationshipResource,
+        TrackDocument,
+        TrackIncludedResource,
+        TrackListDocument,
+        TrackResource,
+        UserDocument,
+        UserResource,
+    )
 
 # It is more performant to have a lookup here instead of a list
 # for included resources (type,id) -> resource
@@ -475,7 +480,7 @@ class TidalPlaylistApi:
         if len(doc["data"]) != 1:
             raise ValueError(f"Playlist with id {id} not found")
 
-        return cast(PlaylistDocument, {**doc, "data": doc["data"][0]})
+        return cast("PlaylistDocument", {**doc, "data": doc["data"][0]})
 
     def get(
         self,

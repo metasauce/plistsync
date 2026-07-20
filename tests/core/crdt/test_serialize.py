@@ -132,7 +132,7 @@ class TestDump:
 
     def test_insert_op_shape(self, s: FugueSerializer[str, str]) -> None:
         fu = _fugue("x")
-        op = cast(OpStateInsert, s.dump(fu)["ops"][0])
+        op = cast("OpStateInsert", s.dump(fu)["ops"][0])
         for k in ("node_id", "parent_id", "side", "right_of_id", "value_ref"):
             assert k in op
         assert op["side"] in (0, 1)
@@ -172,8 +172,8 @@ class TestDump:
         for o, r in zip(state["ops"], restate["ops"]):
             if "right_of_id" in o:
                 assert (
-                    cast(OpStateInsert, o)["right_of_id"]
-                    == cast(OpStateInsert, r)["right_of_id"]
+                    cast("OpStateInsert", o)["right_of_id"]
+                    == cast("OpStateInsert", r)["right_of_id"]
                 )
 
 

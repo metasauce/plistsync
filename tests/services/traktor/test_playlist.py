@@ -1,12 +1,16 @@
+from __future__ import annotations
 import logging
 from uuid import UUID
 
 import pytest
-from plistsync.services.traktor import NMLPlaylist, NMLLibrary
 from plistsync.services.traktor.playlist import NMLPlaylistID
 from tests.abc.playlist import (
     TestServicePlaylistBase,
 )
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.traktor import NMLPlaylist, NMLLibrary
 
 
 class TestsTidalPlaylist(TestServicePlaylistBase):

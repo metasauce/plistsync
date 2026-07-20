@@ -1,26 +1,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from lxml.etree import Element, SubElement, _Element
+from lxml.etree import Element, SubElement
 
-from plistsync.core import TrackID
 from plistsync.core.collection import IDLookup
-from plistsync.core.ids import FilePath
+from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.core.playlist import (
-    PlaylistID,
     PlaylistInfo,
     ServicePlaylist,
-    Snapshot,
 )
 from plistsync.logger import log
 
 from .path import NMLPath
-from .track import NMLPlaylistTrack, NMLTrack
+from .track import NMLPlaylistTrack
 from .utility import (
     detach,
     sanitize_plist_name,
@@ -28,7 +24,17 @@ from .utility import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from lxml.etree import _Element
+
+    from plistsync.core import TrackID
+    from plistsync.core.playlist import (
+        Snapshot,
+    )
+
     from .library import NMLLibrary
+    from .track import NMLTrack
 
 
 @dataclass(frozen=True)

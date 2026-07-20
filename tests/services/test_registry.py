@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator, Iterable
-from typing import Any, Self
+from typing import Any, Self, TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plistsync.core import Library, Track, TrackInfo
+from plistsync.core import Library, Track
 from plistsync.core.ids import PlaylistID, TrackID
 from plistsync.errors import DependencyError
 from plistsync.services import Service, ServiceLoader
 from plistsync.services.registry import Registry
+
+if TYPE_CHECKING:
+    from plistsync.core import TrackInfo
+    from collections.abc import Generator, Iterable
 
 SERVICE_MODULE = "plistsync.services._test"
 SERVICE_NAME = "_test"

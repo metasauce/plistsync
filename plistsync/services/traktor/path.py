@@ -1,8 +1,15 @@
-import re
-from pathlib import PurePath, PurePosixPath, PureWindowsPath
-from typing import Literal, Self
+from __future__ import annotations
 
-from lxml.etree import Element, SubElement, _Element
+import re
+from pathlib import PurePosixPath, PureWindowsPath
+from typing import TYPE_CHECKING, Literal, Self
+
+from lxml.etree import Element, SubElement
+
+if TYPE_CHECKING:
+    from pathlib import PurePath
+
+    from lxml.etree import _Element
 
 
 class NMLPath:

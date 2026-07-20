@@ -1,11 +1,15 @@
+from __future__ import annotations
 import pytest
-from pathlib import Path
 from tinytag import TinyTag
 
 from plistsync.core.ids import ISRC
 from plistsync.services.local.collection import LocalCollection
 
 from tests.conftest import set_tags
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def test_create(audio_files: Path):

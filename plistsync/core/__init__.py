@@ -16,12 +16,12 @@ from .track import Track, TrackInfo
 __all__ = [
     "Collection",
     "Library",
+    "Matches",
     "PathRewrite",
-    "Track",
-    "TrackInfo",
     "Playlist",
     "PlaylistID",
-    "TrackID",
     "ServicePlaylist",
-    "Matches",
+    "Track",
+    "TrackID",
+    "TrackInfo",
 ]

@@ -1,27 +1,29 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from plistsync.core.ids import PlaylistID
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistID,
     PlaylistInfo,
 )
 
-from .api_types import (
-    PlaylistTracksBase,
-    SpotifyApiPlaylistResponseBase,
-    SpotifyApiPlaylistResponseFull,
-    SpotifyApiPlaylistResponseSimplified,
-    SpotifyApiPlaylistTrack,
-)
-from .track import SpotifyPlaylistTrack, SpotifyTrack
+from .track import SpotifyPlaylistTrack
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from .api_types import (
+        PlaylistTracksBase,
+        SpotifyApiPlaylistResponseBase,
+        SpotifyApiPlaylistResponseFull,
+        SpotifyApiPlaylistResponseSimplified,
+        SpotifyApiPlaylistTrack,
+    )
     from .library import SpotifyLibrary
+    from .track import SpotifyTrack
 
 
 @dataclass(frozen=True)

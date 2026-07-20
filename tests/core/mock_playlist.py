@@ -1,13 +1,18 @@
+from __future__ import annotations
 import random
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from unittest.mock import Mock
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     OfflinePlaylist,
     ServicePlaylist,
-    Snapshot,
 )
 from plistsync.core.track import OfflineTrack
+
+if TYPE_CHECKING:
+    from plistsync.core.playlist import (
+        Snapshot,
+    )
 
 
 class MockServicePlaylist(
