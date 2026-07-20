@@ -70,11 +70,13 @@ if TYPE_CHECKING:
 
     from .ids import PlaylistID, TrackID
     from .matching import Similarity
-    from .playlist import Playlist
+    from .playlist import ServicePlaylist
     from .track import TrackInfo
 
 
-Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
+Plist = TypeVar(
+    "Plist", bound="ServicePlaylist", default="ServicePlaylist", covariant=True
+)
 
 
 @runtime_checkable

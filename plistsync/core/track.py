@@ -194,6 +194,15 @@ class OfflineTrack(Track, service="core"):
 
         return OfflineTrack(info, ids)
 
+    def enrich(self, ids: Iterable[TrackID]) -> None:
+        """Add *ids* to this track in-place (mutates ``self.ids``).
+
+        Safe to call on tracks stored inside a :class:`Fugue` —
+        the Fugue holds objects by reference, so the enrichment
+        is visible to all future reads.
+        """
+        self._ids = self._ids | frozenset(ids)
+
     @classmethod
     def from_track(cls, track: Track) -> OfflineTrack:
         """Create a offline track from arbitrary other track."""
