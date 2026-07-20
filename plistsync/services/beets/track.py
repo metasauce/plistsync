@@ -21,8 +21,8 @@ class BeetsTrackID(TrackID):
     def parse(cls, value: str) -> Self:
         """Parse from serial format or raw ID."""
         value = value.strip()
-        if value.lower().startswith("beets:"):
-            value = value[6:]
+        if value.lower().startswith(cls.prefix()):
+            value = value[len(cls.prefix()) + 1 :].strip()
         if not value.isdigit():
             raise ValueError(f"Invalid Beets track id: {value!r}")
         return cls(int(value))
@@ -30,7 +30,7 @@ class BeetsTrackID(TrackID):
     @property
     def serial(self) -> str:
         """Plistsync's internal representation for trackid on Beets."""
-        return f"beets:{self.id}"
+        return f"{self.prefix()}:{self.id}"
 
     def __str__(self) -> str:
         """Compact display, understood by Beets API."""

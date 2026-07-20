@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -5,26 +7,13 @@ from enum import Enum
 from pathlib import PurePath
 from typing import ClassVar, Self
 
+from plistsync.logger import log
+from plistsync.services import ServiceLoader
 from plistsync.services.registry import Registry
 
 
-@dataclass(frozen=True)
-class PlaylistID(ABC, Registry):
-    """Immutable base for service-specific playlist identifiers.
-
-    Decouples the service-specific representation from the generic playlist
-    management logic.
-
-    Should contain a unique identifier for a playlist
-    within a specific service.
-    Should not be passed down to the API layer of a service.
-    There, the native, service-specific representation should be used,
-    e.g. a simple `id` string for spotify, or the int `id` for plex.
-
-    We need this abstraction to allow us to load and save playlists in a generic
-    way i.e. to implement the loading logic only once but have it work for
-    all services.
-    """
+class SerialID(ABC):
+    """Immutable base for identifiers with a canonical, namespaced serial form."""
 
     @classmethod
     @abstractmethod
@@ -47,6 +36,39 @@ class PlaylistID(ABC, Registry):
         """
         raise NotImplementedError
 
+    @classmethod
+    def prefix(cls) -> str:
+        """Prefix, inferred from the module path.
+
+        Should be unique! Defaults to the first part of the module path
+        after ``plistsync.services`` i.e. ``plistsync.services.<name>.*``
+        get ``<name>``. Classes outside a service module must override this.
+        """
+        parts = cls.__module__.split(".")
+        if "services" in parts:
+            return parts[parts.index("services") + 1]
+        raise ValueError(
+            f"Cannot infer namespace from module {cls.__module__!r}; "
+            f"override {cls.__name__}.namespace()"
+        )
+
+    def __post_init__(self) -> None:
+        """Enforce that ``serial`` starts with the namespace prefix.
+
+        Skipped when the namespace cannot be inferred (e.g. test doubles).
+        Subclasses with a custom ``__init__`` or ``__post_init__`` bypass this
+        check entirely; the serial round-trip tests guard those.
+        """
+        try:
+            expected = type(self).prefix() + ":"
+        except ValueError:
+            return
+        if not self.serial.startswith(expected):
+            raise ValueError(
+                f"{type(self).__name__}.serial must start with {expected!r}, "
+                f"got {self.serial!r}"
+            )
+
     def __repr__(self) -> str:
         return f"{type(self).__name__}(serial={self.serial!r})"
 
@@ -61,49 +83,112 @@ class Scope(Enum):
     LOCAL = "local"
 
 
-@dataclass(frozen=True)
-class TrackID(ABC, Registry):
-    """Immutable base for service-specific track identifiers.
+@dataclass(frozen=True, repr=False)
+class PlaylistID(SerialID, ABC, Registry):
+    """Immutable base for playlist identifiers (serial: ``<service>:playlist:<id>``)."""
 
-    Decouples the service-specific representation from the generic track
-    management logic.
+    @classmethod
+    def prefix(cls) -> str:
+        return f"{super().prefix()}:playlist"
 
-    Should contain a unique identifier for a track
-    within a specific service.
-    Should not be passed down to the API layer of a service.
-    There, the native, service-specific representation should be used,
-    e.g. a simple `id` string for spotify, or the int `id` for plex.
+    @classmethod
+    def from_serial(cls, serial: str) -> PlaylistID | None:
+        """Load from a serial string (``<service>:playlist:<payload>``).
 
-    We need this abstraction to allow us to load and save tracks in a generic
-    way i.e. to implement the loading logic only once but have it work for
-    all services.
-    """
+        This is a convenience method to parse a serial string into the correct
+        subclass of :class:`PlaylistID` for the service. Returns ``None`` if the
+        service is not available or no matching identifier class is found.
+        """
+        try:
+            service_name = serial.split(":", 1)[0]
+        except IndexError:
+            log.warning(
+                f"Invalid playlist serial {serial!r}, cannot parse service name"
+            )
+            return None
+
+        service = ServiceLoader.get(service_name)
+        if not service:
+            log.warning(
+                f"Service {service_name!r} not available for playlist serial {serial!r}"
+            )
+            return None
+
+        for pid_cls in service.playlist_ids():
+            # Check if prefix matches
+            if pid_cls.prefix().startswith(service_name):
+                try:
+                    return pid_cls.parse(serial)
+                except ValueError:
+                    continue
+
+        log.info(
+            f"No playlist identifier class found for serial {serial!r}"
+            f" in service {service_name!r}"
+        )
+        return None
+
+
+@dataclass(frozen=True, repr=False)
+class TrackID(SerialID, ABC, Registry):
+    """Immutable base for track identifiers (serial: ``<service>:track:<id>``)."""
 
     scope: ClassVar[Scope] = Scope.GLOBAL
 
     @classmethod
-    @abstractmethod
-    def parse(cls, value: str) -> Self:
-        """Parse from user input (URL, URI, or raw id)."""
-        raise NotImplementedError
+    def prefix(cls) -> str:
+        return f"{super().prefix()}:track"
 
-    @property
-    @abstractmethod
-    def serial(self) -> str:
+    @classmethod
+    def from_serial(cls, serial: str) -> TrackID | None:
+        """Load from a serial string (``<service>:track:<payload>``).
+
+        This is a convenience method to parse a serial string into the correct
+        subclass of :class:`TrackID` for the service. Returns ``None`` if the
+        service is not available or no matching identifier class is found.
         """
-        Plistsync's internal string-representation of service specific track ID.
+        try:
+            service_name = serial.split(":", 1)[0]
+        except IndexError:
+            log.warning(f"Invalid track serial {serial!r}, cannot parse service name")
+            return None
 
-        By convention it should look like `service_name:your_custom:format` e.g.
-        `spotify:track:actual_id`. This is not enforced but recommended.
+        # We have some global track identifiers that are not tied to a
+        # specific service.
+        global_service_identifier: dict[str, type[TrackID]] = {
+            "isrc": ISRC,
+            "file": FilePath,
+        }
+        if service_name in global_service_identifier:
+            try:
+                return global_service_identifier[service_name].parse(serial)
+            except ValueError:
+                log.warning(
+                    f"Invalid global track identifier {serial!r} for"
+                    f" service {service_name!r}"
+                )
+                return None
 
-        By convention, to get the _canonical_ representation that the service API
-        understands, you should define `__str__` or `__int__` methods to get the
-        shorter and convenient values.
-        """
-        raise NotImplementedError
+        service = ServiceLoader.get(service_name)
+        if not service:
+            log.warning(
+                f"Service {service_name!r} not available for track serial {serial!r}"
+            )
+            return None
 
-    def __repr__(self) -> str:
-        return f"{type(self).__name__}(serial={self.serial!r})"
+        for tid_cls in service.track_ids():
+            # Check if prefix matches
+            if tid_cls.prefix().startswith(service_name):
+                try:
+                    return tid_cls.parse(serial)
+                except ValueError:
+                    continue
+
+        log.info(
+            f"No track identifier class found for serial {serial!r}"
+            f" in service {service_name!r}"
+        )
+        return None
 
 
 # Commonly shared IDS
@@ -127,6 +212,10 @@ class ISRC(TrackID, service="core"):
         object.__setattr__(self, "id", normalised)
 
     @classmethod
+    def prefix(cls) -> str:
+        return "isrc"
+
+    @classmethod
     def parse(cls, value: str) -> Self:
         """Parse from user input (URL, URI, serial, or raw id).
 
@@ -134,8 +223,8 @@ class ISRC(TrackID, service="core"):
         (``isrc:XXAAA0000000``), or the dashed format (``XX-AAA-00-00000``).
         """
         value = value.strip()
-        if value.lower().startswith("isrc:"):
-            value = value[5:]
+        if value.lower().startswith(cls.prefix()):
+            value = value[len(cls.prefix()) + 1 :]
         # __init__ handles dash-stripping and uppercasing
         if not re.fullmatch(
             r"[A-Z]{2}[A-Z0-9]{3}\d{7}", value.replace("-", "").upper()
@@ -146,7 +235,7 @@ class ISRC(TrackID, service="core"):
     @property
     def serial(self) -> str:
         """Plistsync's internal string-representation of ISRC."""
-        return f"isrc:{self.id}"
+        return f"{self.prefix()}:{self.id}"
 
     def __str__(self) -> str:
         """Compact display (just the raw id)."""
@@ -167,17 +256,21 @@ class FilePath(TrackID, service="core"):
     """The filesystem path to the track file."""
 
     @classmethod
+    def prefix(cls) -> str:
+        return "file"
+
+    @classmethod
     def parse(cls, value: str) -> Self:
         """Parse from user input (raw path or serial ``file:...`` format)."""
         value = value.strip()
-        if value.lower().startswith("file:"):
-            value = value[5:]
+        if value.lower().startswith(cls.prefix()):
+            value = value[len(cls.prefix()) + 1 :]
         return cls(PurePath(value))
 
     @property
     def serial(self) -> str:
         """Plistsync's internal string-representation of the file path."""
-        return f"file:{self.path.as_posix()}"
+        return f"{self.prefix()}:{self.path.as_posix()}"
 
     def __str__(self) -> str:
         """Compact display (just the raw path string)."""
