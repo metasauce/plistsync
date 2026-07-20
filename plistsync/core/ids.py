@@ -18,17 +18,13 @@ class SerialID(ABC):
     @classmethod
     @abstractmethod
     def parse(cls, value: str) -> Self:
-        """Parse from user input (URL, URI, or raw id)."""
+        """Parse from user input (URL, URI, serial, or raw id)."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def serial(self) -> str:
-        """
-        Plistsync's internal string-representation of service specific playlist ID.
-
-        By convention it should look like `service_name:your_custom:format` e.g.
-        `spotify:playlist:actual_id`. This is not enforced but recommended.
+        """Canonical namespaced string representation (``<namespace>:<payload>``).
 
         By convention, to get the _canonical_ representation that the service API
         understands, you should define `__str__` or `__int__` methods to get the

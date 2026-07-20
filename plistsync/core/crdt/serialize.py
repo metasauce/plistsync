@@ -34,8 +34,8 @@ class NodeSerializer(Serializer[NodeID, NodeIDState]):
 
     def load(self, data: NodeIDState) -> NodeID:
         return NodeID(
-            replica_id=data["replica_id"],
-            counter=data["counter"],
+            replica_id=int(data["replica_id"]),
+            counter=int(data["counter"]),
         )
 
 
@@ -136,7 +136,9 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
 
     def load(self, data: FugueState[S]) -> Fugue[T]:
         fugue = Fugue[T](replica_id=data["replica_id"])
-        fugue._counters = dict(data["counters"])
+        fugue._counters = {
+            int(rid): counter for rid, counter in data["counters"].items()
+        }
         values = data["values"]
         for op in data["ops"]:
             if "value_ref" in op:  # insert
@@ -243,7 +245,7 @@ class LWWSerializer(Serializer[LWWRegister, LWWRegisterState[S]], Generic[T, S])
         for op in data["ops"]:
             register.apply(
                 RegisterOp(
-                    key="value",  # Assuming a single field for simplicity
+                    key=op["key"],
                     value=self.serializer.load(op["value"]),
                     version=self.node_serializer.load(op["node_id"]),
                 )
