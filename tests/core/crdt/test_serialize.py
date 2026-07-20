@@ -13,6 +13,7 @@ from plistsync.core.crdt.serialize import (
     FugueSerializer,
     FugueState,
     NodeIDState,
+    NodeSerializer,
     OpStateDelete,
     OpStateInsert,
     Serializer,
@@ -65,12 +66,12 @@ class TestNodeID:
     )
     def test_roundtrip(self, replica_id: int, counter: int) -> None:
         nid = _nid(replica_id, counter)
-        state = FugueSerializer.dump_node_id(nid)
+        state = NodeSerializer().dump(nid)
         assert state == {"replica_id": replica_id, "counter": counter}
-        assert FugueSerializer.load_node_id(state) == nid
+        assert NodeSerializer().load(state) == nid
 
     def test_dump_keys(self) -> None:
-        assert set(FugueSerializer.dump_node_id(_nid())) == {"replica_id", "counter"}
+        assert set(NodeSerializer().dump(_nid())) == {"replica_id", "counter"}
 
 
 class TestSide:
