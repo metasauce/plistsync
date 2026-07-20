@@ -10,6 +10,7 @@ from typing import TypedDict
 
 from plistsync.core.ids import ISRC, FilePath, TrackID
 from plistsync.logger import log
+from plistsync.services.registry import Registry
 
 
 class TrackInfo(TypedDict, total=False):
@@ -27,7 +28,7 @@ class TrackInfo(TypedDict, total=False):
     # convention, likely close to beets.
 
 
-class Track(ABC):
+class Track(ABC, Registry):
     """An abstract class representing a track.
 
     A track is a piece of music. It has a title, artists, albums and identifiers.
@@ -148,7 +149,7 @@ class Track(ABC):
         return f"{cls}(artist={artist!r}, title={title!r})"
 
 
-class OfflineTrack(Track):
+class OfflineTrack(Track, service="core"):
     """A offline (in memory) track with attached service.
 
     This class provides a concrete implementation of `Track` for

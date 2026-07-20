@@ -5,9 +5,11 @@ from enum import Enum
 from pathlib import PurePath
 from typing import ClassVar, Self
 
+from plistsync.services.registry import Registry
+
 
 @dataclass(frozen=True)
-class PlaylistID(ABC):
+class PlaylistID(ABC, Registry):
     """Immutable base for service-specific playlist identifiers.
 
     Decouples the service-specific representation from the generic playlist
@@ -60,7 +62,7 @@ class Scope(Enum):
 
 
 @dataclass(frozen=True)
-class TrackID(ABC):
+class TrackID(ABC, Registry):
     """Immutable base for service-specific track identifiers.
 
     Decouples the service-specific representation from the generic track
@@ -108,7 +110,7 @@ class TrackID(ABC):
 
 
 @dataclass(frozen=True)
-class ISRC(TrackID):
+class ISRC(TrackID, service="core"):
     """International Standard Recording Code.
 
     A standardized identifier intended to be globally unique for a recording.
@@ -152,7 +154,7 @@ class ISRC(TrackID):
 
 
 @dataclass(frozen=True)
-class FilePath(TrackID):
+class FilePath(TrackID, service="core"):
     """File path identifier for local tracks.
 
     This is a simple wrapper around a file path, used to identify local tracks in a

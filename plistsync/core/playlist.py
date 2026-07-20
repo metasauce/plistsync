@@ -28,6 +28,8 @@ from typing import Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
 
+from plistsync.services.registry import Registry
+
 from .collection import Collection, Library, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .ids import PlaylistID
@@ -68,7 +70,7 @@ class Snapshot(Generic[T]):
     tracks: list[T]
 
 
-class Playlist(Generic[T], Collection[T], TrackStream[T], ABC):
+class Playlist(Generic[T], Collection[T], TrackStream[T], ABC, Registry):
     """Abstract base class defining the core playlist interface.
 
     This class provides a minimal protocol for playlist-like objects without
@@ -441,7 +443,7 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
 # TODO: We should move this into another file
 
 
-class OfflinePlaylist(Playlist[OfflineTrack]):
+class OfflinePlaylist(Playlist[OfflineTrack], service="core"):
     """A offline (in memory) playlist with no service synchronization.
 
     This class provides a concrete implementation of `Playlist` for
