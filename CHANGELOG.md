@@ -24,6 +24,7 @@ This improves type safety, clarity, and extensibility for playlist identificatio
 
 - Added typed `Service` marker class with a module-inferred `name` property and registry-backed accessors (`library()`, `tracks()`, `track_ids()`, `playlist_ids()`), enabling single-handle access to all a service's core types. (#95)
 - Added generic `Registry` base class that auto-registers concrete implementations by service name at class-definition time. `Track`, `Library`, `TrackID`, and `PlaylistID` are now registry roots, making service classes discoverable simply by importing their module.
+- Added `SerialID` base class unifying the identifier contract (`parse`/`serial`) with a service-derived namespace `prefix()` that is enforced on construction. `TrackID.from_serial()` and `PlaylistID.from_serial()` resolve a serial string to the correct service's identifier class via `ServiceLoader`.
 - Added a migration example to fully copy a playlist from an arbitrary service to another. (#60)
 
 ### Fixed
