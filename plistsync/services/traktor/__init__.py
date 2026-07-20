@@ -13,10 +13,7 @@ from .track import NMLPlaylistTrack, NMLTrack
 
 
 class TraktorService(Service):
-    library_cls = NMLLibrary
-    playlist_cls = NMLPlaylist
-    track_cls = NMLTrack
-    playlist_id_cls = NMLPlaylistID
+    pass
 
 
 __all__ = [

@@ -13,10 +13,7 @@ from .track import TidalPlaylistTrack, TidalTrack, TidalTrackID
 
 
 class TidalService(Service):
-    library_cls = TidalLibrary
-    track_cls = TidalTrack
-    playlist_cls = TidalPlaylist
-    playlist_id_cls = TidalPlaylistID
+    pass
 
 
 __all__ = [

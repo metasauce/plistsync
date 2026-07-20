@@ -11,7 +11,7 @@ from .track import LocalTrack
 
 
 class LocalService(Service):
-    track_cls = LocalTrack
+    pass
 
 
 __all__ = [
