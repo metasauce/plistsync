@@ -115,13 +115,16 @@ extend-include = ["*.ipynb"]
 target-version = "py311"
 
 [tool.ruff.lint]
+future-annotations = true
 select = [
     "E",   # pycodestyle
     "F",   # pyflakes
     "I",   # isort
     "ISC", # flake8-implicit-str-concat
     "N",   # pep8-naming
+    "RUF", # ruff
     "UP",  # pyupgrade
+    "TC",  # flake8-type-checking
     "PTH", # Use pathlib instead of os.path
     "D",   # pydocstyle
     "W",   # pycodestyle
