@@ -11,8 +11,7 @@ from plistsync.core.track import OfflineTrack
 
 
 class MockServicePlaylist(
-    OfflinePlaylist,
-    ServicePlaylist[OfflineTrack],
+    OfflinePlaylist, ServicePlaylist[OfflineTrack], service="test"
 ):
     """Mock PlaylistCollection implementation for testing."""
 
@@ -31,8 +30,7 @@ class MockServicePlaylist(
 
 
 class MockMultiRequestServicePlaylist(
-    OfflinePlaylist,
-    MultiRequestServicePlaylist[OfflineTrack],
+    OfflinePlaylist, MultiRequestServicePlaylist[OfflineTrack], service="test"
 ):
     """Mock IncrementalPlaylistCollection implementation for testing."""
 

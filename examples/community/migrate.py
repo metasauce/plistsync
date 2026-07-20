@@ -12,7 +12,7 @@ import typer
 
 from plistsync.core import Library, Matches, ServicePlaylist, Track
 from plistsync.logger import log
-from plistsync.services import ServiceRegistry
+from plistsync.services import ServiceLoader
 
 
 class MigrationContext(NamedTuple):
@@ -138,28 +138,28 @@ def main(
         ),
     ] = True,
 ):
-    if not (_from_service := ServiceRegistry.get(from_service.lower())):
+    if not (_from_service := ServiceLoader.get(from_service.lower())):
         log.error(
             f"Invalid from_service {from_service!r}.\n"
-            f"Pick one of {list(ServiceRegistry.dict().keys())}"
+            f"Pick one of {list(ServiceLoader.all().keys())}"
         )
         sys.exit(1)
 
-    if _from_service.library_cls is None:
+    if (from_library_cls := _from_service.library()) is None:
         log.error(
             f"Invalid from_service {_from_service}.\n"
             "Does not support library based operations."
         )
         sys.exit(1)
 
-    if not (_to_service := ServiceRegistry.get(to_service.lower())):
+    if not (_to_service := ServiceLoader.get(to_service.lower())):
         log.error(
             f"Invalid to_service {to_service!r}.\n"
-            f"Pick one of {list(ServiceRegistry.dict().keys())}."
+            f"Pick one of {list(ServiceLoader.all().keys())}."
         )
         sys.exit(1)
 
-    if _to_service.library_cls is None:
+    if (to_library_cls := _to_service.library()) is None:
         log.error(
             f"Invalid to_service {_to_service}.\n"
             "Does not support library based operations."
@@ -171,8 +171,8 @@ def main(
         sys.exit(1)
 
     migrate_library(
-        _from_service.library_cls(),
-        _to_service.library_cls(),
+        from_library_cls(),
+        to_library_cls(),
         MigrationContext(overwrite=overwrite, skip_empty=skip_empty),
     )
 

@@ -9,6 +9,7 @@ from plistsync.core.playlist import (
     Snapshot,
 )
 from plistsync.core.track import OfflineTrack
+from plistsync.services.spotify import SpotifyPlaylistID
 
 from ..core.mock_playlist import MockMultiRequestServicePlaylist, MockServicePlaylist
 from ..core.mock_track import MockTrack
@@ -23,7 +24,7 @@ class TestOfflinePlaylist(TestPlaylistBase):
     def create_playlist(self, name="Name", n_tracks=0):
         return OfflinePlaylist(
             info=PlaylistInfo(name=name, description="description"),
-            id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+            id=SpotifyPlaylistID.parse("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"),
             tracks=[
                 OfflineTrack(info={"title": f"Track {i}"}, ids={ISRC(str(i))})
                 for i in range(n_tracks)
@@ -56,7 +57,7 @@ class TestMockServicePlaylist(TestServicePlaylistBase):
     def create_playlist(self, name="Name", n_tracks=0):
         return MockServicePlaylist(
             info=PlaylistInfo(name=name, description="description"),
-            id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+            id=SpotifyPlaylistID.parse("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"),
             tracks=[MockTrack(ids={ISRC(str(i))}) for i in range(n_tracks)],
         )
 
@@ -65,7 +66,7 @@ class TestMockMultiRequestServicePlaylist(TestMultiRequestServicePlaylistBase):
     def create_playlist(self, name="Name", n_tracks=0):
         return MockMultiRequestServicePlaylist(
             info=PlaylistInfo(name=name, description="description"),
-            id_serial="spotify:playlist:37i9dQZF1DXcBWIGoYBM5M",
+            id=SpotifyPlaylistID.parse("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M"),
             tracks=[MockTrack(ids={ISRC(str(i))}) for i in range(n_tracks)],
         )
 

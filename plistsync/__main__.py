@@ -7,7 +7,7 @@ import typer
 from eyconf.cli import create_config_cli
 from rich.logging import RichHandler
 
-from plistsync.services import ServiceRegistry
+from plistsync.services import ServiceLoader
 
 from .config import Config
 from .errors import DependencyError
@@ -110,7 +110,7 @@ def version_callback(value: bool) -> None:
     from importlib.metadata import version
 
     ver = version("plistsync")
-    services = [service for service in ServiceRegistry.dict().keys()]
+    services = [service for service in ServiceLoader.all().keys()]
 
     svc_str = ", ".join(services) if services else "none"
     typer.echo(f"plistsync: {ver}  ({svc_str})")

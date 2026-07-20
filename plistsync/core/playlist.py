@@ -454,46 +454,29 @@ class OfflinePlaylist(Playlist[OfflineTrack], service="core"):
 
     _tracks: list[OfflineTrack]
     _info: PlaylistInfo
-    _id_serial: str
+    _id: PlaylistID
 
     def __init__(
         self,
-        id_serial: str,
+        id: PlaylistID,
         info: PlaylistInfo,
         tracks: Sequence[OfflineTrack] | None = None,
     ) -> None:
         self._info = info
         self._tracks = list(tracks or [])
-        self._id_serial = id_serial
+        self._id = id
 
     @classmethod
     def from_playlist(cls, playlist: Playlist) -> OfflinePlaylist:
         return OfflinePlaylist(
-            id_serial=playlist.id.serial,
+            id=playlist.id,
             info=copy(playlist.info),
             tracks=[OfflineTrack.from_track(t) for t in playlist.tracks],
         )
 
     @property
     def id(self) -> PlaylistID:
-        """PlaylistID retreived from serializid string."""
-
-        from plistsync.services import ServiceRegistry
-
-        colon_idx = self._id_serial.find(":")
-        if colon_idx == -1:
-            raise ValueError(
-                f"Cannot determine service for serial: {self._id_serial!r}"
-            )
-        service_str = self._id_serial[:colon_idx]
-
-        if not (service := ServiceRegistry.get(service_str)):
-            raise ValueError(f"Unknown service {service!r} in OfflinePlaylistID")
-
-        if not (playlist_id_cls := service.playlist_id_cls):
-            raise ValueError(f"Service {service!r} has no PlalistID class registered")
-
-        return playlist_id_cls.parse(self._id_serial)
+        return self._id
 
     @property
     def info(self) -> PlaylistInfo:

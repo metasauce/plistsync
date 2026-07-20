@@ -2,7 +2,7 @@ from plistsync.core import TrackID
 from plistsync.core.track import Track, TrackInfo
 
 
-class MockTrack(Track):
+class MockTrack(Track, service="test"):
     """Mock Track implementation for testing."""
 
     def __init__(
