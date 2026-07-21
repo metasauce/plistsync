@@ -49,14 +49,10 @@ class _TrackLink:
 
 
 @dataclass(frozen=True)
-class SyncedPlaylistID(PlaylistID, service="sync"):
+class SyncedPlaylistID(PlaylistID):
     """Unique identifier for a synced playlist."""
 
     id: UUID
-
-    @classmethod
-    def prefix(cls) -> str:
-        return "sync:playlist"
 
     @classmethod
     def new(cls) -> SyncedPlaylistID:
@@ -81,7 +77,7 @@ class SyncedPlaylistID(PlaylistID, service="sync"):
         return str(self.id)
 
 
-class SyncedPlaylist(Playlist[OfflineTrack], service="core"):
+class SyncedPlaylist(Playlist[OfflineTrack]):
     """Orchestrates cross-service playlist sync.
 
     Holds a :class:`Fugue` of :class:`_TrackLink` objects.
