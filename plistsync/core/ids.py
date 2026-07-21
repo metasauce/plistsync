@@ -13,7 +13,7 @@ from plistsync.services.registry import Registry
 
 
 class SerialID(ABC):
-    """Immutable base for identifiers with a canonical, namespaced serial form."""
+    """Immutable base for identifiers with a canonical, namespace-prefixed serial."""
 
     @classmethod
     @abstractmethod
@@ -48,8 +48,8 @@ class SerialID(ABC):
         if "services" in parts:
             return parts[parts.index("services") + 1]
         raise ValueError(
-            f"Cannot infer namespace from module {cls.__module__!r}; "
-            f"override {cls.__name__}.namespace()"
+            f"Cannot infer namespace prefix from module {cls.__module__!r}; "
+            f"override {cls.__name__}.prefix()"
         )
 
     def __post_init__(self) -> None:
@@ -106,23 +106,6 @@ class PlaylistID(SerialID, ABC, Registry):
                 f"Invalid playlist serial {serial!r}, cannot parse service name"
             )
             return None
-
-        # We have some global track identifiers that are not tied to a
-        # specific service. This is a bit awkward maybe sync should be a service
-        from plistsync.core.sync import SyncedPlaylistID
-
-        global_service_identifier: dict[str, type[PlaylistID]] = {
-            "sync": SyncedPlaylistID,
-        }
-        if service_name in global_service_identifier:
-            try:
-                return global_service_identifier[service_name].parse(serial)
-            except ValueError:
-                log.warning(
-                    f"Invalid global playlist identifier {serial!r} for"
-                    f" service {service_name!r}"
-                )
-                return None
 
         service = ServiceLoader.get(service_name)
         if not service:

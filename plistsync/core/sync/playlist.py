@@ -48,7 +48,7 @@ class _TrackLink:
 
 
 @dataclass(frozen=True)
-class SyncedPlaylistID(PlaylistID, service="core"):
+class SyncedPlaylistID(PlaylistID, service="sync"):
     """Unique identifier for a synced playlist."""
 
     id: UUID
@@ -209,7 +209,7 @@ class SyncedPlaylist(Playlist[OfflineTrack], service="core"):
         playlists.
         """
         # Get current playlist contents from services
-        self.refresh()
+        self.fetch()
         # Reconcile playlist changes into the Fugue (CRDT operations)
         self.merge()
         # Extend the internal state and match tracks between the playlists.
@@ -217,7 +217,7 @@ class SyncedPlaylist(Playlist[OfflineTrack], service="core"):
         # Push the updated internal state back to all linked playlists.
         self.push()
 
-    def refresh(self) -> None:
+    def fetch(self) -> None:
         """Refresh linked playlists from their services.
 
         Fetches the current playlist contents to include changes made outside

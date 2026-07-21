@@ -173,7 +173,7 @@ class TestRefresh:
         playlist.register(service)
 
         service.library.get_playlist_or_raise = Mock(return_value=refreshed)
-        playlist.refresh()
+        playlist.fetch()
 
         service.library.get_playlist_or_raise.assert_called_once_with(id=service.id)
         assert playlist._linked_playlists[1] is refreshed
@@ -455,14 +455,14 @@ class TestSync:
     def test_sync_calls_phases_in_order(self):
         playlist = SyncedPlaylist("x")
         with (
-            patch.object(playlist, "refresh") as refresh,
+            patch.object(playlist, "fetch") as fetch,
             patch.object(playlist, "merge") as merge,
             patch.object(playlist, "enrich") as enrich,
             patch.object(playlist, "push") as push,
         ):
             playlist.sync()
 
-        refresh.assert_called_once_with()
+        fetch.assert_called_once_with()
         merge.assert_called_once_with()
         enrich.assert_called_once_with()
         push.assert_called_once_with()
