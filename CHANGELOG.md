@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.7.0] - Upcoming
+## [0.7.0] - 2026-07-21
 
 ### Breaking Changes
 
@@ -51,6 +51,7 @@ This improves type safety, clarity, and extensibility for playlist identificatio
 The playlist class hierarchy has been redesigned for clearer separation of concerns:
 
 **Renamed Classes:**
+
 - `PlaylistCollection` → `Playlist` (base protocol)
 - `SpotifyPlaylistCollection` → `SpotifyPlaylist`
 - `TidalPlaylistCollection` → `TidalPlaylist`
@@ -58,12 +59,14 @@ The playlist class hierarchy has been redesigned for clearer separation of conce
 - `NMLPlaylistCollection` → `NMLPlaylist`
 
 **Library Classes Renamed:**
+
 - `SpotifyLibraryCollection` → `SpotifyLibrary`
 - `TidalLibraryCollection` → `TidalLibrary`
 - `PlexLibrarySectionCollection` → `PlexLibrary`
 - `NMLLibraryCollection` → `NMLLibrary`
 
 **New Abstractions:**
+
 - `OfflinePlaylist` — In-memory playlist with no service synchronization
 - `ServicePlaylist` — Base for playlists synchronized with music services
 - `MultiRequestServicePlaylist` — For APIs requiring multi-request modifications
@@ -79,6 +82,7 @@ The playlist class hierarchy has been redesigned for clearer separation of conce
 | `remote_associated` | Removed | Service playlists always correspond to remote |
 
 **Migration:**
+
 ```python
 # Old
 pl = SpotifyPlaylistCollection(library, "Name", "desc")
@@ -243,6 +247,9 @@ We encourage early adopters to:
 - Documentation setup and first examples.
 - Basic CI/CD workflows.
 
+[0.7.0]: https://github.com/metasauce/plistsync/releases/tag/v0.7.0
+[0.6.0]: https://github.com/metasauce/plistsync/releases/tag/v0.6.0
+[0.5.1]: https://github.com/metasauce/plistsync/releases/tag/v0.5.1
 [0.5.0]: https://github.com/metasauce/plistsync/releases/tag/v0.5.0
 [0.4.0]: https://github.com/metasauce/plistsync/releases/tag/v0.4.0
 [0.3.0]: https://github.com/metasauce/plistsync/releases/tag/v0.3.0
