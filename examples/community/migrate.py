@@ -138,6 +138,8 @@ def main(
         ),
     ] = True,
 ):
+    # Due to service loader, no `import service_xyz` satements are needed
+    # services are fetched lazily
     if not (_from_service := ServiceLoader.get(from_service.lower())):
         log.error(
             f"Invalid from_service {from_service!r}.\n"

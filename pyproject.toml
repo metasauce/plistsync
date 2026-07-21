@@ -87,8 +87,9 @@ typed = [
 plistsync = "plistsync.__main__:cli"
 
 [project.entry-points."plistsync.services"]
-# This defines alll actionable services for plistsync.
+# This defines all actionable services for plistsync.
 # Each service is a class that implements the Service interface.
+# See ServiceLoader class for more details
 spotify = "plistsync.services.spotify:SpotifyService"
 tidal = "plistsync.services.tidal:TidalService"
 plex = "plistsync.services.plex:PlexService"
