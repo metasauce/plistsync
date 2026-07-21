@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import re
 from dataclasses import dataclass
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from plistsync.core import Track, TrackID, TrackInfo
 from plistsync.core.ids import ISRC
-from plistsync.services.spotify.api_types import (
-    AddedBy,
-    SpotifyApiPlaylistTrack,
-    SpotifyApiTrackResponse,
-)
+
+if TYPE_CHECKING:
+    from plistsync.services.spotify.api_types import (
+        AddedBy,
+        SpotifyApiPlaylistTrack,
+        SpotifyApiTrackResponse,
+    )
 
 
 @dataclass(frozen=True)

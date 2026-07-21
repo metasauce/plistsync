@@ -93,7 +93,7 @@ class BaseRedirectHandler(http.server.BaseHTTPRequestHandler, ABC, Generic[T]):
             <div class="card">"""
             + f"""<div class="card">
             <h1>Authentication Error</h1>
-            <p><strong>{str(error)}</strong></p>
+            <p><strong>{error!s}</strong></p>
             <p>Something went wrong!</p>
             </div>
             </body>

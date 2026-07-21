@@ -1,7 +1,8 @@
 import pytest
 
-from plistsync.core.collection import Matches, TrackInfo
+from plistsync.core.collection import Matches
 from plistsync.core.matching import distance, fuzzy_match
+from plistsync.core.track import TrackInfo
 
 from .mock_track import MockTrack
 

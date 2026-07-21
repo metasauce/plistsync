@@ -1,5 +1,5 @@
-from pathlib import Path
-from typing import ClassVar
+from __future__ import annotations
+from typing import ClassVar, TYPE_CHECKING
 
 import pytest
 from plistsync.services.local.track import LocalTrack
@@ -8,10 +8,13 @@ from plistsync.services.plex.api_types import PlexApiTrackResponse
 from tests.abc.tracks import TestTrack
 from tests.conftest import set_tags
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class TestPlexTrack(TestTrack):
     track_class = PlexTrack
-    test_config = {
+    test_config: ClassVar[dict[str, bool]] = {
         "has_path": True,
     }
 

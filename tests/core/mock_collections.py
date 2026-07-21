@@ -1,15 +1,19 @@
-from collections.abc import Iterable, Iterator
+from __future__ import annotations
 
-from plistsync.core import TrackID
 from plistsync.core.collection import (
     Collection,
     IDLookup,
     InfoLookup,
     TrackStream,
 )
-from plistsync.core.track import TrackInfo
 
-from .mock_track import MockTrack
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .mock_track import MockTrack
+    from plistsync.core.track import TrackInfo
+    from plistsync.core import TrackID
+    from collections.abc import Iterable, Iterator
 
 
 class MockIDLookupCollection(Collection, IDLookup):

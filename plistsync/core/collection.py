@@ -43,7 +43,6 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
     TYPE_CHECKING,
@@ -58,20 +57,26 @@ from typing_extensions import TypeVar
 
 from plistsync.services.registry import Registry
 
-from .ids import Scope, TrackID
-from .matching import Matches, Similarity, fuzzy_match
-from .track import Track, TrackInfo
+from .ids import Scope
+from .matching import Matches, fuzzy_match
+from .track import Track
 
 R = TypeVar("R")
 P = ParamSpec("P")
 T = TypeVar("T", bound=Track, covariant=True)
 
 if TYPE_CHECKING:
-    from .ids import PlaylistID
-    from .playlist import Playlist
+    from collections.abc import Callable, Iterable, Sequence
+
+    from .ids import PlaylistID, TrackID
+    from .matching import Similarity
+    from .playlist import ServicePlaylist
+    from .track import TrackInfo
 
 
-Plist = TypeVar("Plist", bound="Playlist", default="Playlist", covariant=True)
+Plist = TypeVar(
+    "Plist", bound="ServicePlaylist", default="ServicePlaylist", covariant=True
+)
 
 
 @runtime_checkable

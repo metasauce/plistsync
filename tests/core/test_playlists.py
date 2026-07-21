@@ -1,9 +1,9 @@
-from typing import Any
+from __future__ import annotations
+from typing import Any, TYPE_CHECKING
 from unittest.mock import ANY, Mock
 import pytest
 from plistsync.core.ids import ISRC
 from plistsync.core.playlist import (
-    MultiRequestServicePlaylist,
     OfflinePlaylist,
     PlaylistInfo,
     Snapshot,
@@ -18,6 +18,11 @@ from ..abc.playlist import (
     TestMultiRequestServicePlaylistBase,
     TestServicePlaylistBase,
 )
+
+if TYPE_CHECKING:
+    from plistsync.core.playlist import (
+        MultiRequestServicePlaylist,
+    )
 
 
 class TestOfflinePlaylist(TestPlaylistBase):
@@ -85,6 +90,24 @@ class TestMockMultiRequestServicePlaylist(TestMultiRequestServicePlaylistBase):
         )
         playlist._remote_insert_track.assert_called_once_with(
             idx=0, track=4, tracks_before=ANY
+        )
+
+    def test_default_remote_move_track_downwards(
+        self, playlist: MultiRequestServicePlaylist
+    ):
+        """Moving a track to a higher index inserts at new_idx after removal."""
+        playlist._remote_insert_track = Mock()
+        playlist._remote_delete_track = Mock()
+
+        playlist._remote_move_track(
+            old_idx=0, new_idx=2, track=3, tracks_before=[3, 4, 5]
+        )
+
+        playlist._remote_delete_track.assert_called_once_with(
+            idx=0, track=3, tracks_before=ANY
+        )
+        playlist._remote_insert_track.assert_called_once_with(
+            idx=2, track=3, tracks_before=ANY
         )
 
     def test_none_name_raises(self, playlist: MultiRequestServicePlaylist):

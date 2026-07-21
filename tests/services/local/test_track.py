@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from plistsync.services.local import LocalTrack
@@ -8,7 +9,7 @@ from tests.conftest import set_tags
 
 class TestLocalTrack(TestTrack):
     track_class = LocalTrack
-    test_config = {
+    test_config: ClassVar[dict[str, bool]] = {
         "has_path": True,
     }
 

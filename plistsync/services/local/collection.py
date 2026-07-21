@@ -1,13 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Generator, Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from plistsync.core import Collection, TrackID
+from plistsync.core import Collection
 from plistsync.core.collection import IDLookup
 
-from .track import FileCache, LocalTrack
+from .track import LocalTrack
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
+
+    from plistsync.core import TrackID
+
+    from .track import FileCache
 
 
 class LocalCollection(Collection, IDLookup):

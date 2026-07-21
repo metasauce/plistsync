@@ -1,9 +1,13 @@
+from __future__ import annotations
 from pathlib import Path
-from beets.library import Library
 
 from plistsync.services.beets import BeetsDatabase, BeetsCollection
 
 from ._common import item
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from beets.library import Library
 
 
 def test_db_create(beets_lib):

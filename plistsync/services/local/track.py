@@ -1,17 +1,22 @@
 from __future__ import annotations
 
 from itertools import chain
-from pathlib import Path, PurePath
-from typing import cast
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from tinytag import TinyTag
 
-from plistsync.core import Collection, Track, TrackID
+from plistsync.core import Track
 from plistsync.core.collection import TrackStream
 from plistsync.core.ids import ISRC, FilePath
 from plistsync.core.track import TrackInfo
 
 from ...logger import log
+
+if TYPE_CHECKING:
+    from pathlib import PurePath
+
+    from plistsync.core import Collection, TrackID
 
 TagDict = dict[str, list[str] | str | float]
 
@@ -30,7 +35,7 @@ class FileCache:
     TODO: not sure if this is thread safe
     """
 
-    _file_cache: dict[Path, TagDict] = {}
+    _file_cache: ClassVar[dict[Path, TagDict]] = {}
 
     def __getitem__(self, path: Path) -> TagDict:
         if path not in self._file_cache:
@@ -70,7 +75,7 @@ class FileCache:
     def get_from_disk(path: Path) -> TagDict:
         """Get the metadata fresh from disk and update the cache for this track."""
 
-        meta = cast(TagDict, TinyTag.get(path).as_dict())
+        meta = cast("TagDict", TinyTag.get(path).as_dict())
 
         # tiny tag seems to have a lenghth one for many fields, extract!
         # and drop traktor4 cos it has a lot of data.
@@ -143,7 +148,7 @@ class LocalTrack(Track):
 
         isrc_raw = self.tags.get("isrc", [])
         if not isinstance(isrc_raw, list):
-            isrc_raw = [cast(str, isrc_raw)]
+            isrc_raw = [cast("str", isrc_raw)]
 
         # Sometimes the isrc is a list of isrcs
         if len(isrc_raw) > 0:

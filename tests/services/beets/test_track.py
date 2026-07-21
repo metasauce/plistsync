@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import pytest
 
 from plistsync.services.beets.database import BeetsDatabase
@@ -10,7 +12,7 @@ from tests.services.beets._common import item
 
 class TestBeetsTrack(TestTrack):
     track_class = BeetsTrack
-    test_config = {
+    test_config: ClassVar[dict[str, bool]] = {
         "has_path": True,
     }
 

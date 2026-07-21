@@ -8,15 +8,20 @@ similarity scores, and handling different types of metadata such as strings and 
 from __future__ import annotations
 
 import itertools
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from Levenshtein import ratio as levenshtein_ratio
 
 from plistsync.logger import log
 
-from .track import Track, TrackInfo
+from .track import Track
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator, Mapping
+
+    from .track import TrackInfo
 
 Similarity = float
 
@@ -110,7 +115,7 @@ def distance(a: str | list[str], b: str | list[str]) -> float | None:
     a_seq = isinstance(a, Sequence)
     b_seq = isinstance(b, Sequence)
 
-    if a_seq and b_seq and len(a) == 0 or len(b) == 0:
+    if (a_seq and b_seq and len(a) == 0) or len(b) == 0:
         return None
 
     if a == b:

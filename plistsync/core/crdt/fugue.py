@@ -5,12 +5,14 @@ Inspired by *The Art of the Fugue* by Weidner & Kleppmann.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from .graph import Graph, Node, NodeID, Side
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 T = TypeVar("T")
 

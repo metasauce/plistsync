@@ -1,9 +1,13 @@
+from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from plistsync.services.tidal.api_types import PlaylistResource
 from plistsync.services.tidal.playlist import TidalPlaylist, TidalPlaylistID
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.tidal.api_types import PlaylistResource
 
 
 class TestsTidalPlaylist(TestMultiRequestServicePlaylistBase):

@@ -1,18 +1,22 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from plistsync.core import Track, TrackID, TrackInfo
 from plistsync.core.ids import ISRC
-from plistsync.services.tidal.api_types import (
-    PlaylistsItemsResourceIdentifierMeta,
-    TrackResource,
-)
 
-from .api import LookupDict
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from plistsync.services.tidal.api_types import (
+        PlaylistsItemsResourceIdentifierMeta,
+        TrackResource,
+    )
+
+    from .api import LookupDict
 
 
 @dataclass(frozen=True)

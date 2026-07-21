@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import dataclasses
 import json
 import os
 import pathlib
 import re
 import urllib.parse
-from collections.abc import Iterable
-from typing import TypeVar
+from typing import TYPE_CHECKING, TypeVar
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
 
 
 class EnhancedJSONEncoder(json.JSONEncoder):

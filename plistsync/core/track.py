@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from copy import copy
-from pathlib import PurePath
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-from plistsync.core.ids import ISRC, FilePath, TrackID
+from plistsync.core.ids import ISRC, FilePath
 from plistsync.logger import log
 from plistsync.services.registry import Registry
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+    from pathlib import PurePath
+
+    from plistsync.core.ids import TrackID
 
 
 class TrackInfo(TypedDict, total=False):
@@ -189,6 +193,15 @@ class OfflineTrack(Track, service="core"):
         ids.update(track.ids)
 
         return OfflineTrack(info, ids)
+
+    def enrich(self, ids: Iterable[TrackID]) -> None:
+        """Add *ids* to this track in-place (mutates ``self.ids``).
+
+        Safe to call on tracks stored inside a :class:`Fugue` —
+        the Fugue holds objects by reference, so the enrichment
+        is visible to all future reads.
+        """
+        self._ids = self._ids | frozenset(ids)
 
     @classmethod
     def from_track(cls, track: Track) -> OfflineTrack:

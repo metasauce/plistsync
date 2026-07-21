@@ -85,7 +85,7 @@ def test_merge_scale(benchmark, replicas: int, ops_per: int) -> None:
 
 
 def test_playlist_edit_session(benchmark) -> None:
-    """Build 500 tracks, delete 100, re-add 50, fork 2×, merge all."""
+    """Build 500 tracks, delete 100, re-add 50, fork 2x, merge all."""
 
     def run() -> Fugue[str]:
         fu: Fugue[str] = Fugue()

@@ -1,9 +1,10 @@
+from __future__ import annotations
 import pytest
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TYPE_CHECKING
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 
-from plistsync.core import Library, Track, Collection
+from plistsync.core import Track
 from plistsync.core.collection import (
     IDLookup,
     InfoLookup,
@@ -13,6 +14,9 @@ from plistsync.core.matching import Matches
 from plistsync.core.playlist import (
     Playlist,
 )
+
+if TYPE_CHECKING:
+    from plistsync.core import Library, Collection
 
 
 class CollectionTestBase(ABC):

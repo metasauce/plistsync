@@ -1,24 +1,29 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Hashable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
+from plistsync.core.ids import PlaylistID
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
-    PlaylistID,
     PlaylistInfo,
-    Snapshot,
 )
 from plistsync.logger import log
 
-from .api import LookupDict
-from .api_types import PlaylistResource
-from .track import TidalPlaylistTrack, TidalTrack
+from .track import TidalPlaylistTrack
 
 if TYPE_CHECKING:
+    from collections.abc import Hashable, Sequence
+
+    from plistsync.core.playlist import (
+        Snapshot,
+    )
+
+    from .api import LookupDict
+    from .api_types import PlaylistResource
     from .library import TidalLibrary
+    from .track import TidalTrack
 
 
 @dataclass(frozen=True)
@@ -203,7 +208,7 @@ class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
         # Deletion is done via itemId (unique in playlist)
         self.api.playlist.remove_items(
             playlist_id=str(self.id),
-            item_ids=[(t.id, cast(str, t.item_id)) for t in track],
+            item_ids=[(t.id, cast("str", t.item_id)) for t in track],
         )
 
     def _remote_update_metadata(

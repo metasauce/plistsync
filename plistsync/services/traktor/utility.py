@@ -1,4 +1,9 @@
-from lxml.etree import _Element
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from lxml.etree import _Element
 
 
 def xpath_string_escape(input_str: str) -> str:

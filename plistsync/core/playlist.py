@@ -20,20 +20,24 @@ the required methods.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Hashable, Sequence
 from contextlib import contextmanager
 from copy import copy, deepcopy
 from dataclasses import dataclass
-from typing import Generic, Self, TypedDict
+from typing import TYPE_CHECKING, Generic, Self, TypedDict
 
 from typing_extensions import TypeVar
 
 from plistsync.services.registry import Registry
 
-from .collection import Collection, Library, TrackStream
+from .collection import Collection, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
-from .ids import PlaylistID
 from .track import OfflineTrack, Track
+
+if TYPE_CHECKING:
+    from collections.abc import Hashable, Sequence
+
+    from .collection import Library
+    from .ids import PlaylistID
 
 
 class PlaylistInfo(TypedDict, total=False):
@@ -295,7 +299,7 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
         if new_name is not None or new_description is not None:
             self._remote_update_metadata(new_name, new_description)
 
-        operations = list_diff(before.tracks, after.tracks, hash_func=self._track_key)
+        operations = list_diff(before.tracks, after.tracks, key_func=self._track_key)
         for batch in batch_consecutive(operations.iter()):
             # Batch is always nonempty batch of operation
             # including consecutive indexes
@@ -403,14 +407,14 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
             tracks_before=tracks_before,
         )
         tracks_before.pop(old_idx)
-        # Insert at new position (note: new_idx may have shifted due to pop)
-        adjusted_new_idx = new_idx if new_idx > old_idx else new_idx
+        # new_idx is the index in the list *after* the move (see MoveOp),
+        # which is exactly the insert position once the track is removed.
         self._remote_insert_track(
-            idx=adjusted_new_idx,
+            idx=new_idx,
             track=track,
             tracks_before=tracks_before,
         )
-        tracks_before.insert(adjusted_new_idx, track)
+        tracks_before.insert(new_idx, track)
 
     @abstractmethod
     def _remote_update_metadata(

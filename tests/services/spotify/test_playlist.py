@@ -1,9 +1,13 @@
+from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponseFull
 from plistsync.services.spotify.playlist import SpotifyPlaylist, SpotifyPlaylistID
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponseFull
 
 
 class TestSpotifyPlaylist(TestMultiRequestServicePlaylistBase):

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from abc import ABC
-from collections.abc import Sequence
 from functools import cache
 from importlib.metadata import entry_points
 from typing import TYPE_CHECKING
@@ -14,7 +13,9 @@ from plistsync.errors import DependencyError
 from .registry import Registry
 
 if TYPE_CHECKING:
-    from plistsync.core import Library, Track
+    from collections.abc import Sequence
+
+    from plistsync.core import Library, Playlist, Track
     from plistsync.core.ids import PlaylistID, TrackID
 
 
@@ -60,6 +61,12 @@ class Service(ABC, Registry):
 
         return Track.registry().get(self.name, ())
 
+    def playlists(self) -> Sequence[type[Playlist]]:
+        """Return the playlist class registered for this service, if any."""
+        from plistsync.core import Playlist
+
+        return Playlist.registry().get(self.name, ())
+
 
 class ServiceLoader:
     """Lazy access to discoverable services specific classes."""
@@ -88,7 +95,7 @@ class ServiceLoader:
         if not eps:
             return None
         try:
-            service_cls = list(eps)[0].load()
+            service_cls = next(iter(eps)).load()
         except (DependencyError, ModuleNotFoundError):
             return None
 

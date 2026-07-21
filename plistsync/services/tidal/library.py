@@ -1,20 +1,24 @@
-from collections.abc import Iterable, Sequence
-from typing import overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, overload
 
 from requests import HTTPError
 
-from plistsync.core import TrackID
 from plistsync.core.collection import (
     IDLookup,
     Library,
 )
-from plistsync.core.ids import ISRC
-from plistsync.core.playlist import PlaylistID
+from plistsync.core.ids import ISRC, PlaylistID
 from plistsync.logger import log
 
 from .api import TidalApi
 from .playlist import TidalPlaylist, TidalPlaylistID
 from .track import TidalTrack, TidalTrackID
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from plistsync.core import TrackID
 
 
 class TidalLibrary(
@@ -140,7 +144,7 @@ class TidalLibrary(
 
         Prioritizes tidal ID lookups over ISRC lookups.
         """
-        return list(self.find_many_by_ids([ids]))[0]
+        return next(iter(self.find_many_by_ids([ids])))
 
     def find_many_by_ids(
         self, track_ids_batch: Iterable[Iterable[TrackID]]

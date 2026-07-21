@@ -120,7 +120,7 @@ def auth(
             if not success:
                 raise AuthenticationError("Failed to authenticate with Plex.")
     except AuthenticationError as e:
-        typer.echo(f"Authentication failed: {str(e)}")
+        typer.echo(f"Authentication failed: {e!s}")
         return typer.Exit(code=1)
 
     # Save the token

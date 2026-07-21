@@ -134,7 +134,7 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
         values = data["values"]
         for op in data["ops"]:
             if "value_ref" in op:  # insert
-                ins = cast(OpStateInsert, op)
+                ins = cast("OpStateInsert", op)
                 value = self.serializer.load(values[ins["value_ref"]])
                 fugue.apply(
                     InsertOp(

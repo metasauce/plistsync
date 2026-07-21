@@ -1,18 +1,23 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Any, ClassVar, ParamSpec, TypeVar
-from collections.abc import Callable
+from typing import Any, ClassVar, ParamSpec, TypeVar, TYPE_CHECKING
 from unittest.mock import ANY, Mock
 
 import pytest
 
 from plistsync.core import PlaylistID
 from plistsync.core.playlist import (
-    MultiRequestServicePlaylist,
-    Playlist,
-    ServicePlaylist,
     Snapshot,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+    from plistsync.core.playlist import (
+        MultiRequestServicePlaylist,
+        Playlist,
+        ServicePlaylist,
+    )
 
 
 P = ParamSpec("P")
