@@ -13,10 +13,7 @@ from .track import PlexTrack, PlexTrackID
 
 
 class PlexService(Service):
-    library_cls = PlexLibrary
-    track_cls = PlexTrack
-    playlist_cls = PlexPlaylist
-    playlist_id_cls = PlexPlaylistID
+    pass
 
 
 __all__ = [

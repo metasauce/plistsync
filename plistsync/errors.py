@@ -1,4 +1,4 @@
-import importlib
+import importlib.util
 
 from eyconf.validation import ConfigurationError, MultiConfigurationError
 
@@ -57,12 +57,12 @@ def check_imports(
             package.split("[")[0].split("<")[0].split(">")[0].split("=")[0].strip()
         )
 
-        try:
-            importlib.import_module(base_package)
-        except ImportError:
+        if importlib.util.find_spec(base_package) is None:
             missing.append(package)
 
     if missing:
         raise DependencyError(
-            service=service, missing_packages=missing, extra_name=extra_name
+            service=service,
+            missing_packages=missing,
+            extra_name=extra_name,
         )

@@ -141,7 +141,7 @@ class TestTrackIDRepr:
     """The ABC __repr__ is only used by non-dataclass subclasses."""
 
     def test_track_id_repr(self):
-        class _Minimal(TrackID):
+        class _Minimal(TrackID, service="test"):
             @classmethod
             def parse(cls, value: str):
                 return cls()
@@ -153,7 +153,7 @@ class TestTrackIDRepr:
         assert repr(_Minimal()) == "_Minimal(serial='test:123')"
 
     def test_playlist_id_repr(self):
-        class _Minimal(PlaylistID):
+        class _Minimal(PlaylistID, service="test"):
             @classmethod
             def parse(cls, value: str):
                 return cls()

@@ -10,15 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking Changes
 
 - Refactored track identifier handling across the codebase by replacing service-specific `TrackIds` dictionaries with strongly typed, immutable `TrackID` dataclasses for each service (e.g. Spotify, Plex).
-- Refactored playlist identifier handling across the codebase by replacing service-specific `PlaylistIds` dictionaries with strongly typed, immutable `PlaylistID` dataclasses for each service (e.g. Spotify, Plex). 
+- Refactored playlist identifier handling across the codebase by replacing service-specific `PlaylistIds` dictionaries with strongly typed, immutable `PlaylistID` dataclasses for each service (e.g. Spotify, Plex).
   - Removed obsolete playlist ID extraction utilities that are no longer required under the new identifier system.
   - Updated all playlist operations and internal synchronization flows to use the new typed identifier model consistently.
 
 This improves type safety, clarity, and extensibility for playlist identification and lookup operations. All playlist-related APIs and synchronization logic now operate on explicit identifier types instead of loosely structured dictionaries.
 
+- Replaced the import-based `ServiceRegistry` with entry-point based service discovery via `ServiceLoader` (`ServiceLoader.get(name)` / `ServiceLoader.all()`). Services are now discovered through the `plistsync.services` entry-point group without importing all service modules, and services with missing optional dependencies are skipped gracefully.
+- Removed the `track_cls`, `library_cls`, `playlist_cls` and `playlist_id_cls` attributes from `Service` implementations; registered classes are resolved through the `Registry` instead.
+- `OfflinePlaylist` now takes a typed `PlaylistID` (`id=...`) instead of an `id_serial` string.
+
 ### Added
 
-- Added typed `Service` marker class with `track_cls`, `library_cls`, `playlist_cls` attributes and module-inferred `name` property, enabling single-handle access to all a service's core types. (#95)
+- Added typed `Service` marker class with a module-inferred `name` property and registry-backed accessors (`library()`, `tracks()`, `track_ids()`, `playlist_ids()`), enabling single-handle access to all a service's core types. (#95)
+- Added generic `Registry` base class that auto-registers concrete implementations by service name at class-definition time. `Track`, `Library`, `TrackID`, and `PlaylistID` are now registry roots, making service classes discoverable simply by importing their module.
 - Added a migration example to fully copy a playlist from an arbitrary service to another. (#60)
 
 ### Fixed

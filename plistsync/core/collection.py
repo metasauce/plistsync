@@ -56,6 +56,8 @@ from typing import (
 
 from typing_extensions import TypeVar
 
+from plistsync.services.registry import Registry
+
 from .ids import Scope, TrackID
 from .matching import Matches, Similarity, fuzzy_match
 from .track import Track, TrackInfo
@@ -363,7 +365,7 @@ class Collection(ABC, Generic[T]):
         )
 
 
-class Library(Generic[T, Plist], Collection[T]):
+class Library(Generic[T, Plist], Collection[T], ABC, Registry):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.

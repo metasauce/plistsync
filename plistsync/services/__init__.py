@@ -1,81 +1,114 @@
 # We do not import from the different submodules as they
 # might raise with check_dependencies.
 
-import importlib
-import inspect
-import pkgutil
-from abc import ABC
-from functools import cache
-from typing import ClassVar
+from __future__ import annotations
 
-from plistsync.core import Library, Playlist, PlaylistID, Track
+from abc import ABC
+from collections.abc import Sequence
+from functools import cache
+from importlib.metadata import entry_points
+from typing import TYPE_CHECKING
+
 from plistsync.errors import DependencyError
 
+from .registry import Registry
 
-class Service(ABC):
+if TYPE_CHECKING:
+    from plistsync.core import Library, Track
+    from plistsync.core.ids import PlaylistID, TrackID
+
+
+class Service(ABC, Registry):
     """Abstraction for discoverable service plugins.
 
-    Subclasses in `services/<name>/` modules are automatically
-    discovered by the ServiceRegistry.
+    Concrete service implementations register their identifier classes at
+    class-definition time. Importing a service module is sufficient to make
+    its classes discoverable.
 
-    Each concrete Service exposes the key types that belong to its
-    service: the library/collection class and the track class.
-    Optionally a playlist class for playlist-capable services.
+    Each service exposes the identifier classes associated with it, including
+    track identifiers and optionally playlist identifiers.
     """
-
-    track_cls: ClassVar[type[Track]]
-    library_cls: ClassVar[type[Library] | None] = None
-    playlist_cls: ClassVar[type[Playlist] | None] = None
-    playlist_id_cls: ClassVar[type[PlaylistID] | None] = None
 
     @property
     def name(self) -> str:
         """Service name, inferred from the module (e.g. 'spotify', 'plex')."""
         return self.__module__.split(".")[-1]
 
+    def playlist_ids(self) -> Sequence[type[PlaylistID]]:
+        """Return playlist identifier classes registered for this service."""
 
-class ServiceRegistry:
-    """Central registry for dynamic service discovery and instantiation.
+        from plistsync.core.ids import PlaylistID
 
-    Automatically discovers Service subclasses in services/* modules
-    using pkgutil + importlib. Lazy-loaded with @cache for performance.
-    Handles missing dependencies gracefully.
+        return PlaylistID.registry().get(self.name, ())
 
-    Usage:
-        >>> service = ServiceRegistry.get_service('spotify')
-        >>> services = ServiceRegistry.list()  # {'spotify': SpotifyService(), ...}
+    def track_ids(self) -> Sequence[type[TrackID]]:
+        """Return track identifier classes registered for this service."""
+
+        from plistsync.core.ids import TrackID
+
+        return TrackID.registry().get(self.name, ())
+
+    def library(self) -> type[Library] | None:
+        """Return the library class registered for this service, if any."""
+        from plistsync.core import Library
+
+        return Library.registry().get(self.name, (None,))[0]
+
+    def tracks(self) -> Sequence[type[Track]]:
+        """Return the track class registered for this service, if any."""
+        from plistsync.core import Track
+
+        return Track.registry().get(self.name, ())
+
+
+class ServiceLoader:
+    """Lazy access to discoverable services specific classes."""
+
+    GROUP = "plistsync.services"
+    """Entry point group for discoverable services. Defined in the pyproject.toml to
+    allow registering a service.
+
+    This improves discoverability and avoids importing service modules just to check if
+    they exist, which is pretty slow.
     """
 
     @classmethod
     @cache
     def get(cls, name: str) -> Service | None:
-        """Dynamically import services.NAME module, find Service ABC, instantiate."""
+        """Load and return a service by name.
+
+        Importing the service module triggers class registration. Returns
+        ``None`` if the service cannot be imported or no service class exists.
+        """
+        eps = entry_points(
+            group=cls.GROUP,
+            name=name,
+        )
+
+        if not eps:
+            return None
         try:
-            module = importlib.import_module(f"{__name__}.{name}")
+            service_cls = list(eps)[0].load()
         except (DependencyError, ModuleNotFoundError):
             return None
 
-        # Find first Service subclass (assumes 1/module)
-        service_cls: None | type[Service] = None
-        for _, obj in inspect.getmembers(module, inspect.isclass):
-            if issubclass(obj, Service) and obj != Service:
-                service_cls = obj
-                break
-
-        return service_cls() if service_cls else None
+        return service_cls()
 
     @classmethod
     @cache
-    def dict(cls) -> dict[str, Service]:
-        """All importable services {name: instance}.
+    def all(cls) -> dict[str, Service]:
+        """Return a mapping of service names to service instances.
 
-        Scans services/* modules via pkgutil, filters valid ones.
+        This will import all available service modules to trigger registration.
         """
         services: dict[str, Service] = {}
-        # REQUIRES: ServiceRegistry in package with __path__ (services/__init__.py)
-        for module_info in pkgutil.iter_modules(__path__, __name__ + "."):
-            short_name = module_info.name.rsplit(".", 1)[-1]
-            service = cls.get(short_name)
-            if service is not None:
-                services[short_name] = service
+
+        for ep in entry_points(group=cls.GROUP):
+            try:
+                service_cls: type[Service] = ep.load()
+            except (DependencyError, ModuleNotFoundError):
+                continue
+
+            services[ep.name] = service_cls()
+
         return services

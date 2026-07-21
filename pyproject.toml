@@ -86,6 +86,17 @@ typed = [
 [project.scripts]
 plistsync = "plistsync.__main__:cli"
 
+[project.entry-points."plistsync.services"]
+# This defines all actionable services for plistsync.
+# Each service is a class that implements the Service interface.
+# See ServiceLoader class for more details
+spotify = "plistsync.services.spotify:SpotifyService"
+tidal = "plistsync.services.tidal:TidalService"
+plex = "plistsync.services.plex:PlexService"
+local = "plistsync.services.local:LocalService"
+traktor = "plistsync.services.traktor:TraktorService"
+beets = "plistsync.services.beets:BeetsService"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

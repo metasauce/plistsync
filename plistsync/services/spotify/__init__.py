@@ -13,10 +13,7 @@ from .track import SpotifyPlaylistTrack, SpotifyTrack, SpotifyTrackID
 
 
 class SpotifyService(Service):
-    library_cls = SpotifyLibrary
-    track_cls = SpotifyTrack
-    playlist_cls = SpotifyPlaylist
-    playlist_id_cls = SpotifyPlaylistID
+    pass
 
 
 __all__ = [

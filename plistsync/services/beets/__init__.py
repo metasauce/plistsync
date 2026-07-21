@@ -12,7 +12,7 @@ from .track import BeetsTrack
 
 
 class BeetsService(Service):
-    track_cls = BeetsTrack
+    pass
 
 
 __all__ = [
