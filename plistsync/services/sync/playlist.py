@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from plistsync.core import PlaylistID
-from plistsync.core.crdt import Fugue, LWWRegister
 from plistsync.core.diff import DeleteOp as DiffDeleteOp
 from plistsync.core.diff import InsertOp as DiffInsertOp
 from plistsync.core.diff import MoveOp as DiffMoveOp
@@ -16,18 +15,19 @@ from plistsync.core.playlist import (
 )
 from plistsync.core.track import OfflineTrack
 from plistsync.logger import log
+from plistsync.services.sync.crdt import Fugue, LWWRegister
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from pathlib import Path
 
     from plistsync.core import Track
-    from plistsync.core.crdt import DeleteOp as CRDTDeleteOp
-    from plistsync.core.crdt import InsertOp as CRDTInsertOp
-    from plistsync.core.crdt import RegisterOp
     from plistsync.core.playlist import (
         ServicePlaylist,
     )
+    from plistsync.services.sync.crdt import DeleteOp as CRDTDeleteOp
+    from plistsync.services.sync.crdt import InsertOp as CRDTInsertOp
+    from plistsync.services.sync.crdt import RegisterOp
 
 ReplicaID = int
 

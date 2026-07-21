@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Generic, Literal, TypedDict, cast
 
-from plistsync.core.crdt import RegisterOp
-from plistsync.core.crdt.lww import LWWRegister
+from plistsync.services.sync.crdt import RegisterOp
+from plistsync.services.sync.crdt.lww import LWWRegister
 from plistsync.utils.serializer import DummySerializer, S, Serializer, T
 
 from .fugue import DeleteOp, Fugue, InsertOp, InsertPos

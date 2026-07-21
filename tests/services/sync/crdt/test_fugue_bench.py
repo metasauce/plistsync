@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from plistsync.core.crdt import Fugue
+from plistsync.services.sync.crdt import Fugue
 
 
 # append: should be O(1) amortised

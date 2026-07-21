@@ -7,10 +7,10 @@ from typing import Any, Literal, cast, TYPE_CHECKING
 
 import pytest
 
-from plistsync.core.crdt.fugue import Fugue
-from plistsync.core.crdt.graph import NodeID, Side
-from plistsync.core.crdt.lww import LWWRegister
-from plistsync.core.crdt.serialize import (
+from plistsync.services.sync.crdt.fugue import Fugue
+from plistsync.services.sync.crdt.graph import NodeID, Side
+from plistsync.services.sync.crdt.lww import LWWRegister
+from plistsync.services.sync.crdt.serialize import (
     FugueSerializer,
     FugueState,
     LWWSerializer,
@@ -22,7 +22,7 @@ from plistsync.core.crdt.serialize import (
 from plistsync.utils.serializer import DummySerializer
 
 if TYPE_CHECKING:
-    from plistsync.core.crdt.serialize import (
+    from plistsync.services.sync.crdt.serialize import (
         LWWRegisterState,
     )
 

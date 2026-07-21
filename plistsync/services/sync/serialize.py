@@ -9,25 +9,25 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Generic, TypedDict, TypeVar
 
 from plistsync.core import PlaylistID, TrackID
-from plistsync.core.crdt.serialize import (
+from plistsync.core.track import OfflineTrack
+from plistsync.services import ServiceLoader
+from plistsync.services.sync.crdt.serialize import (
     FugueSerializer,
     LWWSerializer,
     Serializer,
 )
-from plistsync.core.sync.playlist import (
+from plistsync.services.sync.playlist import (
     SyncedPlaylist,
     SyncedPlaylistID,
     _TrackLink,
 )
-from plistsync.core.track import OfflineTrack
-from plistsync.services import ServiceLoader
 
 if TYPE_CHECKING:
-    from plistsync.core.crdt.serialize import (
+    from plistsync.core.playlist import PlaylistInfo
+    from plistsync.services.sync.crdt.serialize import (
         FugueState,
         LWWRegisterState,
     )
-    from plistsync.core.playlist import PlaylistInfo
 
 S = TypeVar("S")  # serialized track format (e.g. dict or str)
 
