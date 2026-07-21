@@ -31,6 +31,7 @@ This improves type safety, clarity, and extensibility for playlist identificatio
   - Phased `sync()` pipeline: `refresh()` pulls the current state from each service, `merge()` reconciles external additions/removals/reorders into the internal collection, `enrich()` cross-links tracks between services and backfills missing identifiers (e.g. ISRCs), and `push()` writes the resolved state back to every linked playlist.
   - Track association is availability-aware: tracks that cannot be resolved on a given service are skipped for that service instead of being dropped from the internal collection.
   - Added `SyncedPlaylistID`, a UUID-based playlist identifier for synced playlists.
+  - Added serialization for SyncedPlaylists, `save_to` and `load_from` methods (#104)
 
 ### Fixed
 
