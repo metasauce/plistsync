@@ -236,7 +236,7 @@ class TestMerge:
 class TestMergeInfo:
     """Merging of playlist metadata (name/description) from linked playlists."""
 
-    def test_service_name_is_merged(self):
+    def test_service_name_is_not_merged(self):
         playlist = SyncedPlaylist("internal")
         service = make_playlist(name="service")
         playlist.register(service)
@@ -244,7 +244,7 @@ class TestMergeInfo:
         playlist.merge()
 
         assert "name" in playlist.info
-        assert playlist.info["name"] == "service"
+        assert playlist.info["name"] == "internal"
 
     def test_unchanged_service_creates_no_ops(self):
         playlist = SyncedPlaylist("internal")
@@ -288,6 +288,10 @@ class TestMergeInfo:
         playlist.register(first)
         playlist.register(second)
 
+        # Update names
+        first.name = "one"
+        second.name = "two"
+
         playlist.merge()
 
         # Replica 2 merged after replica 1, so its op has the higher counter.
@@ -313,8 +317,9 @@ class TestMergeInfo:
     def test_description_is_merged(self):
         playlist = SyncedPlaylist("internal")
         service = make_playlist(name="service")
-        service.info = PlaylistInfo(name="service", description="service desc")
         playlist.register(service)
+
+        service.info = PlaylistInfo(name="service", description="service desc")
 
         playlist.merge()
 
@@ -337,9 +342,14 @@ class TestMergeInfo:
         """An explicit None description overwrites/clears the internal value."""
         playlist = SyncedPlaylist("internal", description="internal desc")
         service = make_playlist(name="service")
-        service.info = PlaylistInfo(name="service", description=None)
-        playlist.register(service)
+        playlist.register(
+            service  # <- Overwrite the service's info internal info
+        )
 
+        # External change: service's description is cleared
+        service.info = PlaylistInfo(name="service", description=None)
+
+        # Merge should propagate the None value to the internal info.
         playlist.merge()
 
         assert "description" in playlist.info
