@@ -90,6 +90,7 @@ plistsync = "plistsync.__main__:cli"
 # This defines all actionable services for plistsync.
 # Each service is a class that implements the Service interface.
 # See ServiceLoader class for more details
+sync = "plistsync.services.sync:SyncService"
 spotify = "plistsync.services.spotify:SpotifyService"
 tidal = "plistsync.services.tidal:TidalService"
 plex = "plistsync.services.plex:PlexService"

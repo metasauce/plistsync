@@ -5,16 +5,16 @@ from unittest.mock import Mock, patch
 import pytest
 
 from plistsync.core.ids import ISRC, PlaylistID
-from plistsync.core.crdt.lww import LWWRegister
+from plistsync.services.sync.crdt.lww import LWWRegister
 from plistsync.core.matching import Matches
 from plistsync.core.playlist import PlaylistInfo
-from plistsync.core.sync.playlist import SyncedPlaylist, SyncedPlaylistID
+from plistsync.services.sync.playlist import SyncedPlaylist, SyncedPlaylistID
 from plistsync.core.track import OfflineTrack
 from plistsync.services.spotify import SpotifyPlaylistID
 from plistsync.services.tidal import TidalPlaylistID
+from tests.core.mock_playlist import MockServicePlaylist
+from tests.core.mock_track import MockTrack
 
-from ..mock_playlist import MockServicePlaylist
-from ..mock_track import MockTrack
 
 SPOTIFY_ID = SpotifyPlaylistID.parse("spotify:playlist:37i9dQZF1DXcBWIGoYBM5M")
 TIDAL_ID = TidalPlaylistID.parse("tidal:playlist:1293")

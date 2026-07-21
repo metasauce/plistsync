@@ -1,6 +1,6 @@
 import pytest
 
-from plistsync.core.crdt.graph import Graph, Node, NodeID, Side
+from plistsync.services.sync.crdt.graph import Graph, Node, NodeID, Side
 
 
 def _node(counter: int, parent: NodeID, side: Side) -> Node:

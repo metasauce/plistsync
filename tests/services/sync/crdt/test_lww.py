@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from plistsync.core.crdt.graph import NodeID
-from plistsync.core.crdt.lww import LWWRegister, RegisterOp
+from plistsync.services.sync.crdt.graph import NodeID
+from plistsync.services.sync.crdt.lww import LWWRegister, RegisterOp
 
 
 def _new_register(replica_id: int = 0) -> LWWRegister:

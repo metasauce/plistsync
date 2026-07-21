@@ -5,9 +5,9 @@ from typing import Literal
 
 import pytest
 
-from plistsync.core.crdt import DeleteOp, Fugue, InsertOp, InsertPos
-from plistsync.core.crdt.fugue import Ops
-from plistsync.core.crdt.graph import NodeID, Side
+from plistsync.services.sync.crdt import DeleteOp, Fugue, InsertOp, InsertPos
+from plistsync.services.sync.crdt.fugue import Ops
+from plistsync.services.sync.crdt.graph import NodeID, Side
 
 
 def _sync(src: Fugue[str], dst: Fugue[str]) -> None:
@@ -693,7 +693,7 @@ class TestGraphCoverage:
     """Hit the remaining uncovered lines in graph.py."""
 
     def test_ancestors_missing_node_returns_empty(self) -> None:
-        from plistsync.core.crdt.graph import Graph
+        from plistsync.services.sync.crdt.graph import Graph
 
         g = Graph()
         assert g.ancestor_closure(NodeID(99, 99)) == frozenset({NodeID(99, 99)})
