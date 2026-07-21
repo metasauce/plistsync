@@ -19,6 +19,7 @@ from plistsync.logger import log
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from pathlib import Path
 
     from plistsync.core import Track
     from plistsync.core.crdt import DeleteOp as CRDTDeleteOp
@@ -361,4 +362,31 @@ class SyncedPlaylist(Playlist[OfflineTrack], service="core"):
                     new_tracks.append(match.best_match)
 
         with playlist.edit():
+            playlist.name = self.name
+            playlist.description = self.description
             playlist.tracks = new_tracks
+
+    def save_to(self, path: Path | str) -> None:
+        """Serialize the synced playlist to a JSON-serializable object."""
+        import json
+
+        from .serialize import SyncedPlaylistSerializer
+
+        serializer = SyncedPlaylistSerializer()
+        serializable = serializer.dump(self)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(serializable, f, indent=4)
+
+    @classmethod
+    def load_from(cls, path: Path | str) -> SyncedPlaylist:
+        """Load a synced playlist from a JSON-serializable object."""
+        import json
+
+        from .serialize import SyncedPlaylistSerializer
+
+        with open(path, encoding="utf-8") as f:
+            serializable = json.load(f)
+
+        serializer = SyncedPlaylistSerializer()
+        return serializer.load(serializable)

@@ -1,25 +1,13 @@
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import Generic, Literal, Protocol, TypedDict, TypeVar, cast
+from typing import Generic, Literal, TypedDict, cast
+
+from plistsync.core.crdt import RegisterOp
+from plistsync.core.crdt.lww import LWWRegister
+from plistsync.utils.serializer import DummySerializer, S, Serializer, T
 
 from .fugue import DeleteOp, Fugue, InsertOp, InsertPos
 from .graph import NodeID, Side
-
-T = TypeVar("T")
-S = TypeVar("S")
-
-
-class Serializer(Protocol, Generic[T, S]):
-    @abstractmethod
-    def dump(self, value: T) -> S:
-        """Serialize a Fugue instance to a string."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def load(self, data: S) -> T:
-        """Deserialize a Fugue instance from a string."""
-        raise NotImplementedError
 
 
 class NodeIDState(TypedDict):
@@ -33,6 +21,22 @@ class NodeIDState(TypedDict):
 
     counter: int
     """Counter value for the node ID."""
+
+
+class NodeSerializer(Serializer[NodeID, NodeIDState]):
+    """Serializer for Fugue node IDs."""
+
+    def dump(self, value: NodeID) -> NodeIDState:
+        return NodeIDState(
+            replica_id=value.replica_id,
+            counter=value.counter,
+        )
+
+    def load(self, data: NodeIDState) -> NodeID:
+        return NodeID(
+            replica_id=int(data["replica_id"]),
+            counter=int(data["counter"]),
+        )
 
 
 class OpStateInsert(TypedDict):
@@ -91,9 +95,11 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
     """Serializer for Fugue instances, using a provided serializer for the values."""
 
     serializer: Serializer[T, S]
+    node_serializer: NodeSerializer
 
     def __init__(self, serializer: Serializer[T, S]) -> None:
         self.serializer = serializer
+        self.node_serializer = NodeSerializer()
 
     def dump(self, value: Fugue[T]) -> FugueState[S]:
         values: list[S] = []
@@ -104,10 +110,10 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
                 values.append(self.serializer.dump(op.value))
                 ops.append(
                     OpStateInsert(
-                        node_id=self.dump_node_id(op.pos.id),
-                        parent_id=self.dump_node_id(op.pos.parent_id),
+                        node_id=self.node_serializer.dump(op.pos.id),
+                        parent_id=self.node_serializer.dump(op.pos.parent_id),
                         side=self.dump_side(op.pos.side),
-                        right_of_id=self.dump_node_id(op.pos.right_of_id)
+                        right_of_id=self.node_serializer.dump(op.pos.right_of_id)
                         if op.pos.right_of_id
                         else None,
                         value_ref=len(values) - 1,
@@ -116,7 +122,7 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
             else:
                 ops.append(
                     OpStateDelete(
-                        node_id=self.dump_node_id(op.node_id),
+                        node_id=self.node_serializer.dump(op.node_id),
                     )
                 )
 
@@ -130,7 +136,9 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
 
     def load(self, data: FugueState[S]) -> Fugue[T]:
         fugue = Fugue[T](replica_id=data["replica_id"])
-        fugue._counters = dict(data["counters"])
+        fugue._counters = {
+            int(rid): counter for rid, counter in data["counters"].items()
+        }
         values = data["values"]
         for op in data["ops"]:
             if "value_ref" in op:  # insert
@@ -139,10 +147,10 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
                 fugue.apply(
                     InsertOp(
                         pos=InsertPos(
-                            id=self.load_node_id(ins["node_id"]),
-                            parent_id=self.load_node_id(ins["parent_id"]),
+                            id=self.node_serializer.load(ins["node_id"]),
+                            parent_id=self.node_serializer.load(ins["parent_id"]),
                             side=self.load_side(ins["side"]),
-                            right_of_id=self.load_node_id(ins["right_of_id"])
+                            right_of_id=self.node_serializer.load(ins["right_of_id"])
                             if ins["right_of_id"]
                             else None,
                         ),
@@ -152,25 +160,11 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
             else:  # delete
                 fugue.apply(
                     DeleteOp(
-                        node_id=self.load_node_id(op["node_id"]),
+                        node_id=self.node_serializer.load(op["node_id"]),
                     )
                 )
 
         return fugue
-
-    @staticmethod
-    def dump_node_id(node_id: NodeID) -> NodeIDState:
-        return NodeIDState(
-            replica_id=node_id.replica_id,
-            counter=node_id.counter,
-        )
-
-    @staticmethod
-    def load_node_id(node_id: NodeIDState) -> NodeID:
-        return NodeID(
-            replica_id=node_id["replica_id"],
-            counter=node_id["counter"],
-        )
 
     @staticmethod
     def dump_side(side: Side) -> Literal[0, 1]:
@@ -179,3 +173,82 @@ class FugueSerializer(Serializer[Fugue[T], FugueState[S]], Generic[T, S]):
     @staticmethod
     def load_side(side: Literal[0, 1]) -> Side:
         return Side.LEFT if side == 0 else Side.RIGHT
+
+
+class RegisterOpState(TypedDict, Generic[S]):
+    """Snapshot format for a Fugue operation.
+
+    Used for serialization and deserialization.
+    """
+
+    node_id: NodeIDState
+    """Simplified node ID for the operation. We reuse the NodeIDState
+    format for simplicity."""
+
+    value: S
+    """Serialized value associated with the operation."""
+
+    key: str
+    """Key associated with the operation. In a register, this is typically the field
+    name being updated."""
+
+
+class LWWRegisterState(TypedDict, Generic[S]):
+    """Serialized form of a :class:`LWWRegister`."""
+
+    version: int
+    """Version of the serialized state. Used for compatibility checks."""
+
+    counter: int
+    """Unique identifier for the replica that produced this state."""
+
+    replica_id: int
+    """Unique identifier for the replica that produced this state."""
+
+    ops: list[RegisterOpState[S]]
+    """List of operations (insertions) in the LWW register."""
+
+
+class LWWSerializer(Serializer[LWWRegister, LWWRegisterState[S]], Generic[T, S]):
+    """Serializer for LWW values."""
+
+    serializer: Serializer[T, S]
+    node_serializer: NodeSerializer
+
+    def __init__(self, serializer: Serializer[T, S] | None = None) -> None:
+        self.serializer = serializer or DummySerializer()
+        self.node_serializer = NodeSerializer()
+
+    def dump(self, value: LWWRegister) -> LWWRegisterState[S]:
+        ops: list[RegisterOpState[S]] = []
+
+        for op in value._ops:
+            ops.append(
+                RegisterOpState(
+                    node_id=self.node_serializer.dump(op.version),
+                    value=self.serializer.dump(op.value),
+                    key=op.key,
+                )
+            )
+
+        return LWWRegisterState(
+            version=1,
+            counter=value._counter,
+            replica_id=value.replica_id,
+            ops=ops,
+        )
+
+    def load(self, data: LWWRegisterState[S]) -> LWWRegister:
+        register = LWWRegister(replica_id=data["replica_id"])
+        register._counter = data["counter"]
+
+        for op in data["ops"]:
+            register.apply(
+                RegisterOp(
+                    key=op["key"],
+                    value=self.serializer.load(op["value"]),
+                    version=self.node_serializer.load(op["node_id"]),
+                )
+            )
+
+        return register

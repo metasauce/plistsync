@@ -136,6 +136,7 @@ ignore = [
     "D10",
     "D202",
     "PTH123", # Do not require Path.open
+    "TC006", # no need to quote 'cast's since we use 'from __future__ import annotations'
 ]
 fixable = ["ALL"]
 

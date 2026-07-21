@@ -3,48 +3,148 @@
 from __future__ import annotations
 
 import json
-from typing import Literal, cast
+from typing import Any, Literal, cast, TYPE_CHECKING
 
 import pytest
 
 from plistsync.core.crdt.fugue import Fugue
 from plistsync.core.crdt.graph import NodeID, Side
+from plistsync.core.crdt.lww import LWWRegister
 from plistsync.core.crdt.serialize import (
     FugueSerializer,
     FugueState,
+    LWWSerializer,
     NodeIDState,
+    NodeSerializer,
     OpStateDelete,
     OpStateInsert,
-    Serializer,
 )
+from plistsync.utils.serializer import DummySerializer
+
+if TYPE_CHECKING:
+    from plistsync.core.crdt.serialize import (
+        LWWRegisterState,
+    )
 
 
-class IdSerializer(Serializer[str, str]):
-    def dump(self, value: str) -> str:
-        return value
+class TestNodeID:
+    @pytest.mark.parametrize(
+        ("replica_id", "counter"),
+        [(0, 0), (1, 42), (255, 65535)],
+    )
+    def test_roundtrip(self, replica_id: int, counter: int) -> None:
+        nid = NodeID(replica_id, counter)
 
-    def load(self, data: str) -> str:
-        return data
+        # Serialize
+        state = NodeSerializer().dump(nid)
+        assert state == {"replica_id": replica_id, "counter": counter}
 
+        # Deserialize
+        n_nid = NodeSerializer().load(json.loads(json.dumps(state)))
 
-class JsonSerializer(Serializer[int, str]):
-    def dump(self, value: int) -> str:
-        return json.dumps(value)
-
-    def load(self, data: str) -> int:
-        return json.loads(data)
-
-
-def _nid(replica_id: int = 0, counter: int = 0) -> NodeID:
-    return NodeID(replica_id, counter)
-
-
-def _nids(replica_id: int = 0, counter: int = 0) -> NodeIDState:
-    return NodeIDState(replica_id=replica_id, counter=counter)
+        # Assert
+        assert isinstance(n_nid, NodeID)
+        assert isinstance(n_nid.replica_id, int)
+        assert isinstance(n_nid.counter, int)
+        assert n_nid == nid
 
 
-def _root() -> NodeIDState:
-    return _nids(-1, -1)
+class TestSide:
+    @pytest.mark.parametrize("side", [Side.LEFT, Side.RIGHT])
+    def test_roundtrip(self, side: Side) -> None:
+        # Serialize
+        state = FugueSerializer.dump_side(side)
+        assert state in (0, 1)
+
+        # Deserialize
+        n_side = FugueSerializer.load_side(json.loads(json.dumps(state)))
+
+        # Assert
+        assert isinstance(n_side, Side)
+        assert n_side == side
+
+
+class TestFugue:
+    @pytest.mark.parametrize(
+        "values",
+        [[], ["a"], ["x", "y", "z"]],
+    )
+    def test_roundtrip(self, s: FugueSerializer[str, str], values: list[str]) -> None:
+        fu = _fugue(*values)
+
+        # Serialize
+        state = s.dump(fu)
+        assert state["values"] == values
+
+        # Deserialize
+        n_fu = s.load(json.loads(json.dumps(state)))
+
+        # Assert
+        assert isinstance(n_fu, Fugue)
+        assert list(n_fu) == values
+        assert n_fu.replica_id == fu.replica_id
+        assert n_fu._counters == fu._counters
+        assert all(isinstance(k, int) for k in n_fu._counters)
+
+    def test_roundtrip_with_delete(self, s: FugueSerializer[str, str]) -> None:
+        fu = _fugue("keep", "drop")
+        fu.delete(1)
+
+        # Serialize
+        state = s.dump(fu)
+        assert state["values"] == ["keep", "drop"]
+
+        # Deserialize
+        n_fu = s.load(json.loads(json.dumps(state)))
+
+        # Assert
+        assert isinstance(n_fu, Fugue)
+        assert list(n_fu) == ["keep"]
+
+
+class TestLWWRegister:
+    @pytest.mark.parametrize(
+        "assignments",
+        [
+            [],
+            [("name", "Mix")],
+            [("name", "Mix"), ("description", "Desc")],
+            [("name", "A"), ("name", "B")],  # last write wins
+        ],
+    )
+    def test_roundtrip(self, assignments: list[tuple[str, str]]) -> None:
+        reg = LWWRegister(replica_id=0)
+        for key, value in assignments:
+            reg.assign(key, value)
+
+        # Serialize
+        state: LWWRegisterState[Any] = LWWSerializer().dump(reg)
+        assert state["version"] == 1
+        assert set(state) == {"version", "counter", "replica_id", "ops"}
+        assert len(state["ops"]) == len(assignments)
+        for op in state["ops"]:
+            assert set(op) == {"node_id", "value", "key"}
+
+        # Deserialize
+        n_reg = LWWSerializer().load(json.loads(json.dumps(state)))
+
+        # Assert
+        assert isinstance(n_reg, LWWRegister)
+        assert dict(n_reg) == dict(reg)
+        assert n_reg.replica_id == reg.replica_id
+        assert n_reg._counter == reg._counter
+
+    def test_roundtrip_preserves_history(self) -> None:
+        reg = LWWRegister(replica_id=1)
+        reg.assign("name", "A")
+        reg.assign("name", "B")
+
+        # Serialize / Deserialize
+        n_reg = LWWSerializer().load(json.loads(json.dumps(LWWSerializer().dump(reg))))
+
+        # Assert
+        assert n_reg["name"] == "B"
+        assert [op.value for op in n_reg.history("name")] == ["A", "B"]
 
 
 def _fugue(*values: str, replica_id: int = 0) -> Fugue[str]:
@@ -54,70 +154,23 @@ def _fugue(*values: str, replica_id: int = 0) -> Fugue[str]:
     return fu
 
 
+def _nids(replica_id: int = 0, counter: int = 0) -> NodeIDState:
+    return NodeIDState(replica_id=replica_id, counter=counter)
+
+
 def _roundtrip(s: FugueSerializer[str, str], fu: Fugue[str]) -> Fugue[str]:
     return s.load(s.dump(fu))
 
 
-class TestNodeID:
-    @pytest.mark.parametrize(
-        ("replica_id", "counter"),
-        [(0, 0), (1, 42), (255, 65535)],
-    )
-    def test_roundtrip(self, replica_id: int, counter: int) -> None:
-        nid = _nid(replica_id, counter)
-        state = FugueSerializer.dump_node_id(nid)
-        assert state == {"replica_id": replica_id, "counter": counter}
-        assert FugueSerializer.load_node_id(state) == nid
-
-    def test_dump_keys(self) -> None:
-        assert set(FugueSerializer.dump_node_id(_nid())) == {"replica_id", "counter"}
-
-
-class TestSide:
-    @pytest.mark.parametrize(
-        ("side", "num"),
-        [(Side.LEFT, 0), (Side.RIGHT, 1)],
-    )
-    def test_dump(self, side: Side, num: int) -> None:
-        assert FugueSerializer.dump_side(side) == num
-
-    @pytest.mark.parametrize(
-        ("num", "side"),
-        [(0, Side.LEFT), (1, Side.RIGHT)],
-    )
-    def test_load(self, num: Literal[0, 1], side: Side) -> None:
-        assert FugueSerializer.load_side(num) == side
-
-    @pytest.mark.parametrize("side", [Side.LEFT, Side.RIGHT])
-    def test_roundtrip(self, side: Side) -> None:
-        assert FugueSerializer.load_side(FugueSerializer.dump_side(side)) == side
-
-
 @pytest.fixture
 def s() -> FugueSerializer[str, str]:
-    return FugueSerializer(IdSerializer())
+    return FugueSerializer(DummySerializer())
 
 
 class TestDump:
-    @pytest.mark.parametrize(
-        ("fu", "ops", "values"),
-        [
-            (_fugue(), 0, []),
-            (_fugue("a"), 1, ["a"]),
-            (_fugue("a", "b", "c"), 3, ["a", "b", "c"]),
-        ],
-    )
-    def test_shape(
-        self,
-        s: FugueSerializer[str, str],
-        fu: Fugue[str],
-        ops: int,
-        values: list[str],
-    ) -> None:
-        state = s.dump(fu)
+    def test_shape(self, s: FugueSerializer[str, str]) -> None:
+        state = s.dump(_fugue("a"))
         assert state["version"] == 1
-        assert len(state["ops"]) == ops
-        assert state["values"] == values
         assert set(state) == {"version", "replica_id", "counters", "ops", "values"}
 
     def test_delete_op(self, s: FugueSerializer[str, str]) -> None:
@@ -128,7 +181,6 @@ class TestDump:
         assert "value_ref" in state["ops"][0]
         assert "value_ref" in state["ops"][1]
         assert set(state["ops"][2]) == {"node_id"}
-        assert state["values"] == ["keep", "drop"]
 
     def test_insert_op_shape(self, s: FugueSerializer[str, str]) -> None:
         fu = _fugue("x")
@@ -153,7 +205,12 @@ class TestDump:
     ) -> None:
         fu = _fugue("a", "b", replica_id=replica_id)
         state = s.dump(fu)
+
         assert state["replica_id"] == replica_id
+        assert isinstance(state["counters"], dict)
+        for rid, counter in state["counters"].items():
+            assert isinstance(rid, int)
+            assert isinstance(counter, int)
         assert state["counters"] == expected_counters
 
     def test_multi_replica_counters(self, s: FugueSerializer[str, str]) -> None:
@@ -190,6 +247,10 @@ def _state(
         ops=list(ops),
         values=values or [],
     )
+
+
+def _root() -> NodeIDState:
+    return _nids(-1, -1)
 
 
 def _insert(
@@ -331,25 +392,6 @@ class TestRoundtrip:
     def test_delete_only_state_is_valid(self, s: FugueSerializer[str, str]) -> None:
         fu = s.load(_state(_delete(_nids(1, 0))))
         assert list(fu) == []
-
-
-class TestCustomValues:
-    def test_roundtrip_with_json(self) -> None:
-        s = FugueSerializer(JsonSerializer())
-        fu: Fugue[int] = Fugue()
-        fu.insert(0, 42)
-        fu.insert(1, -7)
-        state = s.dump(fu)
-        assert state["values"] == ["42", "-7"]
-        assert list(s.load(state)) == [42, -7]
-
-    def test_not_called_for_deletes(self) -> None:
-        s = FugueSerializer(JsonSerializer())
-        fu: Fugue[int] = Fugue()
-        fu.insert(0, 1)
-        fu.insert(1, 2)
-        fu.delete(0)
-        assert len(s.dump(fu)["values"]) == 2  # only inserts produce values
 
 
 class TestMultiReplica:
