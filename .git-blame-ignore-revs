@@ -12,3 +12,7 @@ bc9db09be00eb6afeb6317038be9a7e2db9d6e5f
 f81260544937fbfabe2f7ca7a8f6f6efe5378244
 e60e1ea0c23fa6bdd60452739403f1f6660bbc1c
 e1ffbee2263c377d1c410c891a8261d22db16f2b
+# Enabled TC and RUF rules
+75e18b200f548335857d69b5a7503aa9b2f74872
+# Moved syn files into service layer
+f03a1beeb0b04280f68aa4df97d007ed33ce2466
