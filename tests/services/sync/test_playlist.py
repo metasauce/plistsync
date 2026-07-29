@@ -46,6 +46,10 @@ def make_playlist(
         side_effect=lambda track: Matches(truth=track, found=[])
     )
     playlist.library.get_playlist_or_raise = Mock(side_effect=lambda id: playlist)
+    # Delegate match_many to match so that test mocks on match are honoured.
+    playlist.library.match_many = Mock(
+        side_effect=lambda tracks, **kw: (playlist.library.match(t) for t in tracks)
+    )
     return playlist
 
 
@@ -370,10 +374,10 @@ class TestEnrich:
             artists=track_a.artists,
             ids={ISRC("ZZZZ9999999Z")},
         )
-        service.match = Mock(
-            return_value=Matches(
-                truth=track_a, found=[service_track], found_similarities=[1.0]
-            )
+        service.match_many = Mock(
+            return_value=[
+                Matches(truth=track_a, found=[service_track], found_similarities=[1.0])
+            ]
         )
 
         playlist.enrich()
@@ -389,15 +393,15 @@ class TestEnrich:
         service = make_playlist()
         playlist._linked_playlists[1] = service
 
-        service.library.match = Mock(
-            return_value=Matches(
-                truth=track_a, found=[track_a], found_similarities=[1.0]
-            )
+        service.library.match_many = Mock(
+            return_value=[
+                Matches(truth=track_a, found=[track_a], found_similarities=[1.0])
+            ]
         )
 
         playlist.enrich()
 
-        service.library.match.assert_called_once()
+        service.library.match_many.assert_called_once()
         (link,) = playlist._fugue
         assert service.id in link.playlists
 
