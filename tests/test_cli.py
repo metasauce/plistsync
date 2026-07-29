@@ -1,7 +1,9 @@
 """Tests for the CLI entrypoint (__main__.py)."""
 
+import logging
 from unittest.mock import patch, MagicMock
 
+import pytest
 from typer.testing import CliRunner
 
 import plistsync.__main__ as main
@@ -34,43 +36,56 @@ class TestCliInvocation:
 
 
 class TestLoggingSetup:
-    """Test the logging_setup callback function."""
+    """Test the logging_callback function."""
 
-    def test_verbose_flag_level_1(self, plist_config):
-        """Test that -v sets log level to INFO."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=1)
-            mock_set_level.assert_called_once_with(20)
+    @pytest.mark.parametrize(
+        ("verbose", "expected_offset"),
+        [
+            (None, 0),  # verbose=None → or 0 → 0
+            (0, 0),  # no -v flag
+            (1, 1),  # -v
+            (2, 2),  # -vv
+            (3, 3),  # -vvv
+            (10, 10),  # -vvvvvvvvvv
+        ],
+    )
+    def test_init_logging_offset(self, plist_config, verbose, expected_offset):
+        """Test that init_logging is called with the correct log_level_offset."""
+        with (
+            patch("plistsync.__main__.init_logging") as mock_init,
+            patch.object(main, "Config"),
+            patch("plistsync.__main__.logging.basicConfig"),
+        ):
+            main.logging_callback(verbose=verbose)
+            mock_init.assert_called_once()
+            _, offset = mock_init.call_args.args
+            assert offset == expected_offset
 
-    def test_verbose_flag_level_2(self, plist_config):
-        """Test that -vv sets log level to DEBUG."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=2)
-            mock_set_level.assert_called_once_with(10)
-
-    def test_verbose_flag_level_3(self, plist_config):
-        """Test that -vvv sets log level to DEBUG."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=3)
-            mock_set_level.assert_called_once_with(10)
-
-    def test_verbose_flag_zero(self, plist_config):
-        """Test that no -v flag returns None without setting level."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=0)
-            mock_set_level.assert_not_called()
-
-    def test_verbose_flag_negative(self, plist_config):
-        """Test that negative verbose returns None without setting level."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=-1)
-            mock_set_level.assert_not_called()
-
-    def test_verbose_over_max(self, plist_config):
-        """Test that verbose > 3 returns None without setting level."""
-        with patch("plistsync.__main__.set_log_level") as mock_set_level:
-            main.logging_callback(verbose=10)
-            mock_set_level.assert_not_called()
+    @pytest.mark.parametrize(
+        ("verbose", "expect_root_debug"),
+        [
+            (0, False),
+            (1, False),
+            (2, False),
+            (3, True),
+            (10, True),
+        ],
+    )
+    def test_root_logger_level(self, plist_config, verbose, expect_root_debug):
+        """Test that root logger is set to DEBUG when verbose >= 3."""
+        with (
+            patch("plistsync.__main__.init_logging"),
+            patch.object(main, "Config"),
+            patch("plistsync.__main__.logging.basicConfig"),
+        ):
+            mock_root = MagicMock()
+            mock_root.handlers = []  # no RichHandler found → skip handler adjustments
+            with patch("plistsync.__main__.logging.getLogger", return_value=mock_root):
+                main.logging_callback(verbose=verbose)
+                if expect_root_debug:
+                    mock_root.setLevel.assert_called_once_with(logging.DEBUG)
+                else:
+                    mock_root.setLevel.assert_not_called()
 
 
 class TestRegisterApps:
