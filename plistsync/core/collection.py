@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import itertools
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import (
     TYPE_CHECKING,
@@ -109,6 +110,18 @@ class InfoLookup(Protocol, Generic[T]):
     def find_by_info(self, info: TrackInfo) -> Iterable[T]:
         """Find tracks matching the given metadata."""
         ...
+
+    def find_many_by_info(
+        self, track_infos_batch: Iterable[TrackInfo]
+    ) -> Iterable[Iterable[T]]:
+        """Find multiple tracks by their metadata.
+
+        Default implementation iterates over the provided list and calls
+        ``find_by_info`` for each entry. Collections can override this
+        method to provide a more efficient batch lookup if supported.
+        """
+        for info in track_infos_batch:
+            yield self.find_by_info(info)
 
 
 @runtime_checkable
@@ -247,7 +260,6 @@ class Collection(ABC, Generic[T]):
         4. Fallback to iterating through all tracks if needed.
            This still uses the three methods above, but is way less efficient.
 
-
         Parameters
         ----------
         track
@@ -368,6 +380,156 @@ class Collection(ABC, Generic[T]):
             found=found_tracks,
             found_similarities=similarities,
         )
+
+    def match_many(
+        self,
+        tracks: Iterable[Track],
+        skip_after_local_match: bool = True,
+        skip_after_perfect_fuzzy_match: bool = True,
+        cutoff=0.6,
+    ) -> Iterable[Matches[T]]:
+        """Match multiple tracks against this collection.
+
+        This method implements a batched matching strategy, yielding results for
+        each track in the input iterable. Logic wise it should be equivalent to calling
+        `match` for each track, but it can be more efficient for collections that
+        implement batched lookup strategies.
+
+        See also :py:meth:`match` for details on the matching strategy and order of
+        operations.
+
+        Parameters
+        ----------
+        tracks
+            An iterable of tracks to match against this collection.
+        skip_after_local_match
+            If True, return after first successful match when searching local IDs.
+        skip_after_perfect_fuzzy_match
+            If True, return after finding a perfect fuzzy match (similarity == 1.0).
+        cutoff
+            Minimum similarity score (0-1) for a match to be considered.
+        """
+        tracks_list = list(tracks)
+
+        # Check capabilities of this collection
+        has_id_lookup = isinstance(self, IDLookup)
+        has_info_lookup = isinstance(self, InfoLookup)
+        is_stream = isinstance(self, TrackStream)
+
+        # Accumulated results per track index
+        found_map: defaultdict[int, list[T]] = defaultdict(list)
+        sim_map: defaultdict[int, list[float]] = defaultdict(list)
+
+        def record(idx: int, found_track, similarity: float) -> None:
+            """Record an match for a track index."""
+            found_map[idx].append(found_track)
+            sim_map[idx].append(similarity)
+
+        # Tracks still needing processing — pop from this set as each track
+        # is fully resolved and should skip later stages.
+        remaining: set[int] = set(range(len(tracks_list)))
+
+        # 1. ID lookup (global)
+        # We search global ids first
+        # (exact match, highest priority)
+        if has_id_lookup and remaining:
+            indices: list[int] = []
+            batches: list[set[TrackID]] = []
+            for idx in remaining:
+                gids = {
+                    _id for _id in tracks_list[idx].ids if _id.scope is Scope.GLOBAL
+                }
+                if gids:
+                    indices.append(idx)
+                    batches.append(gids)
+
+            found_tracks: Iterable[T | None] = self.find_many_by_ids(batches)  # type: ignore[attr-defined]
+            for idx, found_track in zip(indices, found_tracks):
+                if found_track is not None:
+                    record(idx, found_track, 1.0)
+                    remaining.discard(idx)
+
+        # 2. ID lookup (local)
+        # (exact match with similarity check)
+        if has_id_lookup and remaining:
+            indices = []
+            batches = []
+            for idx in remaining:
+                lids = {_id for _id in tracks_list[idx].ids if _id.scope is Scope.LOCAL}
+                if lids:
+                    indices.append(idx)
+                    batches.append(lids)
+
+            found_tracks = self.find_many_by_ids(batches)  # type: ignore[attr-defined]
+            for idx, found_track in zip(indices, found_tracks):
+                if found_track is None:
+                    continue
+                similarity = _fuzzy_match_track(tracks_list[idx], found_track)
+                if similarity >= cutoff:
+                    record(idx, found_track, similarity)
+                    if skip_after_local_match:
+                        remaining.discard(idx)
+                    if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                        remaining.discard(idx)
+
+        # 3. Try info-based search (similarity match)
+        # We might be able to optimize this a bit further
+        if has_info_lookup and remaining:
+            indices = []
+            infos: list[TrackInfo] = []
+            for idx in remaining:
+                indices.append(idx)
+                infos.append(tracks_list[idx].info)
+
+            found_tracks_by_info: Iterable[Iterable[T]] = self.find_many_by_info(infos)  # type: ignore[attr-defined]
+            for idx, found_tracks in zip(indices, found_tracks_by_info):
+                for found_track in found_tracks:
+                    similarity = _fuzzy_match_track(tracks_list[idx], found_track)
+                    if similarity >= cutoff:
+                        record(idx, found_track, similarity)
+                        if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                            remaining.discard(idx)
+
+        # 4. Fallback to iterating through all tracks,
+        # but only if the collection does not implement all other protocols
+        # (in this case, we have already checked all three options)
+        if is_stream and not (has_id_lookup and has_info_lookup):
+            for idx in list(remaining):  # list needed here for safe iteration
+                track = tracks_list[idx]
+                gids = {_id for _id in track.ids if _id.scope is Scope.GLOBAL}
+                lids = {_id for _id in track.ids if _id.scope is Scope.LOCAL}
+
+                for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
+                    _fuzzy_match_track, chunk_size=1000, b=track
+                ):
+                    if not has_id_lookup and gids & found_track.ids:
+                        record(idx, found_track, 1.0)
+                        remaining.discard(idx)
+                        break
+
+                    if similarity < cutoff:
+                        continue
+
+                    if not has_id_lookup and lids & found_track.ids:
+                        record(idx, found_track, similarity)
+                        if skip_after_local_match:
+                            remaining.discard(idx)
+                            break
+
+                    if not has_info_lookup:
+                        record(idx, found_track, similarity)
+
+                    if skip_after_perfect_fuzzy_match and similarity == 1.0:
+                        remaining.discard(idx)
+                        break
+
+        # Yield results in the order of the input tracks
+        for idx, track in enumerate(tracks_list):
+            yield Matches(
+                truth=track,
+                found=found_map[idx],
+                found_similarities=sim_map[idx],
+            )
 
 
 class Library(Generic[T, Plist], Collection[T], ABC, Registry):
