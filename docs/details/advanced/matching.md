@@ -23,8 +23,22 @@ track = LocalTrack("./path_to_track.mp3")
 collection = BeetsCollection("./path_to_beets_db.db")
 
 matches = collection.match(track)
-for match, similarity in matches:
-    print(f"Found match: {match}, similarity: {similarity}")
+for candidate, similarity in matches:
+    print(f"Found match: {candidate}, similarity: {similarity}")
+```
+
+```python
+# Matching many tracks at once (batched)
+# Use match_many when you have a list of tracks to match against
+# the same collection
+tracks = [LocalTrack(f"./track_{i}.mp3") for i in range(100)]
+library = SpotifyLibrary()
+
+for matches in library.match_many(tracks):
+    if matches.best_match is not None:
+        print(f"{matches.truth.title} → {matches.best_match.title} ({matches.similarity:.2f})")
+    else:
+        print(f"{matches.truth.title} → no match")
 ```
 
 (single_track_search)=
@@ -58,16 +72,52 @@ else:
 
 The similarity is calculated using the track's metadata and leveraging a levenstein distance algorithm for fuzzy matching. If you want to compute the distance between two tracks manually you may use the {meth}`~plistsync.core.matching.fuzzy_match` method.
 
-### Advanced usage
+:::{dropdown} Advanced usage
 
-Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.LocalLookup`, {class}`~plistsync.core.collection.GlobalLookup`, {class}`~plistsync.core.collection.InfoLookup` and {class}`~plistsync.core.collection.TrackStream` protocols, which provide different methodologies for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific protocols methods for more tailored search options.
+Depending on the target collection, different search strategies might be available. Collections may implement {class}`~plistsync.core.collection.IDLookup`, {class}`~plistsync.core.collection.InfoLookup` and {class}`~plistsync.core.collection.TrackStream` protocols, which provide different methodologies for searching tracks. While the {meth}`~plistsync.core.collection.Collection.match` function will prioritize global ID matching, other methods may be more suitable depending on your requirements. In these cases you can explore the specific protocols methods for more tailored search options.
+:::
 
 (full_collection_comparison)=
 
 ## Full-collection comparison
 
-This features is currently work in progress and not available in optimized form yet. For now
-you may iterate over the tracks in both collections and match them individually.
+When you need to match many tracks against the same collection, use {meth}`~plistsync.core.collection.Collection.match_many`. It accepts an iterable of tracks and yields a {class}`~plistsync.core.matching.Matches` result for each, in the same order as the input.
+
+```python
+from plistsync.services.local import LocalCollection
+from plistsync.services.spotify import SpotifyLibrary
+
+local = LocalCollection("./my_music/")
+spotify = SpotifyLibrary()
+
+# Batch-match every local track against the Spotify library
+for result in spotify.match_many(local.tracks):
+    if result.best_match is not None:
+        print(f"{result.truth.title} → {result.best_match.title}")
+    else:
+        print(f"{result.truth.title} → no match")
+```
+
+```{tip}
+{meth}`~plistsync.core.collection.Collection.match_many` is logically equivalent to calling {meth}`~plistsync.core.collection.Collection.match` for each track individually, but can be more efficient when the underlying collection implements batched lookup strategies ({meth}`~plistsync.core.collection.IDLookup.find_many_by_ids` and {meth}`~plistsync.core.collection.InfoLookup.find_many_by_info`).
+```
+
+### Matching with a fallback
+
+A common pattern is to try matching against a smaller, faster collection first (e.g. a playlist) and only fall back to a larger one (e.g. the full library) for tracks that weren't found:
+
+```python
+# Try playlist first, then library for misses
+results = list(playlist.match_many(queries))
+
+unmatched = [(i, queries[i]) for i, r in enumerate(results) if r.best_match is None]
+if unmatched:
+    indices, remaining = zip(*unmatched)
+    for idx, match in zip(indices, library.match_many(remaining)):
+        results[idx] = match
+```
+
+This two-phase batching avoids touching the library for tracks already resolved by the playlist, while still benefiting from batched lookups in both phases.
 
 (three_layer_matching_strategy)=
 
