@@ -1805,7 +1805,7 @@ wheels = [
 
 [[package]]
 name = "plistsync"
-version = "0.6.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "eyconf", extra = ["cli"] },
@@ -1871,6 +1871,7 @@ dev = [
     { name = "sphinxcontrib-typer", extra = ["html"] },
     { name = "tinytag" },
     { name = "types-lxml" },
+    { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-tqdm" },
 ]
@@ -1905,6 +1906,7 @@ typed = [
     { name = "requests-oauth2client" },
     { name = "tinytag" },
     { name = "types-lxml" },
+    { name = "types-pyyaml" },
     { name = "types-requests" },
     { name = "types-tqdm" },
 ]
@@ -1955,6 +1957,7 @@ dev = [
     { name = "sphinxcontrib-typer", extras = ["html"], specifier = ">=0.8.1" },
     { name = "tinytag", specifier = ">=2.2.0" },
     { name = "types-lxml", specifier = ">=2026.1.1" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20260724" },
     { name = "types-requests", specifier = ">=2.32.4.20260107" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250809" },
 ]
@@ -1989,6 +1992,7 @@ typed = [
     { name = "requests-oauth2client", specifier = ">=1.8.0" },
     { name = "tinytag", specifier = ">=2.2.0" },
     { name = "types-lxml", specifier = ">=2026.1.1" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20260724" },
     { name = "types-requests", specifier = ">=2.32.4.20260107" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250809" },
 ]
@@ -3113,6 +3117,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/22/4a/06a169bd65a7570d107216200b61f4f81c0833d7d9c5410fd0166f2ac776/types_lxml-2026.1.1.tar.gz", hash = "sha256:b1066ab033bab6c046e4c9e6f0368ab5713fe0a2e30ffe8f92ff449e07662d2d", size = 159838, upload-time = "2025-12-31T18:13:41.403Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/95/d28c06c43eb4a9fe6fff630c9ceb820214b9f01e93f8297449a646a28b54/types_lxml-2026.1.1-py3-none-any.whl", hash = "sha256:b01dc6f6547713642ce3c44c77218501d7ae4a66a01b977d9df97825e8ec7f13", size = 98550, upload-time = "2025-12-31T18:13:39.834Z" },
+]
+
+[[package]]
+name = "types-pyyaml"
+version = "6.0.12.20260724"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/6f/a28f44bcd56bebed42b028a2894c79853e2f5e6b5279e633cb3f287a05e7/types_pyyaml-6.0.12.20260724.tar.gz", hash = "sha256:3c1ce1bb73cd5ec02e90390c2b1f00e810d241d8825fd73ff359696839271b6b", size = 17893, upload-time = "2026-07-24T04:58:43.453Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8b/42/0337fefc615e20ee55d1c8f71b774a9b2b734a04669139c20753b27a2a3a/types_pyyaml-6.0.12.20260724-py3-none-any.whl", hash = "sha256:d57db930a4b2efbc57cf430ec8882765d246929432fa253092f383902329a453", size = 20312, upload-time = "2026-07-24T04:58:42.486Z" },
 ]
 
 [[package]]

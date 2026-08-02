@@ -157,6 +157,10 @@ class Config(EYConf[BaseConfigSchema]):
                     "get": lambda self, key, default=None: getattr(self, key, default),
                     "__getitem__": lambda self, key: getattr(self, key),
                     "__contains__": lambda self, key: hasattr(self, key),
+                    # `__module__` is required for forward-reference
+                    # resolution on Python < 3.12, where
+                    # `make_dataclass` does not set it automatically.
+                    "__module__": cls.__module__,
                 },
             )
         )
@@ -177,6 +181,7 @@ class Config(EYConf[BaseConfigSchema]):
                 ),
             ],
             bases=(BaseConfigSchema,),
+            namespace={"__module__": cls.__module__},
         )
 
     def get_service_config(self, service_name: str) -> ServiceConfig:
