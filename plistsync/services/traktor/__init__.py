@@ -6,6 +6,7 @@ check_imports(
     required_packages=["lxml"],
 )
 
+from .config import TraktorConfig
 from .library import NMLLibrary
 from .path import NMLPath
 from .playlist import NMLPlaylist, NMLPlaylistID
@@ -23,5 +24,6 @@ __all__ = [
     "NMLPlaylistID",
     "NMLPlaylistTrack",
     "NMLTrack",
+    "TraktorConfig",
     "TraktorService",
 ]
