@@ -7,12 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Upcoming
 
+### Breaking Changes
+
+- Service configuration is now dynamic and extensible. Instead of a static config schema with hardcoded service fields, the schema is built at runtime from registered `ServiceConfig` subclasses. Each service ships its own config class in `plistsync/services/<service>/config.py` (`BeetsConfig`, `PlexConfig`, `SpotifyConfig`, `TidalConfig`, `TraktorConfig`), which enables easier addition of new services and more flexible validation.
+  - Removed the hardcoded service accessors on `Config` (`Config.beets`, `Config.plex`, `Config.spotify`, `Config.tidal`, `Config.traktor`). Use `Config.get_service_config("<service>")` or the convenience classmethod on the service's config class (e.g. `PlexConfig.get()`) instead.
+  - Removed the per-service `enabled` flag (the `OptionalService` base class is gone); a service config is now always part of the schema once its config class is registered. The `enabled` key is no longer accepted in service sections and must be removed from existing config files.
+  - The config file is now loaded from `config.yaml` instead of `config.yml`. Rename existing config files; otherwise a fresh default config is generated.
+  - Removed the `enabled` flag from the `logging` section. Logging is always initialized when the CLI starts, so the key is no longer supported and must be removed from existing config files.
+
 ### Added
 
 - Added `match_many` method to `Collection` base to allow matching multiple tracks at once, improving performance for large collections as it avoids repeated api calls for each track.
+- Added the `ServiceConfig` base class, which auto-registers a service's config schema and automatically includes it in the main config schema.
+- Added `Config.get_service_config()` which lazily discovers a service, rebuilds the config schema, reloads and validates the config file, and returns the service's config instance.
+- Added `Service.config()` for resolving a service's registered config class and the `ServiceConfig.get()` classmethod (e.g. `PlexConfig.get()`) for direct access to the service config instance.
+- Moved each service's configuration into the service package, including token handling (`SpotifyConfig.load_token()`, `TidalConfig.load_token()`, `PlexConfig.token_path`).
 
 ### Changes
 
+- The generated default config file now includes all discoverable services, making it easier to see which services are available and how to configure them.
 - Logging is now initialized when the CLI starts instead of at import time. This makes logging configuration more predictable, avoids side effects for library consumers, and improves support for applications managing their own logging configuration. (#107)
 
 ## [0.7.0] - 2026-07-21

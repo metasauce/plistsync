@@ -77,6 +77,7 @@ typed = [
     "types-lxml>=2026.1.1",
     "types-requests>=2.32.4.20260107",
     "types-tqdm>=4.67.0.20250809",
+    "types-pyyaml>=6.0.12.20260724",
     # FIXME: maybe we can remove this somehow as this is needed to full
     # run mypy on the src (optional dependencies need types)
     "requests_oauth2client>=1.8.0",
