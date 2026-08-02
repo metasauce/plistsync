@@ -78,14 +78,12 @@ class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
     @classmethod
     def from_config(cls):
         """Initialize a tidal api from configutation file."""
-        from plistsync.config import Config
+        from .config import TidalConfig
 
-        config = Config()
+        tidal_config = TidalConfig.get()
         return cls(
-            config.tidal.client_id,
-            Oauth2Token.from_file(
-                config.get_dir() / "tidal_token.json",
-            ),
+            client_id=tidal_config.client_id,
+            token=tidal_config.load_token(),
         )
 
     def _refresh_token(self) -> None:

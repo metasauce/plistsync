@@ -12,6 +12,7 @@ import typer
 from plistsync.config import Config
 from plistsync.errors import AuthenticationError
 from plistsync.logger import log
+from plistsync.services.spotify.config import SpotifyConfig
 from plistsync.utils import build_url
 from plistsync.utils.auth.bearer_token import Oauth2Token
 
@@ -55,7 +56,8 @@ def auth(
     )
 
     config = Config()
-    spotify_config = config.spotify
+    spotify_config = config.get_service_config("spotify")
+    assert isinstance(spotify_config, SpotifyConfig)
     redirect_port = port if port is not None else config.redirect_port
     code_verifier, code_challenge = generate_pkce_codes()
     state = secrets.token_urlsafe(8)
