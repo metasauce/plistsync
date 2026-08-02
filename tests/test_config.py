@@ -1,9 +1,14 @@
 from __future__ import annotations
-from unittest.mock import patch
-from plistsync.errors import ConfigurationError
+from dataclasses import dataclass
+import sys
+from unittest.mock import MagicMock, patch
 import pytest
 import os
-from plistsync.config import Config
+import yaml
+from importlib.metadata import entry_points
+from importlib.util import find_spec
+from plistsync.config import Config, ServiceConfig
+from plistsync.services import ServiceLoader
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -12,9 +17,26 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def temp_config_file(tmp_path):
-    config_file = tmp_path / "config.yml"
+    config_file = tmp_path / "config.yaml"
     os.environ["PSYNC_CONFIG_DIR"] = str(tmp_path)
+    # The first get_dir() call is cached for the whole process
+    Config.get_dir.cache_clear()
     return config_file, tmp_path
+
+
+def _reload_service_configs() -> None:
+    """Re-register all discoverable service configs from scratch."""
+    ServiceConfig.registry().clear()
+    # Evicts cached per-service packages from ``sys.modules`` so that
+    #   ``ServiceLoader.all()`` re-imports them fresh — which re-executes their
+    #   ``__init__`` modules and re-registers their ``ServiceConfig`` subclasses.
+    for ep in entry_points(group=ServiceLoader.GROUP):
+        pkg_prefix = f"plistsync.services.{ep.name}"
+        for key in list(sys.modules):
+            if key == pkg_prefix or key.startswith(pkg_prefix + "."):
+                del sys.modules[key]
+    ServiceLoader.all.cache_clear()
+    ServiceLoader.all()
 
 
 def test_create_default_config(temp_config_file):
@@ -27,89 +49,78 @@ def test_create_default_config(temp_config_file):
 
 
 class TestServiceConfig:
-    @pytest.mark.parametrize("service", ["beets", "plex", "tidal", "spotify"])
-    def test_service_not_enabled_by_default(self, temp_config_file, service):
-        config = Config()
-        assert temp_config_file[0].exists()
-        with pytest.raises(ConfigurationError):
-            getattr(config, service)
+    """Tests that dynamically registered services are added to the schema."""
 
-    @pytest.mark.parametrize(
-        ("service", "config_data"),
-        [
-            (
-                "beets",
-                (
-                    "services:\n"
-                    "    beets:\n"
-                    "        enabled: true\n"
-                    "        database: ./test.db"
-                ),
-            ),
-            (
-                "plex",
-                (
-                    "services:\n"
-                    "    plex:\n"
-                    "        enabled: true\n"
-                    "        server_url: http://localhost:32400"
-                ),
-            ),
-            (
-                "tidal",
-                (
-                    "services:\n"
-                    "    tidal:\n"
-                    "        enabled: true\n"
-                    "        client_id: testuser\n"
-                    "        country_code: DE\n"
-                ),
-            ),
-            (
-                "spotify",
-                (
-                    "services:\n"
-                    "    spotify:\n"
-                    "        enabled: true\n"
-                    "        client_id: testclientid\n"
-                ),
-            ),
-        ],
-    )
-    def test_enable_service_in_config(self, temp_config_file, service, config_data):
-        config_data = "logging:\n    level: DEBUG\nredirect_port: 5000\n" + config_data
-        temp_config_file[0].write_text(
-            config_data,
-            encoding="utf-8",
-        )
-        config = Config()
-        assert temp_config_file[0].exists()
-        service_config = getattr(config, service)
-        assert service_config.enabled is True
+    @dataclass
+    class MyConfig(ServiceConfig, service="test"):
+        my_option: str = "default_value"
 
-    def test_properties(self, temp_config_file):
-        """This test is mainly for test coverage tbh"""
-        config_data = (
-            "logging:\n"
-            "    level: DEBUG\n"
-            "redirect_port: 5000\n"
-            "services:\n"
-            "    plex:\n"
-            "        enabled: true\n"
-            "        server_url: http://localhost:32400"
-        )
-        temp_config_file[0].write_text(
-            config_data,
-            encoding="utf-8",
-        )
+    @pytest.fixture(autouse=True)
+    def setup(self, monkeypatch):
+        """Keep the global ServiceConfig registry clean for these tests.
+
+        Config.default_yaml() calls ServiceLoader.all() to include every
+        discoverable service in the generated default config file. That imports
+        and registers all core service configs in the global registry, leaking
+        them into tests that expect a clean state.
+        """
+        monkeypatch.setattr(ServiceLoader, "all", lambda: {})
+
+        ServiceConfig.registry().clear()
+        ServiceConfig.registry()["test"] = [self.MyConfig]
+        yield
+        monkeypatch.undo()
+        _reload_service_configs()
+
+    def test_service_config_registry(self):
+        registry = ServiceConfig.registry()
+        assert len(registry) == 1
+        assert "test" in registry
+        assert registry["test"][0] is self.MyConfig
+
+    def test_get_service_config(self):
         config = Config()
-        plex_config = config.plex
-        assert config.redirect_port == 5000
-        assert plex_config.enabled is True
-        assert plex_config.server_url == "http://localhost:32400"
-        assert plex_config.app_name is not None
-        assert plex_config.client_identifier is not None
-        assert plex_config.token_path == temp_config_file[1] / "plex_token.json"
+        service_config = config.get_service_config("test")
+        assert isinstance(service_config, self.MyConfig)
+        assert service_config.my_option == "default_value"
+        # No core services may leak in from the global registry
+        assert "beets" not in config.data.services
+
+    def test_config_schema_includes_service(self):
+        config = Config()
+        assert "test" in config.data.services
+        assert isinstance(config.data.services["test"], self.MyConfig)
+        assert config.data.services["test"].my_option == "default_value"
+        # No core services may leak in from the global registry
+        assert "beets" not in config.data.services
+
+    def test_default_yaml_includes_service(self):
+        config = Config()
+        default_yaml = config.default_yaml()
+        assert "test" in default_yaml
+        assert "my_option" in default_yaml
+
+    def test_default_config_file_includes_service(self, temp_config_file):
+        # Remove file if it exists to force Config to write a new default config
+        if temp_config_file[0].exists():
+            temp_config_file[0].unlink()
+        Config()
+        with open(temp_config_file[0]) as f:
+            content = f.read()
+        assert "test" in content
+        assert "my_option" in content
+
+    def test_get_returns_config(self):
+        """ServiceConfig subclass can retrieve its own instance from Config."""
+        cfg = self.MyConfig.get()
+        assert isinstance(cfg, self.MyConfig)
+        assert cfg.my_option == "default_value"
+
+    def test_get_raises_when_not_registered(self):
+        """ServiceConfig.get() raises ValueError if the class is not registered."""
+        with patch.dict("plistsync.config.ServiceConfig._REGISTRY", {}, clear=True):
+            with pytest.raises(ValueError, match="is not registered"):
+                TestServiceConfig.MyConfig.get()
 
 
 class TestConfigDirectory:
@@ -134,10 +145,14 @@ class TestConfigDirectory:
         cwd_patcher.start()
         user_config_patcher.start()
         monkeypatch.delenv("PSYNC_CONFIG_DIR", raising=False)
+        # get_dir() is cached for the whole process; must be cleared after
+        # patching so the next call recomputes with the new environment
+        Config.get_dir.cache_clear()
 
         yield
 
         # Stop patches
+        Config.get_dir.cache_clear()
         cwd_patcher.stop()
         user_config_patcher.stop()
 
@@ -173,3 +188,101 @@ class TestConfigDirectory:
 
         result = Config.get_dir()
         assert result == self.global_config_dir.resolve()
+
+
+class TestDefaultConfigWithServices:
+    """The generated default config must contain all discoverable services.
+
+    Counterpart to :class:`TestServiceConfig`: no ``ServiceLoader.all()`` stub
+    here. Creating an initial config (no file present) must trigger service
+    discovery via ``Config.default_yaml()`` and write every registered service
+    config into the YAML.
+    """
+
+    def _has_config(self, service_name: str) -> bool:
+        """Check if a service ships a config module that can be imported."""
+        try:
+            return find_spec(f"plistsync.services.{service_name}.config") is not None
+        except Exception:
+            # Missing dependency (e.g. traktor → lxml) or import error
+            return False
+
+    def test_default_yaml_contains_all_services(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("PSYNC_CONFIG_DIR", str(tmp_path))
+        Config.get_dir.cache_clear()
+
+        # Every entry-point service that ships a config module must appear
+        expected = sorted(
+            ep.name
+            for ep in entry_points(group=ServiceLoader.GROUP)
+            if self._has_config(ep.name)
+        )
+        assert expected, "no discoverable services with a config module"
+
+        # No config file exists -> default_yaml() runs the real discovery
+        Config()
+        config_file = Config.get_file()
+        assert config_file.exists()
+
+        services_in_yaml = (yaml.safe_load(config_file.read_text()) or {}).get(
+            "services"
+        ) or {}
+        for name in expected:
+            assert name in services_in_yaml, (
+                f"{name!r} missing from default YAML services section"
+            )
+
+        # Also check that a reloaded config exposes them as instances
+        reloaded = Config()
+        for name in expected:
+            assert name in reloaded.data.services
+            config_cls = ServiceConfig.registry().get(name, (None,))[0]
+            assert config_cls is not None
+            assert isinstance(reloaded.data.services[name], config_cls)
+
+        Config.get_dir.cache_clear()
+
+
+class TestConfigEdgeCases:
+    """Edge-case behaviour of Config itself."""
+
+    def test_preload_services_calls_service_loader(self):
+        with patch.object(ServiceLoader, "all") as mock_all:
+            Config(preload_services=True)
+            mock_all.assert_called_once()
+
+    def test_redirect_port_default(self):
+        assert Config().redirect_port == 5001
+
+
+class TestGetServiceConfigSlowPath:
+    """The slow path of get_service_config (service not yet in the schema)."""
+
+    def test_service_not_registered(self):
+        config = Config()
+        with patch.object(ServiceLoader, "get", return_value=None):
+            with pytest.raises(ValueError, match="is not registered"):
+                config.get_service_config("unknown")
+
+    def test_service_has_no_config_schema(self):
+        mock_service = MagicMock()
+        mock_service.config.return_value = None
+        config = Config()
+        with patch.object(ServiceLoader, "get", return_value=mock_service):
+            with pytest.raises(ValueError, match="has no config schema"):
+                config.get_service_config("unknown")
+
+    def test_slow_path_lazily_discovers_service(self):
+        """When a service is not yet in the schema, get_service_config triggers
+        discovery, rebuilds the schema, reloads the file, and returns it."""
+        ServiceLoader.all()  # ensure the real service is registered
+        cfg_entry = ServiceConfig.registry().pop("spotify")
+        config = Config()  # schema built without spotify
+        assert "spotify" not in config.data.services
+
+        # Restore the config class so ServiceLoader.get() -> service.config()
+        # can find it, but the schema was already built — slow path incoming
+        ServiceConfig.registry()["spotify"] = cfg_entry
+        result = config.get_service_config("spotify")  # slow path (re-discovers)
+        assert isinstance(result, cfg_entry[0])
+        assert "spotify" in config.data.services

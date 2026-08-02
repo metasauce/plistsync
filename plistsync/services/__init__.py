@@ -15,6 +15,7 @@ from .registry import Registry
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+    from plistsync.config import ServiceConfig
     from plistsync.core import Library, Playlist, Track
     from plistsync.core.ids import PlaylistID, TrackID
 
@@ -34,6 +35,12 @@ class Service(ABC, Registry):
     def name(self) -> str:
         """Service name, inferred from the module (e.g. 'spotify', 'plex')."""
         return self.__module__.split(".")[-1]
+
+    def config(self) -> type[ServiceConfig] | None:
+        """Return the service config class registered for this service, if any."""
+        from plistsync.config import ServiceConfig
+
+        return ServiceConfig.registry().get(self.name, (None,))[0]
 
     def playlist_ids(self) -> Sequence[type[PlaylistID]]:
         """Return playlist identifier classes registered for this service."""
