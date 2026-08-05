@@ -15,9 +15,11 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def temp_config_file(tmp_path):
     config_file = tmp_path / "config.yaml"
+    # Pre-seed a minimal valid config so that Config() loads it
+    config_file.write_text("logging:\n  level: INFO\n")
     os.environ["PSYNC_CONFIG_DIR"] = str(tmp_path)
     # The first get_dir() call is cached for the whole process
     Config.get_dir.cache_clear()
@@ -56,20 +58,11 @@ class TestServiceConfig:
         my_option: str = "default_value"
 
     @pytest.fixture(autouse=True)
-    def setup(self, monkeypatch):
-        """Keep the global ServiceConfig registry clean for these tests.
-
-        Config.default_yaml() calls ServiceLoader.all() to include every
-        discoverable service in the generated default config file. That imports
-        and registers all core service configs in the global registry, leaking
-        them into tests that expect a clean state.
-        """
-        monkeypatch.setattr(ServiceLoader, "all", lambda: {})
-
+    def setup(self):
+        """Keep the global ServiceConfig registry clean for these tests."""
         ServiceConfig.registry().clear()
         ServiceConfig.registry()["test"] = [self.MyConfig]
         yield
-        monkeypatch.undo()
         _reload_service_configs()
 
     def test_service_config_registry(self):
@@ -210,6 +203,11 @@ class TestDefaultConfigWithServices:
     def test_default_yaml_contains_all_services(self, tmp_path, monkeypatch):
         monkeypatch.setenv("PSYNC_CONFIG_DIR", str(tmp_path))
         Config.get_dir.cache_clear()
+
+        # Remove the seed file written by the autouse temp_config_file
+        # fixture so that Config() triggers default_yaml() and discovers
+        # all services.
+        (tmp_path / "config.yaml").unlink(missing_ok=True)
 
         # Every entry-point service that ships a config module must appear
         expected = sorted(
