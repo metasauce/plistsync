@@ -36,15 +36,19 @@ You'll need an active Plex account to use this application. If you don't have on
 
 ## Configuration
 
-Enable Plex in your `plistsync` configuration file:
+By default the `plex` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
 
 ```yaml
 # ./config/config.yaml
 services:
   plex:
-    enabled: true
-    server_url: your_plex_server_url_here
-    server_name: optional_server_name
+    # The URL of the Plex server to connect to by default.
+    # E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'
+    server_url: null
+    # Instead of the server url, you can specify its name and we look it up online
+    # via plex.tv. In this case, we try local routes first.
+    # E.g. 'my_plex_server'
+    server_name: null
 ```
 
 ## Authentication
@@ -97,4 +101,4 @@ from plistsync.services.plex.api import PlexApi
 print(PlexApi().identity())
 ```
 
-This should return your machineIdentifier and some related metadata.
+This should return your ``machineIdentifier`` and some related metadata.

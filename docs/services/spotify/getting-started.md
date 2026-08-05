@@ -57,15 +57,18 @@ To authenticate with Spotify's API, you need to obtain API credentials:
 
 ## Configuration
 
-Enable Spotify in your `plistsync` configuration file:
+By default the `spotify` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
 
 ```yaml
 # ./config/config.yaml
 services:
   spotify:
-    enabled: true
+    # The client ID for talking to the Spotify API. You can use the build-in one or
+    # obtain a new client ID by registering an Developer application.
     client_id: your_spotify_client_id_here
-    client_secret: your_spotify_client_secret_here # Optional but recommended
+    # The client secret for talking to the Spotify API. Not required unless you want
+    # to use your own client.
+    client_secret: your_spotify_client_secret_here
 ```
 
 ## Authentication
