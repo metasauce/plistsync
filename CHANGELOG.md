@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The generated default config file now includes all discoverable services, making it easier to see which services are available and how to configure them.
 - Logging is now initialized when the CLI starts instead of at import time. This makes logging configuration more predictable, avoids side effects for library consumers, and improves support for applications managing their own logging configuration. (#107)
+- Updated eyconf dependency to 0.8.0, we now use `pydantic` for config validation and schema generation instead of `jsonschema`.
 
 ## [0.7.0] - 2026-07-21
 
