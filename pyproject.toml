@@ -33,6 +33,15 @@ Repository = "https://github.com/metasauce/plistsync.git"
 Issues = "https://github.com/metasauce/plistsync/issues"
 Changelog = "https://github.com/metasauce/plistsync/blob/main/CHANGELOG.md"
 
+
+[tool.uv.workspace]
+members = [
+    "packages/*"
+]
+
+[tool.uv.sources]
+plistsync-cli = { workspace = true }
+
 [project.optional-dependencies]
 traktor = ["lxml>=6.0.2"]
 spotify = ["requests_oauth2client>=1.8.0"]
@@ -41,6 +50,7 @@ local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
 allservices = ["plistsync[traktor,spotify,tidal,local,beets,plex]"]
+cli = ["plistsync-cli"]
 
 [dependency-groups]
 dev = [
@@ -85,6 +95,7 @@ typed = [
 
 [project.scripts]
 plistsync = "plistsync.__main__:cli"
+plistsync_cli = "plistsync_cli.__main__:cli"
 
 [project.entry-points."plistsync.services"]
 # This defines all actionable services for plistsync.
