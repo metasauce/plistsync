@@ -334,7 +334,7 @@ class Collection(ABC, Generic[T]):
         # 4. Fallback to iterating through all tracks,
         # but only if the collection does not implement all other protocols
         # (in this case, we have already checked all three options)
-        if is_stream and not (has_id_lookup and has_info_lookup):
+        if is_stream and not has_id_lookup and not has_info_lookup:
             # TODO: we might to skip the fuzzy match for the global
             # id case
             for similarity, found_track in self.map_threadpool(  # type: ignore[attr-defined]
@@ -493,7 +493,7 @@ class Collection(ABC, Generic[T]):
         # 4. Fallback to iterating through all tracks,
         # but only if the collection does not implement all other protocols
         # (in this case, we have already checked all three options)
-        if is_stream and not (has_id_lookup and has_info_lookup):
+        if is_stream and not has_id_lookup and not has_info_lookup:
             for idx in list(remaining):  # list needed here for safe iteration
                 track = tracks_list[idx]
                 gids = {_id for _id in track.ids if _id.scope is Scope.GLOBAL}
