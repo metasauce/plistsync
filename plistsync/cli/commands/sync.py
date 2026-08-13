@@ -23,6 +23,7 @@ from plistsync.services.sync import SyncedPlaylist
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+
 sync_app = typer.Typer(
     name="sync",
     help="Manage and run playlist synchronisations.",
@@ -58,6 +59,23 @@ def __iter_all() -> Iterable[SyncedPlaylist]:
         except Exception:
             log.debug("Skipping unreadable sync file '%s'.", id_path.name)
             continue
+
+
+def __find_synced_by_name_or_id(name_or_id: str) -> SyncedPlaylist:
+    """Return the synced playlist matching the given name or ID."""
+    matches = [
+        playlist
+        for playlist in __iter_all()
+        if playlist.name == name_or_id or str(playlist.id) == name_or_id
+    ]
+    if len(matches) > 1:
+        raise typer.BadParameter(
+            f"Multiple synced playlists match {name_or_id!r}. "
+            "Please specify the ID instead."
+        )
+    if not matches:
+        raise typer.BadParameter(f"No synced playlist found matching {name_or_id!r}.")
+    return matches[0]
 
 
 @sync_app.command(name="mk", hidden=True)
@@ -161,28 +179,7 @@ def remove(
     Deletes the JSON file of the synced playlist identified by its name or ID.
     """
     sync_dir = __sync_dir()
-
-    # Find plist
-    plists = [
-        p for p in __iter_all() if p.name == name_or_id or str(p.id) == name_or_id
-    ]
-    if len(plists) > 1:
-        log.error(
-            "Multiple synced playlists match '%s'. Please specify the ID instead.",
-            name_or_id,
-        )
-        log.error(
-            "Matching playlists: %s",
-            ", ".join(f"{p.name} (ID: {p.id})" for p in plists),
-        )
-        raise typer.Exit(code=1)
-
-    if len(plists) == 0:
-        raise typer.BadParameter(
-            f"No synced playlist found matching NAME_OR_ID:{name_or_id!r}."
-        )
-
-    plist = plists[0]
+    plist = __find_synced_by_name_or_id(name_or_id)
 
     # Confirmation prompt
     if not confirm:
@@ -270,3 +267,49 @@ def list_(
         )
 
     Console(file=sys.stdout, highlight=False).print(table)
+
+
+@sync_app.command(name="register")
+def register(
+    name_or_id: Annotated[
+        str,
+        typer.Argument(
+            help="Name or ID of the synced playlist to show.",
+            autocompletion=_autocomplete_name_or_id,
+        ),
+    ],
+    playlist: str = typer.Argument(
+        help="Playlist to register: URL, URI, serial, or raw ID.",
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", "-j", help="Output the result as JSON."
+    ),
+) -> None:
+    """Link a service playlist to a synced playlist.
+
+    Merges the playlist's tracks into the synced playlist and pushes the
+    internal state back to the linked playlist.
+    """
+    plist = __find_synced_by_name_or_id(name_or_id)
+
+
+@sync_app.command(name="show")
+def show(
+    name_or_id: Annotated[
+        str,
+        typer.Argument(
+            help="Name or ID of the synced playlist to show.",
+            autocompletion=_autocomplete_name_or_id,
+        ),
+    ],
+    json_output: bool = typer.Option(
+        False, "--json", "-j", help="Output the result as JSON."
+    ),
+) -> None:
+    """Show the track overview of a synced playlist.
+
+    Lists every track of the synced playlist and its linked playlists, with one
+    column per linked playlist (plus the synced playlist itself) indicating
+    whether the track is present there.
+    """
+    plist = __find_synced_by_name_or_id(name_or_id)
