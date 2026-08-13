@@ -9,13 +9,13 @@ from __future__ import annotations
 
 import json
 import sys
-from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from platformdirs import user_config_dir
 from rich.console import Console
+from rich.table import Table
 
 from plistsync.logger import log
 from plistsync.services.sync import SyncedPlaylist
@@ -48,9 +48,8 @@ def __sync_dir() -> Path:
     return sync_dir
 
 
-@cache
 def __iter_all() -> Iterable[SyncedPlaylist]:
-    """Shell-complete the names and IDs of all synced playlists."""
+    """Yield every registered synced playlist from the sync directory."""
     sync_dir = __sync_dir()
 
     for id_path in sync_dir.glob("*.json"):
@@ -61,6 +60,7 @@ def __iter_all() -> Iterable[SyncedPlaylist]:
             continue
 
 
+@sync_app.command(name="mk", hidden=True)
 @sync_app.command(name="create")
 def create(
     name: str = typer.Argument(
@@ -122,24 +122,30 @@ def create(
 
 def _autocomplete_name_or_id(
     incomplete: str,
-) -> Iterable[str]:
+) -> list[str]:
     """Shell-complete the names and IDs of all synced playlists."""
+    completions = []
     for playlist in __iter_all():
         if incomplete and not (
             playlist.name.startswith(incomplete)
             or str(playlist.id).startswith(incomplete)
         ):
             continue
-        yield playlist.name
-        yield str(playlist.id)
+        completions.append(playlist.name)
+        completions.append(str(playlist.id))
+    return completions
 
 
+@sync_app.command(name="rm", hidden=True)
 @sync_app.command(name="remove")
 def remove(
-    name_or_id: str = typer.Argument(
-        help="Name or ID of the synced playlist to remove.",
-        autocompletion=_autocomplete_name_or_id,
-    ),
+    name_or_id: Annotated[
+        str,
+        typer.Argument(
+            help="Name or ID of the synced playlist to remove.",
+            autocompletion=_autocomplete_name_or_id,
+        ),
+    ],
     json_output: bool = typer.Option(
         False, "--json", "-j", help="Output the result as JSON."
     ),
@@ -212,9 +218,10 @@ def remove(
         )
 
 
+@sync_app.command(name="ls", hidden=True)
 @sync_app.command(name="list")
 def list_(
-    json: bool = typer.Option(
+    json_output: bool = typer.Option(
         False,
         "--json",
         "-j",
@@ -223,34 +230,43 @@ def list_(
 ) -> None:
     """List all registered synced playlists."""
     log.debug("Listing all synced playlists")
-    raise NotImplementedError("Listing synced playlists is not yet implemented.")
+    playlists = list(__iter_all())
 
+    if json_output:
+        typer.echo(
+            json.dumps(
+                [
+                    {
+                        "id": str(playlist.id),
+                        "name": playlist.name,
+                        "description": playlist.description,
+                        "registered": playlist.n_linked,
+                    }
+                    for playlist in playlists
+                ]
+            )
+        )
+        return
 
-@sync_app.command(name="update")
-def update(
-    name: str | None = typer.Option(
-        None,
-        "--name",
-        help="Playlist name. Exactly one of --name / --id must be provided.",
-    ),
-    id: str | None = typer.Option(
-        None,
-        "--id",
-        help="Playlist ID. Exactly one of --name / --id must be provided.",
-    ),
-) -> None:
-    """Execute a synchronisation.
+    if not playlists:
+        _echo_markup(
+            "No synced playlists registered yet. "
+            "Create one with [bold]plistsync sync create[/bold]."
+        )
+        return
 
-    Updates the synced playlist with the latest tracks from the linked playlists and
-    pushes any changes to the respective linked services.
-    """
+    table = Table(title="Synced playlists")
+    table.add_column("Name", style="bold")
+    table.add_column("ID", style="cyan")
+    table.add_column("Description")
+    table.add_column("Registered")
 
-    if name is None and id is None:
-        raise typer.BadParameter("You must specify either --name or --id.")
-
-    if name is not None and id is not None:
-        raise typer.BadParameter(
-            "Cannot use both --name and --id. Specify exactly one."
+    for playlist in playlists:
+        table.add_row(
+            playlist.name,
+            str(playlist.id),
+            playlist.description or "",
+            str(playlist.n_linked),
         )
 
-    raise NotImplementedError("Updating synced playlists is not yet implemented.")
+    Console(file=sys.stdout, highlight=False).print(table)

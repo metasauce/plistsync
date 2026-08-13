@@ -169,6 +169,11 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
     def id(self) -> SyncedPlaylistID:
         return self._id
 
+    @property
+    def n_linked(self) -> int:
+        """Return the number of linked playlists (replicas) for this synced playlist."""
+        return len(self._linked_playlists)
+
     # ------------------------------- Sync specific ------------------------------ #
 
     def register(self, playlist: ServicePlaylist) -> None:
