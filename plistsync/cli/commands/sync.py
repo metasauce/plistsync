@@ -17,7 +17,9 @@ from platformdirs import user_config_dir
 from rich.console import Console
 from rich.table import Table
 
+from plistsync.core import PlaylistID
 from plistsync.logger import log
+from plistsync.services import Service, ServiceLoader
 from plistsync.services.sync import SyncedPlaylist
 
 if TYPE_CHECKING:
@@ -278,19 +280,88 @@ def register(
             autocompletion=_autocomplete_name_or_id,
         ),
     ],
-    playlist: str = typer.Argument(
-        help="Playlist to register: URL, URI, serial, or raw ID.",
-    ),
+    playlist: Annotated[
+        str,
+        typer.Argument(
+            help="Playlist to register: URL, URI, serial, or raw ID.",
+        ),
+    ],
     json_output: bool = typer.Option(
         False, "--json", "-j", help="Output the result as JSON."
     ),
 ) -> None:
-    """Link a service playlist to a synced playlist.
+    """Link a existing service playlist to a synced playlist.
 
     Merges the playlist's tracks into the synced playlist and pushes the
     internal state back to the linked playlist.
     """
-    plist = __find_synced_by_name_or_id(name_or_id)
+    sync = __find_synced_by_name_or_id(name_or_id)
+
+    # Parse service playlist
+    id_matches: list[tuple[Service, PlaylistID]] = list()
+    for service in ServiceLoader.all().values():
+        for pl_id in service.playlist_ids():
+            try:
+                id_matches.append(
+                    (
+                        service,
+                        pl_id.parse(playlist),
+                    )
+                )
+            except Exception:
+                log.debug(
+                    "Failed to parse playlist '%s' as %s.%s",
+                    playlist,
+                    service.name,
+                    pl_id.__name__,
+                )
+
+    # If multiple potential matches were found, raise an error.
+    # If none were found, raise an error.
+    if len(id_matches) > 1:
+        raise typer.BadParameter(
+            f"Multiple services could parse playlist {playlist!r}: "
+            f"{', '.join(str(pl_id) for pl_id in id_matches)}.\n"
+            "Please specify the full URL or URI."
+        )
+    if not id_matches:
+        raise typer.BadParameter(
+            f"No service could parse playlist {playlist!r}. "
+            "Please specify a valid URL, URI, serial, or raw ID."
+        )
+
+    # Create live playlists from id
+    service, playlist_id = id_matches.pop()
+    if (library := service.library()) is None:
+        raise ValueError(f"Service {service.name} does not support library operations.")
+    service_playlist = library().get_playlist_or_raise(id=playlist_id)
+
+    # Register the service playlist with the synced playlist and update on disk
+    playlist_name = service_playlist.name
+    sync.register(service_playlist)
+    sync.sync()
+    sync.save_to(__sync_dir() / f"{sync.id}.json")
+
+    if json_output:
+        typer.echo(
+            json.dumps(
+                {
+                    "id": str(sync.id),
+                    "name": sync.name,
+                    "playlist": service_playlist.id.serial,
+                    "tracks": len(sync.tracks),
+                }
+            )
+        )
+        return
+
+    _echo_markup(
+        f"Registered playlist [bold]{playlist_name}[/bold] "
+        f"([cyan]{service_playlist.id.serial}[/cyan], "
+        f"{len(service_playlist)} tracks) with synced playlist "
+        f"[bold]{sync.name}[/bold] (ID: [cyan]{sync.id}[/cyan]).\n"
+        f"  Next: [dim]plistsync sync show {sync.id}[/dim]"
+    )
 
 
 @sync_app.command(name="show")

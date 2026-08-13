@@ -68,6 +68,9 @@ class TestPlexPlaylistID:
             # Other services
             "spotify:playlist:abc123",
             "https://open.spotify.com/playlist/abc123",
+            # Spotify ID starting with a digit must not match the numeric
+            # plex patterns (regression: 'playlist/(\d+)' matched '2WDLy...').
+            "https://open.spotify.com/playlist/2WDLyDwK2feBaApAG8AnVI",
             "tidal:playlist:12345678",
             # Malformed/missing ID
             "https://app.plex.tv/web/app#!/playlist/",

@@ -44,10 +44,11 @@ class PlexPlaylistID(PlaylistID):
             return cls(int(value))
 
         # extract first numeric ID after known plex patterns
+        # Note: the digits must be the complete path segment, otherwise e.g.
+        # a Spotify URL (open.spotify.com/playlist/2WDLy...) would match.
         patterns = [
             r"ratingKey=(\d+)",
-            r"/playlists?/(\d+)",
-            r"playlist/(\d+)",
+            r"/playlists?/(\d+)(?:[/?#]|$)",
             r"plex:playlist:(\d+)",
             r"plex://[^/]+/.*?/(\d+)",  # plex protocol variants
         ]
