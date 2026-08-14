@@ -402,3 +402,43 @@ def show(
         table.add_row(*row)
 
     Console(file=sys.stdout, highlight=False).print(table)
+
+
+@sync_app.command(name="run")
+def run(
+    name_or_id: Annotated[
+        list[str] | None,
+        typer.Argument(
+            help="Name or ID of the synced playlist to synchronise.",
+            autocompletion=_autocomplete_name_or_id,
+        ),
+    ] = None,
+) -> None:
+    """Run a synchronisation for a synced playlist.
+
+    Compares the tracks of the linked playlists and updates them to match
+    the synced playlist.
+    """
+    synced_playlists: list[SyncedPlaylist] = []
+    if name_or_id is None:
+        log.debug("No synced playlist specified; running synchronisation for all.")
+        synced_playlists = list(__iter_all())
+    else:
+        for name_or_id_str in name_or_id:
+            synced_playlists.append(__find_synced_by_name_or_id(name_or_id_str))
+
+    for sync in synced_playlists:
+        log.info(
+            "Running synchronisation for synced playlist '%s' (ID: %s).",
+            sync.name,
+            sync.id,
+        )
+        sync.sync()
+        sync.save_to(__sync_dir() / f"{sync.id}.json")
+        log.info(
+            "Synchronisation for synced playlist '%s' (ID: %s) completed.",
+            sync.name,
+            sync.id,
+        )
+
+    log.info("All synchronisations completed.")
