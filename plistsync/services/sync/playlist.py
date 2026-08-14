@@ -120,7 +120,7 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
     _info: LWWRegister
 
     # Replica ID -> linked playlist ID mapping. Each linked playlist is a sync target.
-    _linked_playlists: dict[ReplicaID, ServicePlaylist[Track]]
+    _linked_playlists: dict[ReplicaID, ServicePlaylist[Any]]
 
     def __init__(
         self,

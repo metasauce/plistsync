@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `match_many` method to `Collection` base to allow matching multiple tracks at once, improving performance for large collections as it avoids repeated api calls for each track.
 - Added the `ServiceConfig` base class, which auto-registers a service's config schema and automatically includes it in the main config schema.
 - Added `Config.get_service_config()` which lazily discovers a service, rebuilds the config schema, reloads and validates the config file, and returns the service's config instance.
+- Added the `plistsync sync` CLI subcommands (`create`, `remove`, `list`, `register`, `show`, `run`) for managing and running synced playlists.
 - Added `Service.config()` for resolving a service's registered config class and the `ServiceConfig.get()` classmethod (e.g. `PlexConfig.get()`) for direct access to the service config instance.
 - Moved each service's configuration into the service package, including token handling (`SpotifyConfig.load_token()`, `TidalConfig.load_token()`, `PlexConfig.token_path`).
 
