@@ -36,7 +36,7 @@ sync_app = typer.Typer(
 )
 
 
-def _echo_markup(message: str) -> None:
+def _print(message: str | Table) -> None:
     """Echo `message` using rich markup, colored only when stdout is a terminal.
 
     The console is created per call so it picks up the current stdout
@@ -135,7 +135,7 @@ def create(
         )
         return
 
-    _echo_markup(
+    _print(
         f"Created synced playlist [bold]{synced_playlist.name}[/bold]\n"
         f"  ID:   [cyan]{synced_playlist.id}[/cyan]\n"
         f"  Next: [dim]plistsync sync register --id {synced_playlist.id}[/dim]"
@@ -187,7 +187,7 @@ def remove(
 
     # Confirmation prompt
     if not confirm:
-        _echo_markup(
+        _print(
             f"Are you sure you want to remove synced playlist [bold]{plist.name}[/bold]"
             f"(ID: [cyan]{plist.id}[/cyan])?\n[red]This cannot be undone![/red]"
         )
@@ -213,7 +213,7 @@ def remove(
             )
         )
     else:
-        _echo_markup(
+        _print(
             f"Removed synced playlist [bold]{plist.name}[/bold] "
             f"(ID: [cyan]{plist.id}[/cyan])."
         )
@@ -250,7 +250,7 @@ def list_(
         return
 
     if not playlists:
-        _echo_markup(
+        _print(
             "No synced playlists registered yet. "
             "Create one with [bold]plistsync sync create[/bold]."
         )
@@ -270,7 +270,7 @@ def list_(
             str(playlist.n_linked),
         )
 
-    Console(file=sys.stdout, highlight=False).print(table)
+    _print(table)
 
 
 @sync_app.command(name="register")
@@ -357,7 +357,7 @@ def register(
         )
         return
 
-    _echo_markup(
+    _print(
         f"Registered playlist [bold]{playlist_name}[/bold] "
         f"([cyan]{service_playlist.id.serial}[/cyan], "
         f"{len(service_playlist)} tracks) with synced playlist "
@@ -401,7 +401,7 @@ def show(
             row.append("✓" if plist in associated else "✗")
         table.add_row(*row)
 
-    Console(file=sys.stdout, highlight=False).print(table)
+    _print(table)
 
 
 @sync_app.command(name="run")
