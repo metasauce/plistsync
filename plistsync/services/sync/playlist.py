@@ -120,7 +120,7 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
     _info: LWWRegister
 
     # Replica ID -> linked playlist ID mapping. Each linked playlist is a sync target.
-    _linked_playlists: dict[ReplicaID, ServicePlaylist]
+    _linked_playlists: dict[ReplicaID, ServicePlaylist[Track]]
 
     def __init__(
         self,
@@ -391,6 +391,21 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
             playlist.name = self.name
             playlist.description = self.description
             playlist.tracks = new_tracks
+
+    def track_associations(
+        self,
+    ) -> Iterable[tuple[OfflineTrack, set[ServicePlaylist[Track]]]]:
+        """Iterate all tracks, along with their associated playlists."""
+        for linked_track in self._fugue:
+            yield (
+                linked_track.track,
+                set(
+                    filter(
+                        lambda p: p.id in linked_track.playlists,
+                        self._linked_playlists.values(),
+                    )
+                ),
+            )
 
     def save_to(self, path: Path | str) -> None:
         """Serialize the synced playlist to a JSON-serializable object."""

@@ -17,13 +17,15 @@ from platformdirs import user_config_dir
 from rich.console import Console
 from rich.table import Table
 
-from plistsync.core import PlaylistID
 from plistsync.logger import log
-from plistsync.services import Service, ServiceLoader
+from plistsync.services import ServiceLoader
 from plistsync.services.sync import SyncedPlaylist
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from plistsync.core import PlaylistID
+    from plistsync.services import Service
 
 
 sync_app = typer.Typer(
@@ -329,9 +331,9 @@ def register(
             f"No service could parse playlist {playlist!r}. "
             "Please specify a valid URL, URI, serial, or raw ID."
         )
+    service, playlist_id = id_matches.pop()
 
     # Create live playlists from id
-    service, playlist_id = id_matches.pop()
     if (library := service.library()) is None:
         raise ValueError(f"Service {service.name} does not support library operations.")
     service_playlist = library().get_playlist_or_raise(id=playlist_id)
@@ -373,9 +375,6 @@ def show(
             autocompletion=_autocomplete_name_or_id,
         ),
     ],
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Output the result as JSON."
-    ),
 ) -> None:
     """Show the track overview of a synced playlist.
 
@@ -383,4 +382,23 @@ def show(
     column per linked playlist (plus the synced playlist itself) indicating
     whether the track is present there.
     """
-    plist = __find_synced_by_name_or_id(name_or_id)
+    sync = __find_synced_by_name_or_id(name_or_id)
+
+    # list of associated plists
+    plists = list(sync._linked_playlists.values())
+    table = Table(
+        title=f"Synced playlist: {sync.name} (ID: {sync.id})",
+        caption=sync.description,
+    )
+    table.add_column("Title")
+    table.add_column("Artist")
+    for plist in plists:
+        table.add_column(f"{plist.service} ({plist.id.serial})", justify="center")
+
+    for track, associated in sync.track_associations():
+        row: list[str | None] = [track.title, ",".join(track.artists)]
+        for plist in plists:
+            row.append("✓" if plist in associated else "✗")
+        table.add_row(*row)
+
+    Console(file=sys.stdout, highlight=False).print(table)

@@ -198,3 +198,6 @@ ignore_missing_imports = true
 # If tests are discovered as top-level modules => test_*
 module = ["tests.*"]
 disable_error_code = ["method-assign", "attr-defined"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
