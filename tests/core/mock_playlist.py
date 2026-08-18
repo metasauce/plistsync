@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import cache
 import random
 from typing import Any, TYPE_CHECKING
 from unittest.mock import Mock
@@ -25,6 +26,12 @@ class MockServicePlaylist(
         super().__init__(*args, **kwargs)
         self.library = Mock()
 
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        """Service name for the mock."""
+        return "test"
+
     def _remote_delete(self):
         self.log.append(("remote_delete",))
 
@@ -43,6 +50,12 @@ class MockMultiRequestServicePlaylist(
         self.log: list[tuple[Any, ...]] = []
         super().__init__(*args, **kwargs)
         self.library = Mock()
+
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        """Service name for the mock."""
+        return "test"
 
     def _remote_delete(self):
         self.log.append(("remote_delete",))
