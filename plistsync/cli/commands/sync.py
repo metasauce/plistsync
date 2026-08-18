@@ -85,18 +85,28 @@ def __find_synced_by_name_or_id(name_or_id: str) -> SyncedPlaylist:
 @sync_app.command(name="mk", hidden=True)
 @sync_app.command(name="create")
 def create(
-    name: str = typer.Argument(
-        help="Name for the synced playlist.",
-    ),
-    description: str | None = typer.Option(
-        None,
-        "--description",
-        "-d",
-        help="Optional description of the synced playlist.",
-    ),
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Output the result as JSON."
-    ),
+    name: Annotated[
+        str,
+        typer.Argument(
+            help="Name for the synced playlist.",
+        ),
+    ],
+    description: Annotated[
+        str | None,
+        typer.Option(
+            "--description",
+            "-d",
+            help="Optional description of the synced playlist.",
+        ),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            "-j",
+            help="Output the result as JSON.",
+        ),
+    ] = False,
 ) -> None:
     """Create a named synced playlist.
 
@@ -168,15 +178,22 @@ def remove(
             autocompletion=_autocomplete_name_or_id,
         ),
     ],
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Output the result as JSON."
-    ),
-    confirm: bool = typer.Option(
-        False,
-        "--confirm",
-        "-y",
-        help="Confirm removal without prompting.",
-    ),
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            "-j",
+            help="Output the result as JSON.",
+        ),
+    ] = False,
+    confirm: Annotated[
+        bool,
+        typer.Option(
+            "--confirm",
+            "-y",
+            help="Confirm removal without prompting.",
+        ),
+    ] = False,
 ) -> None:
     """Remove a synced playlist.
 
@@ -222,12 +239,14 @@ def remove(
 @sync_app.command(name="ls", hidden=True)
 @sync_app.command(name="list")
 def list_(
-    json_output: bool = typer.Option(
-        False,
-        "--json",
-        "-j",
-        help="Output synced playlists in JSON format.",
-    ),
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            "-j",
+            help="Output synced playlists in JSON format.",
+        ),
+    ] = False,
 ) -> None:
     """List all registered synced playlists."""
     log.debug("Listing all synced playlists")
@@ -258,16 +277,16 @@ def list_(
 
     table = Table(title="Synced playlists")
     table.add_column("Name", style="bold")
+    table.add_column("Description", max_width=40, overflow="fold")
+    table.add_column("Registered Plists")
     table.add_column("ID", style="cyan")
-    table.add_column("Description")
-    table.add_column("Registered")
 
     for playlist in playlists:
         table.add_row(
             playlist.name,
-            str(playlist.id),
             playlist.description or "",
             str(playlist.n_linked),
+            str(playlist.id),
         )
 
     _print(table)
@@ -278,7 +297,7 @@ def register(
     name_or_id: Annotated[
         str,
         typer.Argument(
-            help="Name or ID of the synced playlist to show.",
+            help="Name or ID of the synced playlist.",
             autocompletion=_autocomplete_name_or_id,
         ),
     ],
@@ -288,9 +307,14 @@ def register(
             help="Playlist to register: URL, URI, serial, or raw ID.",
         ),
     ],
-    json_output: bool = typer.Option(
-        False, "--json", "-j", help="Output the result as JSON."
-    ),
+    json_output: Annotated[
+        bool,
+        typer.Option(
+            "--json",
+            "-j",
+            help="Output the result as JSON.",
+        ),
+    ] = False,
 ) -> None:
     """Link a existing service playlist to a synced playlist.
 
@@ -393,7 +417,7 @@ def show(
     table.add_column("Title")
     table.add_column("Artist")
     for plist in plists:
-        table.add_column(f"{plist.service} ({plist.id.serial})", justify="center")
+        table.add_column(f"{plist.service()}\n({plist.id.serial})", justify="center")
 
     for track, associated in sync.track_associations():
         row: list[str | None] = [track.title, ",".join(track.artists)]

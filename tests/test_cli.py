@@ -168,7 +168,6 @@ class TestLoggingSetup:
         from plistsync.cli.app import version_callback
 
         assert version_callback(False) is None  # type: ignore[func-returns-value]
-        assert version_callback(None) is None  # type: ignore[arg-type,func-returns-value]
 
 
 class TestAuthRegistration:

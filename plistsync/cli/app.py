@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 from rich.logging import RichHandler
@@ -105,20 +105,24 @@ def version_callback(value: bool) -> None:
 @app.callback()
 def main(
     ctx: typer.Context,
-    verbose: int | None = typer.Option(
-        None,
-        "--verbose",
-        "-v",
-        count=True,
-        callback=logging_callback,
-        help="Increase verbosity.",
-    ),
-    version: bool | None = typer.Option(
-        None,
-        "--version",
-        callback=version_callback,
-        help="Currently installed version.",
-    ),
+    verbose: Annotated[
+        int | None,
+        typer.Option(
+            "--verbose",
+            "-v",
+            count=True,
+            callback=logging_callback,
+            help="Increase verbosity.",
+        ),
+    ] = None,
+    version: Annotated[
+        bool | None,
+        typer.Option(
+            "--version",
+            callback=version_callback,
+            help="Currently installed version.",
+        ),
+    ] = None,
 ) -> None:
     """Global callback — handles --verbose and --version flags."""
 
