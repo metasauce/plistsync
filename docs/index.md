@@ -45,6 +45,7 @@ examples/readme.md
 :hidden:
 :caption: 🛠️ Services
 
+services/sync/index
 services/local/index
 services/tidal/index
 services/spotify/index
