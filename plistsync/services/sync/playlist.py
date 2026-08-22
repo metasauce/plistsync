@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from plistsync.core import Track
+    from plistsync.core.matching import Matches
     from plistsync.core.playlist import (
         ServicePlaylist,
     )
@@ -311,19 +312,45 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
         for playlist in self._linked_playlists.values():
             self._enrich_internal_from(playlist)
 
-    def _enrich_internal_from(self, playlist: ServicePlaylist):
+    def _batch_match(
+        self,
+        playlist: ServicePlaylist,
+        linked_tracks: list[_TrackLink],
+    ) -> list[Matches[Track]]:
+        """Match *linked_tracks* against *playlist*, falling back to its library.
+
+        First, batch-matches against the playlist. Any track still unmatched
+        is then batch-matched against the library. Results are returned in the
+        same order as *linked_tracks*.
+        """
+        queries = [lt.track for lt in linked_tracks]
+        results: list[Matches] = list(playlist.match_many(queries))
+
+        unmatched = [
+            (i, queries[i]) for i, r in enumerate(results) if r.best_match is None
+        ]
+        if unmatched:
+            indices, remaining = zip(*unmatched)
+            for idx, match in zip(indices, playlist.library.match_many(remaining)):
+                results[idx] = match
+
+        return results
+
+    def _enrich_internal_from(self, playlist: ServicePlaylist) -> None:
         """Enrich the internal track collection from a linked playlist."""
+        to_match = [lt for lt in self._fugue if playlist.id not in lt.playlists]
+        if not to_match:
+            return
 
-        for linked_track in self._fugue:
-            if playlist.id not in linked_track.playlists:
-                # Search in playlist first. This is faster than searching in library
-                match = playlist.match(linked_track.track)
-                if match.best_match is None:
-                    match = playlist.library.match(linked_track.track)
-
-                if match.best_match is not None:
-                    linked_track.track.enrich(match.best_match.ids)
-                    linked_track.playlists.add(playlist.id)
+        for lt, match in zip(to_match, self._batch_match(playlist, to_match)):
+            if match.best_match is not None:
+                lt.track.enrich(match.best_match.ids)
+                lt.playlists.add(playlist.id)
+            else:
+                log.debug(
+                    f"No match found for {lt.track} in {playlist.id};"
+                    " skipping enrichment."
+                )
 
     def push(self) -> None:
         """Update linked playlists from the internal track collection.
@@ -335,27 +362,25 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
             self._push_internal_to(playlist)
 
     def _push_internal_to(self, playlist: ServicePlaylist[Track]) -> None:
-        """Update a linked playlist from the internal track collection.
-
-        Aligns the playlist's tracks with the resolved internal tracks.
-        """
+        """Update a linked playlist from the internal track collection."""
+        to_match = [lt for lt in self._fugue if playlist.id in lt.playlists]
+        if not to_match:
+            with playlist.edit():
+                playlist.name = self.name
+                playlist.description = self.description
+                playlist.tracks = []
+            return
 
         new_tracks: list[Track] = []
-        for linked_track in self._fugue:
-            if playlist.id in linked_track.playlists:
-                # Search in playlist first. This is faster than searching in library
-                match = playlist.match(linked_track.track)
-                if match.best_match is None:
-                    match = playlist.library.match(linked_track.track)
-
-                if match.best_match is None:
-                    log.warning(
-                        f"Track {linked_track.track} not found in {playlist.id}; "
-                        "removing playlist association"
-                    )
-                    linked_track.playlists.remove(playlist.id)
-                else:
-                    new_tracks.append(match.best_match)
+        for lt, match in zip(to_match, self._batch_match(playlist, to_match)):
+            if match.best_match is None:
+                log.warning(
+                    f"Track {lt.track} not found in {playlist.id}; "
+                    "removing playlist association."
+                )
+                lt.playlists.remove(playlist.id)
+            else:
+                new_tracks.append(match.best_match)
 
         with playlist.edit():
             playlist.name = self.name

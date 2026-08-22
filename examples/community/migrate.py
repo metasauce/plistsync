@@ -5,14 +5,21 @@ allows to quickly migrate to another music service
 provider.
 """
 
+from __future__ import annotations
+
 import sys
-from typing import Annotated, NamedTuple
+from typing import TYPE_CHECKING, Annotated, NamedTuple
 
 import typer
 
-from plistsync.core import Library, Matches, ServicePlaylist, Track
+from plistsync.core import ServicePlaylist
 from plistsync.logger import log
 from plistsync.services import ServiceLoader
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from plistsync.core import Library, Matches, Track
 
 
 class MigrationContext(NamedTuple):
@@ -33,10 +40,7 @@ def migrate_playlist(
     log.info(f"Transferring {from_playlist.name!r} with {len(from_playlist)} tracks.")
 
     log.debug(f"Matching tracks on {to_library.name!r}...")
-    matches: list[Matches[Track]] = [
-        to_library.match(t)  # TODO: Multi match would be nice
-        for t in from_playlist.tracks
-    ]
+    matches: Iterable[Matches[Track]] = to_library.match_many(from_playlist.tracks)
     log.debug("Finished matching track.")
 
     for match in matches:

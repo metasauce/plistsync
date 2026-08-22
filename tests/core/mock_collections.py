@@ -56,6 +56,26 @@ class MockTrackStreamCollection(Collection, TrackStream):
         yield from self._tracks
 
 
+class MockStreamInfoCollection(Collection, InfoLookup, TrackStream):
+    """Mock collection with TrackStream + InfoLookup, but no IDLookup.
+
+    Exercises the fallback path where ``has_info_lookup`` is True
+    inside the ``match_many`` fallback stage (the ``519→522`` branch).
+    """
+
+    def __init__(self, tracks: list[MockTrack] | None = None):
+        self._tracks = tracks or []
+
+    def find_by_info(self, info: TrackInfo) -> Iterator[MockTrack]:
+        for track in self._tracks:
+            if info.get("title") == track.title:
+                yield track
+
+    @property
+    def tracks(self) -> Iterable[MockTrack]:
+        yield from self._tracks
+
+
 class MockFullCapabilityCollection(Collection, IDLookup, InfoLookup, TrackStream):
     """Mock collection with all capabilities."""
 
