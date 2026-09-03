@@ -148,6 +148,17 @@ class Config(EYConf[BaseConfigSchema]):
                 (service_name, config_cls, field(default_factory=config_cls))
             )
 
+        """
+        Dynamically build a dataclass that holds all services, looks roughtly like this:
+
+        class ServiceConfig
+            spotify: SpotifyConfig
+            tidal: TidalConfig
+            ... remaining services_fields
+
+        `allow_additional(...)` is needed, because we do not want to crash when config
+        options exist e.g. for spotify, but the service is not loaded/installed.
+        """
         DynamicServicesConfig: type = allow_additional(  # noqa: N806
             make_dataclass(
                 "ServicesConfig",
@@ -212,6 +223,7 @@ class Config(EYConf[BaseConfigSchema]):
         # Already in the schema: fast return
         if service_config := self.data.services.get(service_name):
             return service_config
+
         # Discover the service (loads its module, registers config class)
         service = ServiceLoader.get(service_name)
         if service is None:
