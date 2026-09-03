@@ -2,6 +2,7 @@
 
 import importlib
 import logging
+from typing import TYPE_CHECKING
 
 import typer
 from eyconf.cli import create_config_cli
@@ -11,7 +12,10 @@ from plistsync.services import ServiceLoader
 
 from .config import Config
 from .errors import DependencyError
-from .logger import log, set_log_level
+from .logger import basic_logging_handler, init_logging, log
+
+if TYPE_CHECKING:
+    from .config import LoggingConfig
 
 cli = typer.Typer(
     rich_markup_mode="rich",
@@ -53,27 +57,40 @@ def register_auth(cli: typer.Typer):
     cli.add_typer(auth_app)
 
 
-register_auth(cli)
-cli.add_typer(create_config_cli(Config), name="config")
+# register_auth(cli)
+cli.add_typer(create_config_cli(Config, preload_services=True), name="config")
 
 
-def logging_callback(verbose: int) -> None:
-    level_mapping: dict[int, int] = {
-        1: logging.INFO,
-        2: logging.DEBUG,
-        3: logging.DEBUG,  # debug incl. other modules with extended formatting
-    }
-    level = level_mapping.get(verbose)
-    if level is None:
-        return None
+def logging_callback(verbose: int | None) -> None:
+    verbose = verbose or 0
+    try:
+        # Temporary handler so eyconf / third-party logs emitted during
+        # Config() construction are captured with a decent format.
+        # init_logging() below will replace this with the configured handler.
+        logging.basicConfig(
+            level=logging.WARNING,
+            handlers=[basic_logging_handler()],
+            force=True,
+        )
+        config: LoggingConfig | None = (
+            Config().data.logging if Config.get_file().exists() else None
+        )
 
-    # Only adjust levels; logging handlers were already configured at import time.
-    set_log_level(level)
-    if verbose >= 3:
-        logging.getLogger().setLevel(level)  # enable other modules too
+    except Exception as e:
+        log.debug("Failed to load config: %s", e)
+        config = None
+
+    init_logging(config, verbose)
 
     # Adjust format
     root_logger = logging.getLogger()
+
+    if verbose >= 3:
+        # set third-party libraries to debug level if verbose >= 3
+        root_logger.setLevel(logging.DEBUG)
+        log.debug(
+            "Adjusted root logger level to %s", logging.getLevelName(root_logger.level)
+        )
 
     # FIXME: Can be upgraded to getHandlerByName once we
     # drop 3.11
@@ -96,11 +113,6 @@ def logging_callback(verbose: int) -> None:
         from rich.traceback import install
 
         install(show_locals=False, extra_lines=0)
-
-    if verbose >= 3:
-        handler.setFormatter(logging.Formatter("%(name)-12s %(message)s"))
-
-    log.debug("Adjusted log level to %s", logging.getLevelName(level))
 
 
 def version_callback(value: bool) -> None:

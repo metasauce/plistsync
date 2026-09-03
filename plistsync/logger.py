@@ -1,21 +1,12 @@
-import logging
-import os
+from __future__ import annotations
 
-from plistsync.config import Config, LoggingConfig
+import logging
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from plistsync.config import LoggingConfig
 
 log = logging.getLogger("plistsync")
-
-
-def _logging_config(config: Config | None) -> LoggingConfig:
-    """Parse logging config values."""
-    logging_config = LoggingConfig() if config is None else config.data.logging
-
-    # Allow to disable with env variable
-    env_enabled: str | None = os.getenv("PLSYNC_LOGGING")
-    if env_enabled is not None:
-        logging_config.enabled = env_enabled.lower() in ("true", "1", "t")
-
-    return logging_config
 
 
 def _parse_log_level(level: str | int) -> int:
@@ -24,22 +15,19 @@ def _parse_log_level(level: str | int) -> int:
     return logging.getLevelNamesMapping().get(level.upper(), logging.INFO)
 
 
-def set_log_level(level: str | int) -> None:
-    """Overwrite the log level of the plistsync logger (does not configure root)."""
-    log.setLevel(_parse_log_level(level))
-
-
 def init_logging(
-    config: Config | None = None,
-    level_overwrite: str | int | None = None,
+    config: LoggingConfig | None = None,
+    log_level_offset: int | None = None,
 ) -> None:
     """Initialize plistsync logging from config. Call from CLI/app, not at import."""
-    logging_config = _logging_config(config)
-    if not logging_config.enabled:
-        return
+    from plistsync.config import LoggingConfig
+
+    logging_config = config or LoggingConfig()
 
     # set level of log from config or use overwrite
-    set_log_level(logging_config.level if level_overwrite is None else level_overwrite)
+    log.setLevel(
+        max(10, _parse_log_level(logging_config.level) - (log_level_offset or 0) * 10)
+    )
 
     # setup handler(s) from config
     handlers: list[logging.Handler] | None = None
@@ -114,6 +102,3 @@ def rich_logging_handler(
     handler.setFormatter(logging.Formatter("%(message)s"))
     handler.name = "rich"
     return handler
-
-
-init_logging(Config() if Config.exists() else None)
