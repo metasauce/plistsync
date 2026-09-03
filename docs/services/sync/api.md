@@ -31,8 +31,13 @@ synced.register(spotify_playlist)
 synced.register(tidal_playlist)
 ```
 
-```{note}
-`register()` accepts any `ServicePlaylist` and immediately aligns it with the internal collection: the playlist's tracks are merged in, and the internal state (including name and description) is pushed back, the same round-trip the CLI performs.
+`register()` accepts any `ServicePlaylist` and immediately aligns it with the internal collection: the playlist's tracks are merged in, and the internal state (including name and description) is pushed back. Same round-trip the CLI performs.
+
+```{warning}
+Registering service playlists to a SyncedPlaylist will immediately sync them.
+This will likely change their tracks, name, and description.
+
+Your music apps might need a restart/reload to show the changes.
 ```
 
 ## Inspect
@@ -45,7 +50,7 @@ for track, playlists in synced.track_associations():
     print(track.title, "→", ", ".join(p.name for p in playlists))
 ```
 
-`track_associations()` yields each track of the internal collection together with the set of linked playlists it currently appears in, the same information `sync show` renders as its ✓/✗ matrix.
+`track_associations()` yields each track of the internal collection together with the set of linked playlists it currently appears in. This is the same information (✓/✗) you get via the CLI command `sync show`.
 
 ## Run a synchronisation
 
@@ -74,4 +79,4 @@ from pathlib import Path
 Path("my-mix.json").unlink()
 ```
 
-As with `sync remove`, the linked playlists on your services are left untouched.
+Like the CLI command `sync remove`, this keeps your linked playlists on your services untouched.

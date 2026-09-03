@@ -2,15 +2,15 @@
 
 The sync workflow is available as `plistsync sync` commands, for interactive use and scripting. This page walks through each command; if you are new to synced playlists, start with [Getting started](getting-started).
 
-All commands below identify a synced playlist by its _name_ or its _ID_. Names are convenient but not guaranteed to be unique, so when in doubt (or when two playlists share a name) use the ID.
+All commands below identify a SyncedPlaylist by its _name_ or its _ID_. Names are convenient but not guaranteed to be unique, so when in doubt (or when two playlists share a name) use the ID.
 
-## Create a synced playlist
+## Create a SyncedPlaylist
 
 ```bash
-plistsync sync create "My Mix" -d "The tracks we both like"
+plistsync sync create "My Mix" --description "The tracks we both like"
 ```
 
-This creates a new synced playlist with a unique ID and stores it locally:
+This creates a new SyncedPlaylist with a unique ID and stores it locally:
 
 ```text
 Created synced playlist My Mix
@@ -18,22 +18,28 @@ Created synced playlist My Mix
 ```
 
 ```{note}
-The synced playlist is saved as a JSON file in your user config directory (`~/.config/plistsync/sync/` on Linux). Pass `-j`/`--json` to get the result, including the file path, as machine-readable JSON for scripting.
+The SyncedPlaylist is saved as a JSON file in your user config directory (`~/.config/plistsync/sync/` on Linux). Pass `-j`/`--json` to get the result, including the file path, as machine-readable JSON for scripting.
 ```
 
 ## Link playlists
 
-Register "real" playlists from your services as replicas of the synced playlist. The playlist argument accepts a URL, URI, serial, or raw ID; the owning service is detected automatically:
+Register "real" playlists from your services as replicas of the SyncedPlaylist. The playlist argument accepts a URL, URI, serial, or raw ID; the owning service is detected automatically:
 
 ```bash
 plistsync sync register "My Mix" "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
-plistsync sync register "My Mix" "https://tidal.com/playlist/..."
+plistsync sync register "[Name]" "[ID, URL, etc ...]"
 ```
 
-Registration is a full round-trip: the playlist's tracks are merged into the internal collection, and the internal state is pushed back to the linked playlist. From the very first `register` on, the linked playlist already mirrors the synced playlist, including its name and description. Pass `-j`/`--json` for the result as JSON.
+Registration is a full round-trip: the service playlist's tracks are merged into the SyncedPlaylist, and the updated track list is pushed back to the linked playlist.
+After the first `register`, the linked playlist already mirrors the SyncedPlaylist, including its name and description.
 
-```{note}
-If several services could parse the identifier, `register` fails and asks for the full URL or URI to disambiguate. If none can parse it, the command fails and asks for a valid URL, URI, serial, or raw ID; this also happens when the owning service could not be loaded, for example because its dependencies are missing.
+If several services could parse a given ID-argument, `register` will ask you for the full URL to pick the right service.
+
+```{warning}
+Registering service playlists to a SyncedPlaylist will immediately sync them.
+This will likely change their tracks, name, and description.
+
+Your music apps (tidal \*cough\*) might need a restart/reload to show the changes.
 ```
 
 ## Inspect
@@ -42,7 +48,7 @@ If several services could parse the identifier, `register` fails and asks for th
 plistsync sync list
 ```
 
-lists all synced playlists with their descriptions and number of linked playlists:
+will list all SyncedPlaylists with their descriptions and number of linked playlists:
 
 ```text
 Synced playlists
@@ -52,13 +58,12 @@ Synced playlists
 
 Pass `-j`/`--json` for the same data as JSON.
 
-while
 
 ```bash
 plistsync sync show "My Mix"
 ```
 
-prints a per-track matrix with one column per linked playlist, marking where each track is present:
+will print a per-track matrix with one column per linked playlist, marking where each track is present:
 
 ```text
                 Synced playlist: My Mix (ID: 1f4d7e2c-...)
@@ -68,7 +73,7 @@ prints a per-track matrix with one column per linked playlist, marking where eac
   Song B     Artist B          ✓         ✓
 ```
 
-A ✗ marks drift: the track is missing from that service and will be added on the next synchronisation, if it can be matched there.
+An ✗ marks drift: the track is missing from that service and will be added on the next synchronisation, if it can be matched there.
 
 ## Run the synchronisation
 
@@ -76,15 +81,17 @@ A ✗ marks drift: the track is missing from that service and will be added on t
 plistsync sync run "My Mix"
 ```
 
-pulls every linked playlist, merges external changes (tracks added, removed, or reordered in one service show up in the others), and pushes the result back to all linked playlists. Pass several names/IDs to synchronise a subset, or omit the argument to synchronise every synced playlist at once:
+pulls every linked playlist, merges external changes (tracks added, removed, or reordered in one service show up in the others), and pushes the result back to all linked playlists.
+Pass several names/IDs to synchronise a subset, or omit the argument to synchronise all SyncedPlaylists you have set up:
 
 ```bash
 plistsync sync run "My Mix" "Holiday Hits"
 plistsync sync run
 ```
 
-```{note}
-Because `run` only applies CRDT operations, running it from two machines, or interleaving it with edits made directly in a service's app, converges to the same collection everywhere instead of conflicting.
+```{admonition} Nerd-fact 🤓
+The `run` command applies CRDT operations.
+Calling it from two machines, or interleaving it with edits made directly in a service's app, converges to the same collection everywhere instead of conflicting.
 ```
 
 ## Remove
@@ -93,7 +100,10 @@ Because `run` only applies CRDT operations, running it from two machines, or int
 plistsync sync remove "My Mix"
 ```
 
-removes the synced playlist and its stored state. You are prompted for confirmation; use `-y`/`--confirm` to skip the prompt. The linked playlists on your services are left untouched; only the synced playlist's bookkeeping is deleted. Pass `-j`/`--json` for the result as JSON.
+removes the SyncedPlaylist and its stored state.
+You are prompted for confirmation.
+The linked playlists on your services are left untouched.
+Only the bookkeeping for the SyncedPlaylist is deleted from the local disk.
 
 ## Full command reference
 

@@ -17,14 +17,14 @@ The `sync` service itself requires **no configuration and no credentials**. It h
 
 ## Concepts
 
-A **synced playlist** is the unit of synchronisation: a virtual playlist that keeps a group of real playlists in sync. It consists of
+A **SyncedPlaylist** is the unit of synchronisation: a virtual playlist that keeps a group of real playlists in sync. It consists of
 
-- an **internal track collection**, the single source of truth. Tracks are stored service-agnostically as global IDs (e.g. ISRC) plus metadata, with no service-specific objects attached; and
-- **linked playlists**, real playlists on your services (e.g. a Spotify playlist and a Tidal playlist) that are registered as _replicas_ of the synced playlist.
+- an **internal track collection**, the single source of truth. Tracks are stored service-agnostic as global IDs (e.g. ISRC) plus metadata, with no service-specific objects attached; and
+- **linked service playlists**, real playlists on your services (e.g. a Spotify playlist and a Tidal playlist) that are registered as _replicas_ of the SyncedPlaylist.
 
 ```{mermaid}
 flowchart LR
-    subgraph SP ["Synced playlist 'My Mix'"]
+    subgraph SP ["SyncedPlaylist 'My Mix'"]
         C[(internal track collection)]
     end
 
@@ -33,7 +33,11 @@ flowchart LR
     P[Plex playlist] <--> C
 ```
 
-Every synchronisation is an exchange: the current contents of each linked playlist are **merged** into the internal collection, and the reconciled collection is then **pushed** back to all of them. Because the merge is expressed as conflict-free (CRDT) operations rather than "last write wins" overwrites, edits made in different services or directly in a service's own app between runs combine deterministically instead of clobbering each other. See [How it works](how-it-works) for the details.
+Every synchronisation is an exchange:
+the current contents of each linked playlist are **merged** into the internal collection, and the reconciled collection is then **pushed** back to all of them.
+The merge is expressed as conflict-free (CRDT) operations rather than "last write wins" overwrites.
+Therefore, edits made in a service's own app between sync runs combine reproducibly, instead of clobbering each other.
+See [How it works](how-it-works) for the details.
 
 ## Next steps
 

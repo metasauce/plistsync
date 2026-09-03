@@ -10,7 +10,7 @@ Unlike the other services, `sync` is not backed by an external API: it needs no 
 :maxdepth: 2
 
 getting-started
-how-it-works
 cli
 api
+how-it-works
 ```
