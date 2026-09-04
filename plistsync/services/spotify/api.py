@@ -54,14 +54,13 @@ class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
 
     @classmethod
     def from_config(cls):
-        from plistsync.config import Config
+        """Construct a SpotifyApiSession from the config file."""
+        from .config import SpotifyConfig
 
-        config = Config()
+        spotify_config = SpotifyConfig.get()
         return cls(
-            config.spotify.client_id,
-            Oauth2Token.from_file(
-                config.get_dir() / "spotify_token.json",
-            ),
+            client_id=spotify_config.client_id,
+            token=spotify_config.load_token(),
         )
 
     def _refresh_token(self) -> None:

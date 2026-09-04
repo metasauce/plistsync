@@ -32,11 +32,17 @@ uv add plistsync --extra traktor
 
 ## Configuration
 
-Enable Traktor in your `plistsync` configuration file:
+By default the `traktor` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+
 
 ```yaml
 # ./config/config.yaml
 services:
   traktor:
-    enabled: true
+    # The absolute path to the nml file you want to use as your default traktor
+    # library.
+    path: /replace/me/with/a/path/to/nml.nml
+    # Create a backup of the libraries nml file before every write.
+    backup_before_write: true
+
 ```

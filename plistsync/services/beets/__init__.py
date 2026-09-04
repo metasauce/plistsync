@@ -7,6 +7,7 @@ check_imports(
 )
 
 from .collection import BeetsCollection
+from .config import BeetsConfig
 from .database import BeetsDatabase
 from .track import BeetsTrack
 
@@ -17,6 +18,7 @@ class BeetsService(Service):
 
 __all__ = [
     "BeetsCollection",
+    "BeetsConfig",
     "BeetsDatabase",
     "BeetsService",
     "BeetsTrack",

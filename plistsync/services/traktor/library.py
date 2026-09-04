@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
-from plistsync.config import Config
 from plistsync.core.collection import IDLookup, Library, TrackStream
 from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
+from .config import TraktorConfig
 from .path import NMLPath
 from .playlist import NMLPlaylist, NMLPlaylistID
 from .track import NMLTrack
@@ -47,7 +47,7 @@ class NMLLibrary(
 
     def __init__(self, path: Path | str | None = None):
         if path is None:
-            path = Config().traktor.path
+            path = TraktorConfig.get().path
 
         if isinstance(path, str):
             path = Path(path)
@@ -67,8 +67,7 @@ class NMLLibrary(
         """
 
         if backup is None:
-            traktor_config = Config().traktor
-            backup = traktor_config.backup_before_write
+            backup = TraktorConfig.get().backup_before_write
 
         if backup:
             nml_backup = self.path.with_suffix(

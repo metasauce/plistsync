@@ -35,27 +35,37 @@ uv add plistsync --extra tidal
 You'll need an active Tidal account. If you don't have one, sign up at [tidal.com](https://tidal.com).
 For tidal, free accounts are sufficient to use the API and `plistsync`.
 
-### API Credentials
-
-To authenticate with Tidal's API, you need to obtain API credentials:
-
-1. Visit the [Tidal Developer Portal](https://developer.tidal.com/)
-2. Log in with your Tidal account
-3. Create a new application
-4. Generate your `client_id` (and optionally `client_secret`)
-
 ## Configuration
 
-Enable Tidal in your `plistsync` configuration file:
+By default the `tidal` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+
 
 ```yaml
 # ./config/config.yaml
 services:
   tidal:
-    enabled: true
-    client_id: your_tidal_client_id_here
-    client_secret: your_tidal_client_secret_here # Optional but recommended
+    # The client ID for talking to the Tidal API. You can use the build-in one
+    # or obtain a new client ID by registering an Developer application.
+    client_id: XhEgdcjkjfqTqw1y
+    # The client secret for talking to the Tidal API. Not required unless you want to
+    # use your own client.
+    client_secret: null
+    # The country code for the Tidal API. This is required for some endpoints.
+    # It influences track availability slightly.
+    country_code: US
 ```
+
+:::{dropdown} API Credentials
+
+We ship a default `client_id` for Tidal, but you can also create your own credentials if you want to.
+
+If you want to use your own credentials, you need to obtain API credentials:
+
+1. Visit the [Tidal Developer Portal](https://developer.tidal.com/)
+2. Log in with your Tidal account
+3. Create a new application
+4. Generate your `client_id` (and optionally `client_secret`)
+:::
 
 ## Authentication
 

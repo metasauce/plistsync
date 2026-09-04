@@ -9,6 +9,7 @@ import typer
 from plistsync.config import Config
 from plistsync.errors import AuthenticationError
 from plistsync.logger import log
+from plistsync.services.plex import PlexConfig
 from plistsync.utils.auth.redirect import BaseRedirectHandler
 
 
@@ -46,7 +47,8 @@ def auth(
     )
 
     config = Config()
-    plex_config = config.plex
+    plex_config = config.get_service_config("plex")
+    assert isinstance(plex_config, PlexConfig)
     redirect_port = port if port is not None else config.redirect_port
 
     # Check if token exists and is valid
@@ -74,8 +76,8 @@ def auth(
         "https://plex.tv/api/v2/pins?strong=true",
         headers={
             "accept": "application/json",
-            "X-Plex-Product": config.plex.app_name,
-            "X-Plex-Client-Identifier": config.plex.client_identifier,
+            "X-Plex-Product": plex_config.app_name,
+            "X-Plex-Client-Identifier": plex_config.client_identifier,
         },
         json={"strong": True},
     )
@@ -84,9 +86,9 @@ def auth(
 
     # Create an url for the user to authenticate
     params = {
-        "clientID": config.plex.client_identifier,
+        "clientID": plex_config.client_identifier,
         "code": pin["code"],
-        "context[device][product]": config.plex.app_name,
+        "context[device][product]": plex_config.app_name,
     }
     if mode == "forward":
         params["forwardUrl"] = f"http://localhost:{redirect_port}/"
@@ -106,7 +108,9 @@ def auth(
     try:
         if mode == "forward":
             start_redirect_server(redirect_port, PlexRedirectHandler, {})
-            success, pin_data = verify_pin(pin["id"])
+            success, pin_data = verify_pin(
+                pin["id"], plex_config.client_identifier, plex_config.app_name
+            )
         else:
             # Check for the pin manually every 2 seconds
             timeout = 300  # 5 minutes
@@ -115,7 +119,11 @@ def auth(
 
             while time.time() - start_time < timeout and not success:
                 time.sleep(2)
-                success, pin_data = verify_pin(pin["id"])
+                success, pin_data = verify_pin(
+                    pin["id"],
+                    plex_config.client_identifier,
+                    plex_config.app_name,
+                )
 
             if not success:
                 raise AuthenticationError("Failed to authenticate with Plex.")
@@ -152,14 +160,14 @@ class PlexRedirectHandler(BaseRedirectHandler):
 # Plex does not use a redirect handler but requires polling the pin endpoint
 
 
-def verify_pin(pin_id: int) -> tuple[bool, Any]:
+def verify_pin(pin_id: int, client_identifier: str, app_name: str) -> tuple[bool, Any]:
     """Verify the PIN code with Plex."""
     response = requests.get(
         f"https://plex.tv/api/v2/pins/{pin_id}",
         headers={
             "accept": "application/json",
-            "X-Plex-Client-Identifier": Config().plex.client_identifier,
-            "X-Plex-Product": Config().plex.app_name,
+            "X-Plex-Client-Identifier": client_identifier,
+            "X-Plex-Product": app_name,
         },
     )
     if response.status_code != 200:

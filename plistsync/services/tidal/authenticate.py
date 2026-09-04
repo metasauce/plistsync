@@ -12,6 +12,7 @@ import typer
 from plistsync.config import Config
 from plistsync.errors import AuthenticationError
 from plistsync.logger import log
+from plistsync.services.tidal import TidalConfig
 from plistsync.utils import build_url
 from plistsync.utils.auth.bearer_token import Oauth2Token
 
@@ -57,7 +58,8 @@ def auth(
     )
 
     config = Config()
-    tidal_config = config.tidal
+    tidal_config = config.get_service_config("tidal")
+    assert isinstance(tidal_config, TidalConfig)
     redirect_port = port if port is not None else config.redirect_port
     code_verifier, code_challenge = generate_pkce_codes()
     state = secrets.token_urlsafe(8)

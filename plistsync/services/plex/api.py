@@ -15,6 +15,7 @@ from urllib.parse import quote
 
 import requests
 
+from plistsync.errors import ConfigurationError
 from plistsync.logger import log
 from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
 from plistsync.utils.session import PlistsyncSession
@@ -83,9 +84,9 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
 
     @classmethod
     def from_config(cls):
-        from plistsync.config import Config, ConfigurationError
+        from .config import PlexConfig
 
-        plex_config = Config().plex
+        plex_config = PlexConfig.get()
 
         def _resolve_server_name(server_name: str):
             # we need a temporary session for plex.tv, but later want one that uses the
