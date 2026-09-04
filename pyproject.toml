@@ -85,7 +85,7 @@ typed = [
 ]
 
 [project.scripts]
-plistsync = "plistsync.__main__:cli"
+plistsync = "plistsync.__main__:app"
 
 [project.entry-points."plistsync.services"]
 # This defines all actionable services for plistsync.
@@ -198,3 +198,6 @@ ignore_missing_imports = true
 # If tests are discovered as top-level modules => test_*
 module = ["tests.*"]
 disable_error_code = ["method-assign", "attr-defined"]
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
