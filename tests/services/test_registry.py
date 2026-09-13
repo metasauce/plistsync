@@ -233,9 +233,11 @@ class TestServiceLoader:
     def clear_loader_cache(self) -> Generator[None, None, None]:
         ServiceLoader.get.__func__.cache_clear()
         ServiceLoader.all.__func__.cache_clear()
+        ServiceLoader.list_all.__func__.cache_clear()
         yield
         ServiceLoader.get.__func__.cache_clear()
         ServiceLoader.all.__func__.cache_clear()
+        ServiceLoader.list_all.__func__.cache_clear()
 
     def test_get_returns_service_instance(self) -> None:
         ep = _make_entry_point(SERVICE_NAME, FakeService)
@@ -261,6 +263,18 @@ class TestServiceLoader:
         ep.load.side_effect = ModuleNotFoundError("No module named 'missing_pkg'")
         with patch("plistsync.services.entry_points", return_value=[ep]):
             assert ServiceLoader.get("_test_broken") is None
+
+    def test_list_all_returns_names_without_loading(self) -> None:
+        eps = [
+            _make_entry_point("_test_a", FakeService),
+            _make_entry_point("_test_b", FakeService),
+        ]
+        with patch("plistsync.services.entry_points", return_value=eps):
+            names = ServiceLoader.list_all()
+
+        assert names == ["_test_a", "_test_b"]
+        for ep in eps:
+            ep.load.assert_not_called()
 
     def test_all_returns_mapping_of_available_services(self) -> None:
         class OtherService(Service):
