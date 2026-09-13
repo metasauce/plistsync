@@ -2,16 +2,23 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
+import requests
 
 from plistsync.config import ServiceConfig
 from plistsync.core.auth import AuthProvider, OAuth2Provider
+from plistsync.errors import AuthenticationError
 from plistsync.utils.auth.bearer_token import Token
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from plistsync.core.auth import Interaction
 
 
@@ -33,22 +40,45 @@ class FakeToken(Token):
 
 
 class FakeInteraction:
-    """In-memory implementation of the Interaction protocol."""
+    """In-memory implementation of the auth interaction protocol.
 
-    def __init__(self) -> None:
+    Parameters
+    ----------
+    redirect:
+        Value returned by :meth:`capture_redirect`: a fixed callback URL,
+        ``None``, or a callable receiving this interaction and the redirect
+        URI (e.g. to echo the ``state`` from the URL a provider opened).
+    """
+
+    def __init__(
+        self,
+        redirect: str | None | Callable[[FakeInteraction, str], str | None] = None,
+    ) -> None:
+        self.redirect = redirect
         self.opened_urls: list[str] = []
+        self.captured_uris: list[str] = []
+        self.messages: list[str] = []
 
     def open_url(self, url: str) -> None:
         self.opened_urls.append(url)
 
     def show(self, message: str) -> None:
-        pass
+        self.messages.append(message)
 
     def ask(self, message: str) -> str:
         return ""
 
     def capture_redirect(self, redirect_uri: str) -> str | None:
-        return None
+        self.captured_uris.append(redirect_uri)
+        if callable(self.redirect):
+            return self.redirect(self, redirect_uri)
+        return self.redirect
+
+
+def _oauth2_callback(interaction: FakeInteraction, redirect_uri: str) -> str:
+    """Echo the state from the last opened URL into the OAuth2 callback."""
+    state = parse_qs(urlparse(interaction.opened_urls[-1]).query)["state"][0]
+    return f"{redirect_uri}?code=auth-code&state={state}"
 
 
 class RecordingProvider(AuthProvider[str, str, FakeToken], service="_test_auth_flow"):
@@ -140,3 +170,82 @@ class TestInteraction:
         interaction.open_url("https://example.com")
 
         assert interaction.opened_urls == ["https://example.com"]
+
+
+class TestOAuth2Provider:
+    """The PKCE authorization-code flow, end to end."""
+
+    def test_authenticate_exchanges_code_for_token(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = FakeOAuth2Provider(ServiceConfig())
+        interaction = FakeInteraction(redirect=_oauth2_callback)
+        session = MagicMock()
+        session.post.return_value.json.return_value = {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "token_type": "Bearer",
+            "expires_in": 3600,
+        }
+        monkeypatch.setattr(
+            "plistsync.core.auth.PlistsyncSession", lambda *args, **kwargs: session
+        )
+
+        token = provider.authenticate(interaction)
+
+        assert token.as_dict()["access_token"] == "access"
+
+        assert session.post.call_args.args[0] == provider.token_endpoint
+        data = session.post.call_args.kwargs["data"]
+        assert data["grant_type"] == "authorization_code"
+        assert data["client_id"] == "client-id"
+        assert data["code"] == "auth-code"
+        assert data["redirect_uri"] == provider.redirect_uri()
+
+        # The verifier sent to the token endpoint matches the challenge that
+        # was advertised in the authorization URL (PKCE S256).
+        challenge = parse_qs(urlparse(interaction.opened_urls[-1]).query)[
+            "code_challenge"
+        ][0]
+        expected_challenge = (
+            base64.urlsafe_b64encode(
+                hashlib.sha256(data["code_verifier"].encode()).digest()
+            )
+            .rstrip(b"=")
+            .decode()
+        )
+        assert challenge == expected_challenge
+
+    def test_authenticate_wraps_exchange_errors(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider = FakeOAuth2Provider(ServiceConfig())
+        session = MagicMock()
+        session.post.side_effect = requests.RequestException("boom")
+        monkeypatch.setattr(
+            "plistsync.core.auth.PlistsyncSession", lambda *args, **kwargs: session
+        )
+
+        with pytest.raises(AuthenticationError, match="Failed to obtain token"):
+            provider.authenticate(FakeInteraction(redirect=_oauth2_callback))
+
+    @pytest.mark.parametrize(
+        ("callback", "match"),
+        [
+            (None, "No callback received"),
+            (
+                "http://127.0.0.1/cb?error=access_denied&error_description=User+said+no",
+                "User said no",
+            ),
+            ("http://127.0.0.1/cb?state=some-state", "Missing 'code' or 'state'"),
+            ("http://127.0.0.1/cb?code=some-code&state=wrong", "state mismatch"),
+        ],
+    )
+    def test_obtain_token_rejects_bad_callbacks(
+        self, callback: str | None, match: str
+    ) -> None:
+        provider = FakeOAuth2Provider(ServiceConfig())
+        request = provider.build_request()
+
+        with pytest.raises(AuthenticationError, match=match):
+            provider.obtain_token(request, callback)
