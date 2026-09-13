@@ -7,6 +7,7 @@ check_imports(
 )
 
 from . import api
+from .auth import PlexAuth
 from .config import PlexConfig
 from .library import PlexLibrary
 from .playlist import PlexPlaylist, PlexPlaylistID
@@ -18,6 +19,7 @@ class PlexService(Service):
 
 
 __all__ = [
+    "PlexAuth",
     "PlexConfig",
     "PlexLibrary",
     "PlexPlaylist",
