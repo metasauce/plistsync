@@ -126,3 +126,13 @@ class ServiceLoader:
             services[ep.name] = service_cls()
 
         return services
+
+    @classmethod
+    @cache
+    def list_all(cls) -> list[str]:
+        """Return a list of all available service names.
+
+        This does not import the service modules, so it is fast and safe to use
+        for help messages and completion.
+        """
+        return [ep.name for ep in entry_points(group=cls.GROUP)]
