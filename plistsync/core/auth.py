@@ -13,10 +13,12 @@ import requests
 
 from plistsync.errors import AuthenticationError
 from plistsync.services.registry import Registry
-from plistsync.utils.auth.bearer_token import Oauth2Token, Token
+from plistsync.utils.auth.bearer_token import Oauth2Token
 from plistsync.utils.session import PlistsyncSession
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from plistsync.config import ServiceConfig
 
 
@@ -42,6 +44,16 @@ class Interaction(Protocol):
     def capture_redirect(self, redirect_uri: str) -> str | None:
         """Wait for the browser callback at ``redirect_uri``; return it raw."""
         ...
+
+
+class Token(Protocol):
+    file_path: Path | None
+
+    def save(self) -> None:
+        """Persist the token to disk.
+
+        Path is configured using the config when a token is created.
+        """
 
 
 Req = TypeVar("Req")
@@ -92,6 +104,8 @@ class AuthProvider(ABC, Registry, Generic[Req, Res, T]):
 
 
 # ---------------------------------- OAuth2 ---------------------------------- #
+# TODO: We should move this into its own lazily loaded file, since it imports some deps
+# that are not needed for most providers.
 
 
 @dataclass(kw_only=True, frozen=True)

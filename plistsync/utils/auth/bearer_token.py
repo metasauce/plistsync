@@ -28,7 +28,13 @@ if TYPE_CHECKING:
 
 
 class Token(ABC):
-    """Abstract base class for bearer tokens."""
+    """Abstract base class for bearer tokens.
+
+    Structurally satisfies the :class:`plistsync.core.auth.Token` protocol.
+    Inheriting that protocol explicitly would create an import cycle, since
+    ``core.auth`` uses :class:`Oauth2Token` to parameterize its providers.
+    -> TODO: This needs a bigger refactor!
+    """
 
     file_path: Path | None
     """Path where the token should be persisted. None for memory-only tokens."""
@@ -69,7 +75,7 @@ class Token(ABC):
         except Exception as e:
             raise InvalidTokenError(None) from e
 
-    def save(self):
+    def save(self) -> None:
         """Persist token to :attr:`file_path`. Raises if file_path is None."""
         if self.file_path is None:
             raise ValueError("Cannot save token: file_path is None")
