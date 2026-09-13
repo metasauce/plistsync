@@ -11,6 +11,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class PlexConfig(ServiceConfig):
+    """Configuration for the Plex service."""
+
     server_url: Annotated[
         str | None,
         "The URL of the Plex server to connect to by default.",
@@ -23,6 +25,11 @@ class PlexConfig(ServiceConfig):
         "via plex.tv. In this case, we try local routes first.",
         "E.g. 'my_plex_server'",
     ] = field(default=None)
+
+    redirect_port: Annotated[
+        int,
+        "The port to use for the local redirect server when authenticating.",
+    ] = field(default=5001)
 
     @property
     def app_name(self) -> str:
