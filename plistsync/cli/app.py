@@ -12,7 +12,6 @@ from plistsync.config import Config
 from plistsync.logger import basic_logging_handler, init_logging, log
 from plistsync.services import ServiceLoader
 
-from .commands.auth import auth_app
 from .commands.config import config_app
 from .commands.sync import sync_app
 
@@ -127,6 +126,5 @@ def main(
     """Global callback — handles --verbose and --version flags."""
 
 
-app.add_typer(auth_app)
 app.add_typer(config_app, name="config")
 app.add_typer(sync_app)
