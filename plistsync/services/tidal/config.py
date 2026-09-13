@@ -13,11 +13,12 @@ class TidalConfig(ServiceConfig):
         "obtain a new client ID by registering an Devleloper application.",
     ] = field(default="XhEgdcjkjfqTqw1y")
 
-    client_secret: Annotated[
-        str | None,
-        "The client secret for talking to the Tidal API. Not required unless you want"
-        "to use your own client.",
-    ] = None
+    redirect_port: Annotated[
+        int,
+        "The port to use for the local redirect server when authenticating. If using "
+        "the default Tidal client ID, this must be 20556, as is the port whitelisted by"
+        "our public client.",
+    ] = field(default=20556)
 
     country_code: Annotated[
         str,

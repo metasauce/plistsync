@@ -15,11 +15,12 @@ class SpotifyConfig(ServiceConfig):
         " obtain a new client ID by registering an Devleloper application.",
     ] = field(default="3b408bca2c3344dfa1cda1c7fa9adde4")
 
-    client_secret: Annotated[
-        str | None,
-        "The client secret for talking to the Spotify API. Not required unless you want"
-        " to use your own client.",
-    ] = None
+    redirect_port: Annotated[
+        int,
+        "The port to use for the local redirect server when authenticating. If using "
+        "the default Spotify client ID, this must be 20556, as is the port whitelisted"
+        "by the app.",
+    ] = field(default=20556)
 
     def load_token(self) -> Oauth2Token:
         """Get a previously saved token for a user from the config directory.

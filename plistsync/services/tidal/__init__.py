@@ -7,6 +7,7 @@ check_imports(
 )
 
 from . import api
+from .auth import TidalAuth
 from .config import TidalConfig
 from .library import TidalLibrary
 from .playlist import TidalPlaylist, TidalPlaylistID
@@ -18,6 +19,7 @@ class TidalService(Service):
 
 
 __all__ = [
+    "TidalAuth",
     "TidalConfig",
     "TidalLibrary",
     "TidalPlaylist",
