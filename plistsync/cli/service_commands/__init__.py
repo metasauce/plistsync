@@ -10,6 +10,10 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from plistsync.errors import HowTheForkDidYouEndUpHereError
+
+from .auth import auth_command_factory
+
 if TYPE_CHECKING:
     from plistsync.services import Service
 
@@ -21,4 +25,17 @@ def cli_service_factory(service: Service) -> typer.Typer:
         help=f"Commands for the {service.name} service.",
         no_args_is_help=True,
     )
+
+    # Resolve the service config once, here, so the commands below receive
+    # configured providers instead of looking their config up themselves.
+    config_cls = service.config()
+    config = config_cls.get() if config_cls is not None else None
+
+    if (auth_provider_cls := service.auth()) is not None:
+        if config is None:
+            raise HowTheForkDidYouEndUpHereError(
+                f"Service {service.name!r} provides auth but no config."
+            )
+        app.command()(auth_command_factory(auth_provider_cls(config)))
+
     return app

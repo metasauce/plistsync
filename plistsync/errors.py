@@ -37,6 +37,17 @@ class AuthenticationError(Exception):
     pass
 
 
+class HowTheForkDidYouEndUpHereError(Exception):
+    """Raised when something unexpected happens.
+
+    If you ever see this in a traceback: congratulations, you found a bug.
+    How the fork did you end up here? Please open an issue describing the
+    cursed sequence of events so we can share the confusion.
+    """
+
+    pass
+
+
 def check_imports(
     service: str,
     required_packages: list[str],
