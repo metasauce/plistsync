@@ -107,26 +107,9 @@ Only the bookkeeping for the SyncedPlaylist is deleted from the local disk.
 
 ## Full command reference
 
-<div class="only-light">
-
 ```{typer} plistsync.cli.commands.sync:sync_app
 ---
 prog: plistsync sync
-theme: light
 width: 80
 ---
 ```
-
-</div>
-
-<div class="only-dark">
-
-```{typer} plistsync.cli.commands.sync:sync_app
----
-prog: plistsync sync
-theme: dark
-width: 80
----
-```
-
-</div>
