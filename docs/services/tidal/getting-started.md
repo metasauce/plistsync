@@ -72,7 +72,7 @@ If you want to use your own credentials, you need to obtain API credentials:
 Once configured, authenticate `plistsync` with your Tidal account:
 
 ```bash
-plistsync auth tidal
+plistsync tidal auth
 ```
 
 This will start an interactive authentication flow:
@@ -84,29 +84,12 @@ This will start an interactive authentication flow:
 
 ### Authentication Preview
 
-<div class="only-light">
-
-```{typer} cli:app::tidal
+```{typer} plistsync.cli.app:app::tidal:auth
 ---
-prog: plistsync auth tidal
-theme: light
+prog: plistsync tidal auth
 width: 80
 ---
 ```
-
-</div>
-
-<div class="only-dark">
-
-```{typer} cli:app::tidal
----
-prog: plistsync auth tidal
-theme: dark
-width: 80
----
-```
-
-</div>
 
 ## Verification
 

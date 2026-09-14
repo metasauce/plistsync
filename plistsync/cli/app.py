@@ -21,7 +21,9 @@ from .service_commands import cli_service_factory
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    import click
+    # Typer vendors its own click fork (`typer._click`) since 0.26, so override
+    # signatures must use those types rather than the standalone click package.
+    from typer._click import Command, Context
 
     from plistsync.config import LoggingConfig
 
@@ -49,11 +51,11 @@ class ServiceGroup(TyperGroup):
         service_app = get_group(cli_service_factory(service))
         self.commands.update(service_app.commands)
 
-    def list_commands(self, ctx: click.Context) -> list[str]:
+    def list_commands(self, ctx: Context) -> list[str]:
         self._load()
         return super().list_commands(ctx)
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
         self._load()
         return super().get_command(ctx, cmd_name)
 
@@ -78,12 +80,12 @@ class LazyServiceGroup(TyperGroup):
                 )
             )
 
-    def list_commands(self, ctx: click.Context) -> list[str]:
+    def list_commands(self, ctx: Context) -> list[str]:
         """Register all available services (for help and completion)."""
         self._register_services(ServiceLoader.list_all())
         return super().list_commands(ctx)
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
         """Register the requested service placeholder, or all for suggestions."""
         names = ServiceLoader.list_all()
         if cmd_name in names:

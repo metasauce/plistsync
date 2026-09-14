@@ -76,7 +76,7 @@ services:
 Once configured, authenticate `plistsync` with your Spotify account:
 
 ```bash
-plistsync auth spotify
+plistsync spotify auth
 ```
 
 This will start an interactive authentication flow:
@@ -88,29 +88,12 @@ This will start an interactive authentication flow:
 
 ### Authentication Preview
 
-<div class="only-light">
-
-```{typer} cli:app::spotify
+```{typer} plistsync.cli.app:app::spotify:auth
 ---
-prog: plistsync auth spotify
-theme: light
+prog: plistsync spotify auth
 width: 80
 ---
 ```
-
-</div>
-
-<div class="only-dark">
-
-```{typer} cli:app::spotify
----
-prog: plistsync auth spotify
-theme: dark
-width: 80
----
-```
-
-</div>
 
 ## Verification
 
