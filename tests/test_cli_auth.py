@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import patch
 
 import pytest
+from typer._click._compat import strip_ansi
 from typer.main import get_group
 from typer.testing import CliRunner
 
@@ -178,7 +179,7 @@ class TestAuthCommand:
             result = runner.invoke(app, ["fake", "auth", "--help"])
 
         assert result.exit_code == 0, result.output
-        assert "--mode" in result.output
+        assert "--mode" in strip_ansi(result.output)
 
 
 class TestCliServiceFactory:
