@@ -15,18 +15,17 @@ from typer.testing import CliRunner
 from plistsync.cli import app
 from plistsync.cli.service_commands import cli_service_factory
 from plistsync.cli.service_commands.auth import CLIInteraction, RawRedirectHandler
-from plistsync.config import Config
+from dataclasses import dataclass
+
+from plistsync.config import Config, ServiceConfig
 from plistsync.core.auth import AuthProvider
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.services import Service, ServiceLoader
-from plistsync.services.plex.config import PlexConfig
 from plistsync.utils.auth.bearer_token import Token
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
-
-    from plistsync.config import ServiceConfig
 
 runner = CliRunner()
 
@@ -48,6 +47,25 @@ class FakeToken(Token):
         return request
 
 
+@dataclass
+class FakeConfig(ServiceConfig, service="fake"):
+    """Config for the fake service.
+
+    ``service="fake"`` registers it without relying on the module path. The
+    module override below makes the service name -- and therefore the token
+    path -- resolve to ``fake``. The field keeps the generated default config
+    valid, since an empty service section is parsed as ``None``.
+    """
+
+    redirect_port: int = 5001
+
+
+# ``__module__`` must be set after the class body: ``@dataclass`` resolves
+# string annotations via ``sys.modules[cls.__module__]``, and no
+# ``plistsync.services.fake`` module exists.
+FakeConfig.__module__ = "plistsync.services.fake"
+
+
 class FakeAuthProvider(AuthProvider[None, None, FakeToken]):
     """Auth provider returning a token the CLI can persist."""
 
@@ -66,8 +84,8 @@ class FakeAuthProvider(AuthProvider[None, None, FakeToken]):
         return None
 
     def obtain_token(self, request, response) -> FakeToken:
-        # Providers own the token path (see the core.auth.Token protocol).
-        return FakeToken(Config.get_dir() / "fake_token.json")
+        # The command persists the token at the service config's token path.
+        return FakeToken()
 
 
 class FakeService(Service):
@@ -75,8 +93,8 @@ class FakeService(Service):
 
     __module__ = "plistsync.services.fake"
 
-    def config(self) -> type[PlexConfig]:
-        return PlexConfig
+    def config(self) -> type[FakeConfig]:
+        return FakeConfig
 
     def auth(self) -> type[FakeAuthProvider]:
         return FakeAuthProvider
@@ -194,13 +212,17 @@ class TestCliServiceFactory:
         assert command.name == "auth"
         assert command.help == "Authenticate with fake."
 
-    def test_provider_is_constructed_with_resolved_config(self) -> None:
+    def test_provider_is_constructed_with_resolved_config(
+        self, fake_token_file: Path
+    ) -> None:
         FakeAuthProvider.instances.clear()
 
-        cli_service_factory(FakeService())
+        with _fake_service():
+            result = runner.invoke(app, ["fake", "auth"])
 
+        assert result.exit_code == 0, result.output
         assert len(FakeAuthProvider.instances) == 1
-        assert isinstance(FakeAuthProvider.instances[0].config, PlexConfig)
+        assert isinstance(FakeAuthProvider.instances[0].config, FakeConfig)
 
     def test_unsupported_commands_are_skipped(self) -> None:
         class NoAuthService(Service):

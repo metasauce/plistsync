@@ -36,6 +36,6 @@ def cli_service_factory(service: Service) -> typer.Typer:
             raise HowTheForkDidYouEndUpHereError(
                 f"Service {service.name!r} provides auth but no config."
             )
-        app.command()(auth_command_factory(auth_provider_cls(config)))
+        app.command()(auth_command_factory(auth_provider_cls, config))
 
     return app
