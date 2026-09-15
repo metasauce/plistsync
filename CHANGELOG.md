@@ -7,14 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Upcoming
 
-### Fixed
+### Breaking Changes
 
-- spotify: Fetching tracks of an empty playlist no longer raises an error. The Spotify API returns `limit=0` and an `href` it rejects for playlists without tracks; those are now short-circuited to an empty track list.
-- spotify: `get_playlist` only maps `404` responses to a missing playlist (`None`); other API or authentication errors are re-raised instead of being swallowed.
+- Authentication is no longer coupled to the CLI and can be driven programmatically by library consumers. Auth commands moved from `plistsync auth <service>` to the service-first layout `plistsync <service> auth` (e.g. `plistsync spotify auth --mode manual`). (#117)
+  - Removed the `--port` and `--force` options. The redirect port now comes from the service config (`redirect_port`), and Plex's `--mode polling` was renamed to `--mode manual`.
+  - Removed the unused `client_secret` options from the `SpotifyConfig` and `TidalConfig` configs.
+
+### Added
+
+- Added a service-agnostic authentication layer in `plistsync.core.auth`. The `AuthProvider` base class splits a flow into `build_request`, `collect_response` and `obtain_token`, and drives user interaction through the `Interaction` protocol, allowing library consumers to run authentication flows programmatically without the CLI. (#117)
+- Added auth providers for `Plex`, `Spotify` and `Tidal`, including a reusable `OAuth2Provider` implementing the authorization code flow with PKCE, and `Service.auth()` for resolving a service's registered provider.
 
 ### Changes
 
 - spotify: Deleted playlists can no longer be recovered through the API. Removed the corresponding recovery example from the docs.
+- The CLI now uses a service-first layout (`plistsync <service> <command>`) and discovers services and their commands lazily from their entry points: service modules are only imported when a command is actually requested, which keeps startup and help/completion cheap.
+
+### Fixed
+
+- spotify: Fetching tracks of an empty playlist no longer raises an error. The Spotify API returns `limit=0` and an `href` it rejects for playlists without tracks; those are now short-circuited to an empty track list.
+- spotify: `get_playlist` only maps `404` responses to a missing playlist (`None`); other API or authentication errors are re-raised instead of being swallowed.
 
 ## [0.8.0] - 2026-09-04
 
