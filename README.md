@@ -9,7 +9,7 @@
 <p align="center">
     <em><b>
 <!-- start intro -->
-Toolbox for transferring, converting and matching music collections and playlists across services.
+Toolbox and CLI for transferring, converting, matching and inspecting music collections and playlists across services.
 <!-- end intro -->
     </b></em>
 </p>
@@ -22,9 +22,9 @@ Toolbox for transferring, converting and matching music collections and playlist
 
 <!-- start overview -->
 
-**plistsync** is a Python toolbox designed to solve the common problem of fragmented music libraries across different platforms. Whether you're a DJ moving playlists between Traktor and streaming services, a music enthusiast syncing collections between Plex and Spotify, or simply organizing your music across multiple platforms, plistsync provides a unified interface to transfer, convert, and match your music data.
+**plistsync** is a Python toolbox and Command Line Interface designed to solve the common problem of fragmented music libraries across different platforms. Whether you're a DJ moving playlists between Traktor and streaming services, a music enthusiast syncing collections between Plex and Spotify, or simply organizing your music across multiple platforms, plistsync provides a unified interface to transfer, convert, and match your music data.
 
-The core of plistsync is its abstraction layer that normalizes tracks, collections, and playlists from various services into a common format, enabling seamless synchronization while handling the complexities of different APIs, authentication methods, and metadata formats.
+The core of plistsync is its abstraction layer that normalizes tracks, libraries, and playlists from various services into a common format, enabling seamless synchronization while handling the complexities of different APIs, authentication methods, and metadata formats.
 
 <!-- end overview -->
 
@@ -32,22 +32,30 @@ The core of plistsync is its abstraction layer that normalizes tracks, collectio
 
 <!-- start features -->
 
-- **Unified Abstraction Layer**: Normalizes tracks, collections, and playlists from various services into a common format, enabling seamless synchronization across platforms
+- **Unified Abstraction Layer**: Normalizes tracks, collections, and playlists from various services into a common format and interface
 - **Extensible Service Architecture**: The abstraction layer is designed to support arbitrary music services with consistent APIs
   - Currently supports Spotify, Tidal, Plex, Traktor and local files
-- **Collection Management**: Sync entire music libraries or specific playlists between services
-- **Developer-Friendly**: Built with type hints, comprehensive error handling, and pytest for testing
-- **Flexible Configuration**: Manage service credentials and preferences through config files
-
+  - Simplifies creating your own extensions for other services
+- **Command Line Interface (CLI)**: Provides a user-friendly CLI for common tasks like syncing playlists, transferring tracks, and managing libraries
+- **Python API**: Offers a programmatic interface for developers to integrate plistsync into scripts or own applications
 <!-- end features -->
 
 ## Getting started
 
 For detailed usage guides, API reference, and examples, see the [full documentation](https://docs.plistsync.com).
 
+Quick start:
+
+```bash
+pip install plistsync
+plistsync --help
+```
+
 ## Is this for you?
 
-**plistsync** is intended for users who are comfortable with Python and scripting. It is **not** a point-and-click app, it’s a _developer-oriented_ toolbox for automating music library and playlist workflows.
+**Yes**, if you are comfortable in a terminal. The CLI is easy to pick up, and no Python knowledge is required.
+
+If you’re comfortable with writing some code, there’s also a Python API for scripting custom workflows and integrations.
 
 ## License
 
