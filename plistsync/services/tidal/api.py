@@ -83,7 +83,7 @@ class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
         tidal_config = TidalConfig.get()
         return cls(
             client_id=tidal_config.client_id,
-            token=tidal_config.load_token(),
+            token=Oauth2Token.from_file(tidal_config.token_path),
         )
 
     def _refresh_token(self) -> None:

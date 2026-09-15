@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from plistsync.config import Config, ServiceConfig
-from plistsync.utils.auth.bearer_token import Oauth2Token
+from plistsync.config import ServiceConfig
 
 
 @dataclass
@@ -25,15 +24,3 @@ class TidalConfig(ServiceConfig):
         "The country code for the Tidal API. This is required for some endpoints. It"
         "influences track availability slightly.",
     ] = field(default="US")
-
-    def load_token(self) -> Oauth2Token:
-        """Get a previously saved token for a user from the config directory.
-
-        Use cli to authenticate a user and save the token to the config directory.
-        """
-
-        # TODO: We should be able to add multi user support
-        # here somehow ;)
-        return Oauth2Token.from_file(
-            Config.get_dir() / "tidal_token.json",
-        )

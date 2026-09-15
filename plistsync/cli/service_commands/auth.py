@@ -18,6 +18,7 @@ from plistsync.utils.auth.redirect import BaseRedirectHandler, start_redirect_se
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from plistsync.config import ServiceConfig
     from plistsync.core.auth import AuthProvider, Token
 
 
@@ -87,9 +88,11 @@ class CLIInteraction:
         return state.get("url")
 
 
-def auth_command_factory(auth_provider: AuthProvider) -> Callable[..., None]:
+def auth_command_factory(
+    auth_provider: type[AuthProvider], service_config: ServiceConfig
+) -> Callable[..., None]:
     """Create the auth command for a configured auth provider."""
-    service_name = auth_provider.service()
+    service_name = service_config.service()
 
     def auth(
         mode: Annotated[
@@ -105,9 +108,14 @@ def auth_command_factory(auth_provider: AuthProvider) -> Callable[..., None]:
         ] = "forward",
     ) -> None:
         """Authenticate and persist a token."""
-        token: Token = auth_provider.authenticate(CLIInteraction(mode=mode))
+        token: Token = auth_provider(service_config).authenticate(
+            CLIInteraction(mode=mode)
+        )
+        token.file_path = service_config.token_path
         token.save()
-        typer.echo(f"Authentication successful! Token saved to {token.file_path!r}.")
+        typer.echo(
+            f"Authentication successful! Token saved to {str(token.file_path)!r}."
+        )
 
     auth.__doc__ = f"Authenticate with {service_name}."
     return auth

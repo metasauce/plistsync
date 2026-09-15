@@ -51,6 +51,10 @@ class ServiceConfig(ABC, Registry):
 
         raise ValueError(f"Service config {cls.__name__} is not registered.")
 
+    @property
+    def token_path(self) -> Path:
+        return Config.get_dir() / f"{self.service().lower()}_token.json"
+
 
 @dataclass
 class LoggingConfig:
