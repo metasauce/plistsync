@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from plistsync.cli.service_commands.library import library_typer_factory
 from plistsync.errors import HowTheForkDidYouEndUpHereError
 
 from .auth import auth_command_factory
@@ -37,5 +38,7 @@ def cli_service_factory(service: Service) -> typer.Typer:
                 f"Service {service.name!r} provides auth but no config."
             )
         app.command()(auth_command_factory(auth_provider_cls, config))
+
+    app.add_typer(library_typer_factory(service))
 
     return app
