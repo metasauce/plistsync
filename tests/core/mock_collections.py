@@ -16,6 +16,7 @@ from .mock_track import MockTrack
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
+    from typing import Any
 
     from plistsync.core import PlaylistID, TrackID
     from plistsync.core.track import TrackInfo
@@ -136,11 +137,20 @@ class MockLibrary(
 
     @property
     def playlists(self) -> Iterable[MockServicePlaylist]:
-        return []
+        return MockLibrary.created
 
     def get_playlist(
-        self, *, id: PlaylistID | str | None = None
+        self,
+        *,
+        id: PlaylistID | str | None = None,
+        name: str | None = None,
+        **kwargs: Any,
     ) -> MockServicePlaylist | None:
+        for playlist in MockLibrary.created:
+            if (id is not None and playlist.id.serial == str(id)) or (
+                name is not None and playlist.name == name
+            ):
+                return playlist
         return None
 
     def create_playlist(

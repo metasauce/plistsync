@@ -11,6 +11,7 @@ from rich.console import Console
 from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
+from rich.text import Text
 
 # Typer vendors its own click fork, so the parameter type must come from there.
 from typer._click.shell_completion import CompletionItem
@@ -26,7 +27,7 @@ if TYPE_CHECKING:
 
     from typer._click import Context, Parameter
 
-    from plistsync.core import Library, Track
+    from plistsync.core import Library, PlaylistID, Track
 
     T = TypeVar("T", bound=Track)
 
@@ -98,10 +99,12 @@ class PlaylistArgument(ParamType):
 
         name_or_id = str(value)
 
-        if playlist := self.library.get_playlist(id=name_or_id):
+        playlist = self.library.get_playlist(id=name_or_id)
+        if playlist is not None:
             return playlist
 
-        if playlist := self.library.get_playlist(name=name_or_id):
+        playlist = self.library.get_playlist(name=name_or_id)
+        if playlist is not None:
             return playlist
 
         self.fail(f"No playlist found matching {name_or_id!r}.", param, ctx)
@@ -122,6 +125,13 @@ class PlaylistArgument(ParamType):
             for value in (playlist.name, playlist.id.serial)
             if not incomplete or value.startswith(incomplete)
         ]
+
+
+def _playlist_id_text(playlist_id: PlaylistID) -> Text:
+    """Render a playlist ID, linked to its public URL when available."""
+    if url := getattr(playlist_id, "url", None):
+        return Text(playlist_id.serial, style=f"link {url}")
+    return Text(playlist_id.serial)
 
 
 def playlist_command_factory(
@@ -265,5 +275,30 @@ def playlist_command_factory(
             f"Removed playlist [bold]{escape(repr(removed.name))}[/bold] "
             f"(id: [cyan]{removed.id.serial}[/cyan])."
         )
+
+    @app.command(name="ls", hidden=True)
+    @app.command(name="list")
+    def list_playlists() -> None:
+        """List all playlists in the service library."""
+        console = Console(file=sys.stdout, highlight=False)
+
+        playlists = list(library_cls().playlists)
+        if not playlists:
+            console.print(f"No playlists found in your {library_name} library.")
+            return
+
+        table = Table(title=f"{library_name} playlists")
+        table.add_column("Name", style="bold")
+        table.add_column("Description", max_width=40, overflow="fold")
+        table.add_column("ID", style="cyan", no_wrap=True)
+
+        for playlist in playlists:
+            table.add_row(
+                escape(playlist.name),
+                escape(playlist.description or "-"),
+                _playlist_id_text(playlist.id),
+            )
+
+        console.print(table)
 
     return app

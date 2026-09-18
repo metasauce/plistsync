@@ -10,11 +10,13 @@ from typer.main import get_group
 
 from plistsync.cli.service_commands.playlist import (
     PlaylistArgument,
+    _playlist_id_text,
     parse_track_id,
 )
 from plistsync.core.ids import ISRC
 from plistsync.services import Service
 from tests.core.mock_collections import MockLibrary
+from tests.core.mock_playlist import MockPlaylistID
 from tests.core.mock_track import MockTrack
 
 if TYPE_CHECKING:
@@ -77,6 +79,16 @@ def remove(runner: CliRunner, app: typer.Typer) -> Invoke:
 
 
 @pytest.fixture
+def list_playlists(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist list``."""
+
+    def _list_playlists() -> Result:
+        return runner.invoke(app, ["playlist", "list"])
+
+    return _list_playlists
+
+
+@pytest.fixture
 def playlist(_mock_library: None) -> MockServicePlaylist:
     """A playlist known to the mock library."""
     return MockLibrary().create_playlist("Party Mix", description="Chill")
@@ -103,7 +115,13 @@ class TestCreate:
         group = get_group(service_app(MockLibraryService()))
 
         assert set(group.commands) == {"playlist"}
-        assert set(group.commands["playlist"].commands) == {"create", "remove", "rm"}
+        assert set(group.commands["playlist"].commands) == {
+            "create",
+            "remove",
+            "rm",
+            "list",
+            "ls",
+        }
         assert get_group(service_app(NoLibraryService())).commands == {}
 
     @pytest.mark.parametrize("option", ["--name", "--description", "--add", "--yes"])
@@ -250,3 +268,31 @@ class TestRemove:
         assert complete("Party") == ["Party Mix"]
         assert complete("test:playlist:") == [playlist.id.serial]
         assert complete("nope") == []
+
+
+class TestList:
+    """``plistsync <service> playlist list``."""
+
+    def test_lists_name_description_and_serial(
+        self, list_playlists: Invoke, playlist: MockServicePlaylist
+    ) -> None:
+        result = list_playlists()
+        output = strip_ansi(result.output)
+
+        assert result.exit_code == 0, result.output
+        assert "Party Mix" in output
+        assert "Chill" in output
+        assert playlist.id.serial in output
+
+    def test_empty_library_message(self, list_playlists: Invoke) -> None:
+        result = list_playlists()
+
+        assert result.exit_code == 0, result.output
+        assert "No playlists found" in strip_ansi(result.output)
+
+    def test_id_links_to_url_when_available(self) -> None:
+        playlist_id = MockPlaylistID("abc")
+        text = _playlist_id_text(playlist_id)
+
+        assert text.plain == playlist_id.serial
+        assert text.style == f"link {playlist_id.url}"
