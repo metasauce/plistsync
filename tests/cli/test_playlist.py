@@ -8,7 +8,10 @@ import pytest
 from typer._click._compat import strip_ansi
 from typer.main import get_group
 
-from plistsync.cli.service_commands.playlist import parse_track_id
+from plistsync.cli.service_commands.playlist import (
+    PlaylistArgument,
+    parse_track_id,
+)
 from plistsync.core.ids import ISRC
 from plistsync.services import Service
 from tests.core.mock_collections import MockLibrary
@@ -20,7 +23,9 @@ if TYPE_CHECKING:
     import typer
     from typer.testing import CliRunner, Result
 
-    Create = Callable[..., Result]
+    from tests.core.mock_playlist import MockServicePlaylist
+
+    Invoke = Callable[..., Result]
 
 
 class MockLibraryService(Service):
@@ -42,9 +47,14 @@ class NoLibraryService(Service):
 
 
 @pytest.fixture
-def create(runner: CliRunner, service_app: Callable[[Service], typer.Typer]) -> Create:
-    """Invoke ``playlist create`` on the mock library service."""
-    app = service_app(MockLibraryService())
+def app(service_app: Callable[[Service], typer.Typer]) -> typer.Typer:
+    """Command app for the mock library service."""
+    return service_app(MockLibraryService())
+
+
+@pytest.fixture
+def create(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist create``."""
 
     def _create(args: list[str] | None = None, user_input: str = "") -> Result:
         return runner.invoke(
@@ -52,6 +62,24 @@ def create(runner: CliRunner, service_app: Callable[[Service], typer.Typer]) -> 
         )
 
     return _create
+
+
+@pytest.fixture
+def remove(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist remove``."""
+
+    def _remove(args: list[str] | None = None, user_input: str = "") -> Result:
+        return runner.invoke(
+            app, ["playlist", "remove", *(args or [])], input=user_input
+        )
+
+    return _remove
+
+
+@pytest.fixture
+def playlist(_mock_library: None) -> MockServicePlaylist:
+    """A playlist known to the mock library."""
+    return MockLibrary().create_playlist("Party Mix", description="Chill")
 
 
 @pytest.fixture(autouse=True)
@@ -75,11 +103,11 @@ class TestCreate:
         group = get_group(service_app(MockLibraryService()))
 
         assert set(group.commands) == {"playlist"}
-        assert set(group.commands["playlist"].commands) == {"create"}
+        assert set(group.commands["playlist"].commands) == {"create", "remove", "rm"}
         assert get_group(service_app(NoLibraryService())).commands == {}
 
     @pytest.mark.parametrize("option", ["--name", "--description", "--add", "--yes"])
-    def test_help_lists_options(self, create: Create, option: str) -> None:
+    def test_help_lists_options(self, create: Invoke, option: str) -> None:
         result = create(["--help"])
 
         assert result.exit_code == 0
@@ -95,7 +123,7 @@ class TestCreate:
     )
     def test_prompts_for_metadata(
         self,
-        create: Create,
+        create: Invoke,
         args: list[str],
         user_input: str,
         expected: tuple[str, str | None],
@@ -106,7 +134,7 @@ class TestCreate:
         created = MockLibrary.created[0]
         assert (created.name, created.description) == expected
 
-    def test_confirmation_lists_metadata_and_tracks(self, create: Create) -> None:
+    def test_confirmation_lists_metadata_and_tracks(self, create: Invoke) -> None:
         result = create(
             ["--name", "N", "--description", "D", "--add", "isrc:USRC17607839"], "\n"
         )
@@ -137,20 +165,20 @@ class TestCreate:
         ],
     )
     def test_add_option(
-        self, create: Create, value: str, expected_titles: list[str]
+        self, create: Invoke, value: str, expected_titles: list[str]
     ) -> None:
         result = create(["--name", "N", "--description", "D", "-y", "--add", value])
 
         assert result.exit_code == 0, result.output
         assert [t.title for t in MockLibrary.created[0].tracks] == expected_titles
 
-    def test_yes_skips_confirmation(self, create: Create) -> None:
+    def test_yes_skips_confirmation(self, create: Invoke) -> None:
         result = create(["--name", "N", "--description", "D", "-y"])
 
         assert result.exit_code == 0, result.output
         assert "Continue?" not in result.output
 
-    def test_declining_confirmation_aborts(self, create: Create) -> None:
+    def test_declining_confirmation_aborts(self, create: Invoke) -> None:
         result = create([], "N\nD\nn\n")
 
         assert result.exit_code != 0
@@ -166,3 +194,59 @@ class TestCreate:
     )
     def test_parse_track_id(self, value: str, expected: ISRC | None) -> None:
         assert parse_track_id(value) == expected
+
+
+class TestRemove:
+    """``plistsync <service> playlist remove``."""
+
+    def test_help_lists_yes(self, remove: Invoke) -> None:
+        result = remove(["--help"])
+
+        assert result.exit_code == 0
+        assert "--yes" in strip_ansi(result.output)
+
+    def test_removes_by_name(
+        self, remove: Invoke, playlist: MockServicePlaylist
+    ) -> None:
+        result = remove(["Party Mix", "-y"])
+
+        assert result.exit_code == 0, result.output
+        assert "Removed playlist 'Party Mix'" in strip_ansi(result.output)
+        assert ("remote_delete",) in playlist.log
+
+    def test_removes_by_serial(
+        self, remove: Invoke, playlist: MockServicePlaylist
+    ) -> None:
+        result = remove([playlist.id.serial, "-y"])
+
+        assert result.exit_code == 0, result.output
+        assert ("remote_delete",) in playlist.log
+
+    def test_confirmation_aborts(
+        self, remove: Invoke, playlist: MockServicePlaylist
+    ) -> None:
+        result = remove(["Party Mix"], "n\n")
+
+        assert result.exit_code != 0
+        assert "Aborted" in strip_ansi(result.output)
+        assert ("remote_delete",) not in playlist.log
+
+    def test_unknown_playlist_fails(self, remove: Invoke) -> None:
+        result = remove(["nope", "-y"])
+
+        assert result.exit_code != 0
+        assert "No playlist found" in strip_ansi(result.output)
+
+    def test_autocompletion_lists_names_and_serials(
+        self, playlist: MockServicePlaylist
+    ) -> None:
+        param = PlaylistArgument(MockLibrary)
+
+        def complete(incomplete: str) -> list[str]:
+            items = param.shell_complete(None, None, incomplete)  # type: ignore[arg-type]
+            return [item.value for item in items]
+
+        assert complete("") == ["Party Mix", playlist.id.serial]
+        assert complete("Party") == ["Party Mix"]
+        assert complete("test:playlist:") == [playlist.id.serial]
+        assert complete("nope") == []

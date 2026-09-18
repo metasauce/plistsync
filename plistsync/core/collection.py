@@ -51,6 +51,7 @@ from typing import (
     Generic,
     ParamSpec,
     Protocol,
+    overload,
     runtime_checkable,
 )
 
@@ -551,16 +552,22 @@ class Library(Generic[T, Plist], Collection[T], ABC, Registry):
         """Retrieve playlists associated with this library collection."""
         ...
 
+    @overload
+    def get_playlist(self, *, id: PlaylistID | str) -> Plist | None: ...
+    @overload
+    def get_playlist(self, *, name: str) -> Plist | None: ...
     @abstractmethod
     def get_playlist(
         self,
         *,
         id: PlaylistID | str | None = None,
+        name: str | None = None,
     ) -> Plist | None:
-        """Get a playlist by identifier.
+        """Get a playlist by identifier or name.
 
-        Implement with kwargs like ``name=``, ``ids=``, ``url=``, or ``uri=``.
-        Return ``None`` for searches that fail.
+        Exactly one of ``id`` or ``name`` must be given.
+        Sublcasses may implement more kwargs like ```url=``, or ``uri=`` but they
+        wont be necessarly supported by all other subclasses.
         """
         ...
 
@@ -576,14 +583,12 @@ class Library(Generic[T, Plist], Collection[T], ABC, Registry):
 
     def get_playlist_or_raise(
         self,
-        *,
-        id: PlaylistID | str | None = None,
         **kwargs,
     ) -> Plist:
         """Like get_playlist() but raises if no result is found."""
-        playlist = self.get_playlist(id=id, **kwargs)
+        playlist = self.get_playlist(**kwargs)
+
         if playlist is None:
-            kwargs["id"] = id
             raise ValueError(f"Could not find playlist for {kwargs}")
         return playlist
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from functools import cached_property
 from typing import TYPE_CHECKING, Annotated, TypeVar
 
 import typer
@@ -11,12 +12,19 @@ from rich.markup import escape
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
-from plistsync.core import TrackID
+# Typer vendors its own click fork, so the parameter type must come from there.
+from typer._click.shell_completion import CompletionItem
+from typer._click.types import ParamType
+
+from plistsync.core import ServicePlaylist, TrackID
 from plistsync.core.collection import IDLookup
 from plistsync.logger import log
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from typing import Any
+
+    from typer._click import Context, Parameter
 
     from plistsync.core import Library, Track
 
@@ -68,6 +76,52 @@ def parse_track_id(
             continue
 
     return TrackID.from_serial(value)
+
+
+class PlaylistArgument(ParamType):
+    """Turn a playlist name, serial, URL or URI into a ``ServicePlaylist``."""
+
+    name = "playlist"
+
+    def __init__(self, library_cls: type[Library]) -> None:
+        self.library_cls = library_cls
+
+    @cached_property
+    def library(self) -> Library:
+        return self.library_cls()
+
+    def convert(
+        self, value: Any, param: Parameter | None, ctx: Context | None
+    ) -> ServicePlaylist:
+        if isinstance(value, ServicePlaylist):
+            return value
+
+        name_or_id = str(value)
+
+        if playlist := self.library.get_playlist(id=name_or_id):
+            return playlist
+
+        if playlist := self.library.get_playlist(name=name_or_id):
+            return playlist
+
+        self.fail(f"No playlist found matching {name_or_id!r}.", param, ctx)
+
+    def shell_complete(
+        self, ctx: Context, param: Parameter, incomplete: str
+    ) -> list[CompletionItem]:
+        try:
+            playlists = list(self.library.playlists)
+        except Exception as e:
+            # Completion runs inside the user's shell; never let it crash.
+            log.debug("Playlist completion failed: %s", e)
+            return []
+
+        return [
+            CompletionItem(value)
+            for playlist in playlists
+            for value in (playlist.name, playlist.id.serial)
+            if not incomplete or value.startswith(incomplete)
+        ]
 
 
 def playlist_command_factory(
@@ -174,6 +228,42 @@ def playlist_command_factory(
             f"Created playlist [bold]{escape(repr(playlist.name))}[/bold] "
             f"(id: [cyan]{playlist.id.serial}[/cyan]) "
             f"with {len(playlist)} track(s)."
+        )
+
+    @app.command(name="rm", hidden=True)
+    @app.command(name="remove")
+    def remove(
+        playlist: ServicePlaylist = typer.Argument(
+            ...,
+            help="Playlist to remove (name, serial, URL or URI).",
+            click_type=PlaylistArgument(library_cls),
+        ),
+        yes: Annotated[
+            bool,
+            typer.Option(
+                "--yes",
+                "-y",
+                help="Skip the confirmation prompt.",
+            ),
+        ] = False,
+    ) -> None:
+        """Remove a playlist from the service library."""
+        console = Console(file=sys.stdout, highlight=False)
+
+        if not yes:
+            console.print(
+                f"Removing playlist [bold]{escape(repr(playlist.name))}[/bold] "
+                f"(id: [cyan]{playlist.id.serial}[/cyan])."
+            )
+            if not Confirm.ask("Continue?", default=False, console=console):
+                console.print("[yellow]Aborted.[/yellow]")
+                raise typer.Exit(code=1)
+
+        removed = playlist.delete()
+
+        console.print(
+            f"Removed playlist [bold]{escape(repr(removed.name))}[/bold] "
+            f"(id: [cyan]{removed.id.serial}[/cyan])."
         )
 
     return app
