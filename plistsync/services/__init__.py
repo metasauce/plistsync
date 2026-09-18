@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from plistsync.config import ServiceConfig
     from plistsync.core import Library, Playlist, Track
+    from plistsync.core.auth import AuthProvider
     from plistsync.core.ids import PlaylistID, TrackID
 
 
@@ -41,6 +42,16 @@ class Service(ABC, Registry):
         from plistsync.config import ServiceConfig
 
         return ServiceConfig.registry().get(self.name, (None,))[0]
+
+    def auth(self) -> type[AuthProvider] | None:
+        """Return the auth provider class registered for this service, if any.
+
+        Transitional: providers are migrated from ``utils.auth`` to
+        ``core.auth`` one by one, so both registries are checked.
+        """
+        from plistsync.core.auth import AuthProvider
+
+        return AuthProvider.registry().get(self.name, (None,))[0]
 
     def playlist_ids(self) -> Sequence[type[PlaylistID]]:
         """Return playlist identifier classes registered for this service."""
@@ -126,3 +137,13 @@ class ServiceLoader:
             services[ep.name] = service_cls()
 
         return services
+
+    @classmethod
+    @cache
+    def list_all(cls) -> list[str]:
+        """Return a list of all available service names.
+
+        This does not import the service modules, so it is fast and safe to use
+        for help messages and completion.
+        """
+        return [ep.name for ep in entry_points(group=cls.GROUP)]

@@ -1,4 +1,4 @@
-"""Root typer application, its global callback, and shared option callbacks."""
+"""Root typer application with lazy service command groups."""
 
 from __future__ import annotations
 
@@ -7,23 +7,101 @@ from typing import TYPE_CHECKING, Annotated
 
 import typer
 from rich.logging import RichHandler
+from typer.core import TyperGroup
+from typer.main import get_group
 
 from plistsync.config import Config
 from plistsync.logger import basic_logging_handler, init_logging, log
 from plistsync.services import ServiceLoader
 
-from .commands.auth import auth_app
 from .commands.config import config_app
 from .commands.sync import sync_app
+from .service_commands import cli_service_factory
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    # Typer vendors its own click fork (`typer._click`) since 0.26, so override
+    # signatures must use those types rather than the standalone click package.
+    from typer._click import Command, Context
+
     from plistsync.config import LoggingConfig
+
+
+class ServiceGroup(TyperGroup):
+    """Service command group that imports the service on first access.
+
+    Instances are built from entry point names only, so listing services in
+    the help is cheap. Importing the service module is deferred until one of
+    its commands (or its help) is requested.
+    """
+
+    _loaded: bool = False
+
+    def _load(self) -> None:
+        if self._loaded:
+            return
+        self._loaded = True
+
+        service = ServiceLoader.get(self.name or "")
+        if service is None:
+            return
+
+        # Attach the service app's commands to this placeholder once loaded.
+        service_app = get_group(cli_service_factory(service))
+        self.commands.update(service_app.commands)
+
+    def list_commands(self, ctx: Context) -> list[str]:
+        self._load()
+        return super().list_commands(ctx)
+
+    def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
+        self._load()
+        return super().get_command(ctx, cmd_name)
+
+
+class LazyServiceGroup(TyperGroup):
+    """Root command group that discovers service groups on demand.
+
+    This allows the CLI to be imported without importing all service modules,
+    this keeps our cli fast and avoids importing service modules just to check if they
+    exist, which is slow.
+    """
+
+    def _register_services(self, names: Iterable[str]) -> None:
+        for name in names:
+            if name in self.commands:
+                continue
+            self.add_command(
+                ServiceGroup(
+                    name=name,
+                    help=f"Commands for the {name} service.",
+                    no_args_is_help=True,
+                )
+            )
+
+    def list_commands(self, ctx: Context) -> list[str]:
+        """Register all available services (for help and completion)."""
+        self._register_services(ServiceLoader.list_all())
+        return super().list_commands(ctx)
+
+    def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
+        """Register the requested service placeholder, or all for suggestions."""
+        names = ServiceLoader.list_all()
+        if cmd_name in names:
+            self._register_services([cmd_name])
+        elif cmd_name not in self.commands:
+            # Unknown command: register service names so typos can be suggested.
+            self._register_services(names)
+        return super().get_command(ctx, cmd_name)
+
 
 app = typer.Typer(
     rich_markup_mode="rich",
     help="Command line tool for [bold italic]plistsync[/bold italic].",
     pretty_exceptions_show_locals=False,
     no_args_is_help=True,
+    cls=LazyServiceGroup,
 )
 
 
@@ -95,7 +173,7 @@ def version_callback(value: bool) -> None:
     from importlib.metadata import version
 
     ver = version("plistsync")
-    services = [service for service in ServiceLoader.all().keys()]
+    services = ServiceLoader.list_all()
 
     svc_str = ", ".join(services) if services else "none"
     typer.echo(f"plistsync: {ver}  ({svc_str})")
@@ -127,6 +205,5 @@ def main(
     """Global callback — handles --verbose and --version flags."""
 
 
-app.add_typer(auth_app)
 app.add_typer(config_app, name="config")
 app.add_typer(sync_app)

@@ -7,6 +7,7 @@ check_imports(
 )
 
 from . import api
+from .auth import SpotifyAuth
 from .config import SpotifyConfig
 from .library import SpotifyLibrary
 from .playlist import SpotifyPlaylist, SpotifyPlaylistID
@@ -18,6 +19,7 @@ class SpotifyService(Service):
 
 
 __all__ = [
+    "SpotifyAuth",
     "SpotifyConfig",
     "SpotifyLibrary",
     "SpotifyPlaylist",
