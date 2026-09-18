@@ -53,11 +53,11 @@ class SpotifyLibrary(
         ]
 
     @overload
-    def get_playlist(self, *, name: str | None = None) -> SpotifyPlaylist | None: ...
-    @overload
     def get_playlist(
         self, *, id: PlaylistID | str | None = None
     ) -> SpotifyPlaylist | None: ...
+    @overload
+    def get_playlist(self, *, name: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(self, *, url: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
@@ -117,10 +117,11 @@ class SpotifyLibrary(
                 self.api.playlist.get(str(playlist_id)),
             )
         except HTTPError as e:
-            log.debug(
-                f"Failed to get playlist for {playlist_id=}, likely invalid id: {e}"
-            )
-            return None
+            if e.response is not None and e.response.status_code == 404:
+                log.debug(f"No playlist found for {playlist_id=}: {e}")
+                return None
+            # Don't mask auth or API errors as a missing playlist.
+            raise
 
     def create_playlist(
         self,

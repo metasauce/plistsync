@@ -13,6 +13,7 @@ import typer
 from plistsync.errors import HowTheForkDidYouEndUpHereError
 
 from .auth import auth_command_factory
+from .playlist import playlist_command_factory
 
 if TYPE_CHECKING:
     from plistsync.services import Service
@@ -37,5 +38,8 @@ def cli_service_factory(service: Service) -> typer.Typer:
                 f"Service {service.name!r} provides auth but no config."
             )
         app.command()(auth_command_factory(auth_provider_cls, config))
+
+    if (library_cls := service.library()) is not None:
+        app.add_typer(playlist_command_factory(library_cls, service.track_ids()))
 
     return app

@@ -83,11 +83,11 @@ class PlexLibrary(
         return playlists
 
     @overload
-    def get_playlist(self, *, name: str | None = None) -> PlexPlaylist | None: ...
-    @overload
     def get_playlist(
         self, *, id: PlaylistID | str | int | None = None
     ) -> PlexPlaylist | None: ...
+    @overload
+    def get_playlist(self, *, name: str | None = None) -> PlexPlaylist | None: ...
 
     def get_playlist(
         self,
