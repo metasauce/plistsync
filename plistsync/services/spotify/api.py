@@ -184,6 +184,10 @@ class PlaylistApi:
         """Resolve the track pagination."""
         all_items: list[SpotifyApiPlaylistTrack] = data.get("items", [])  # type: ignore [assignment]
 
+        # An empty playlist comes back with ``limit=0`` and an href the API rejects
+        if data["total"] == 0:
+            return []
+
         next_page = data.get("next", data["href"])
         if force or len(all_items) == 0:
             all_items = []
