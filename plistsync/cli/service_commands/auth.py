@@ -10,7 +10,10 @@ from urllib.parse import urlparse
 
 import typer
 
-from plistsync.errors import AuthenticationError
+from plistsync.cli.context import (
+    ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
+)
+from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.logger import log
 from plistsync.utils.auth import safe_webbrowser_open
 from plistsync.utils.auth.redirect import BaseRedirectHandler, start_redirect_server
@@ -18,7 +21,6 @@ from plistsync.utils.auth.redirect import BaseRedirectHandler, start_redirect_se
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from plistsync.config import ServiceConfig
     from plistsync.core.auth import AuthProvider, Token
 
 
@@ -88,13 +90,11 @@ class CLIInteraction:
         return state.get("url")
 
 
-def auth_command_factory(
-    auth_provider: type[AuthProvider], service_config: ServiceConfig
-) -> Callable[..., None]:
+def auth_command_factory(auth_provider: type[AuthProvider]) -> Callable[..., None]:
     """Create the auth command for a configured auth provider."""
-    service_name = service_config.service()
 
     def auth(
+        ctx: ServiceCommandContext,
         mode: Annotated[
             Literal["forward", "manual"],
             typer.Option(
@@ -108,14 +108,18 @@ def auth_command_factory(
         ] = "forward",
     ) -> None:
         """Authenticate and persist a token."""
-        token: Token = auth_provider(service_config).authenticate(
-            CLIInteraction(mode=mode)
-        )
-        token.file_path = service_config.token_path
+        config = ctx.obj.config
+        if config is None:
+            raise HowTheForkDidYouEndUpHereError(
+                f"Service {ctx.obj.name!r} provides auth but no config."
+            )
+
+        token: Token = auth_provider(config).authenticate(CLIInteraction(mode=mode))
+        token.file_path = config.token_path
         token.save()
         typer.echo(
             f"Authentication successful! Token saved to {str(token.file_path)!r}."
         )
 
-    auth.__doc__ = f"Authenticate with {service_name}."
+    auth.__doc__ = f"Authenticate with {auth_provider.service()}."
     return auth

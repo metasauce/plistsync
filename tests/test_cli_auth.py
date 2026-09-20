@@ -245,10 +245,10 @@ class TestCliServiceFactory:
             def config(self):
                 return None
 
-        with pytest.raises(
-            HowTheForkDidYouEndUpHereError, match="provides auth but no config"
-        ):
-            cli_service_factory(NoConfigService())
+        result = runner.invoke(cli_service_factory(NoConfigService()), ["auth"])
+
+        assert result.exit_code != 0
+        assert isinstance(result.exception, HowTheForkDidYouEndUpHereError)
 
 
 class TestCLIInteraction:

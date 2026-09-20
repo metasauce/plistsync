@@ -10,8 +10,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
-from plistsync.errors import HowTheForkDidYouEndUpHereError
-
+from ..context import ServiceContext
 from .auth import auth_command_factory
 
 if TYPE_CHECKING:
@@ -26,16 +25,11 @@ def cli_service_factory(service: Service) -> typer.Typer:
         no_args_is_help=True,
     )
 
-    # Resolve the service config once, here, so the commands below receive
-    # configured providers instead of looking their config up themselves.
-    config_cls = service.config()
-    config = config_cls.get() if config_cls is not None else None
+    @app.callback()
+    def _service_context(ctx: typer.Context) -> None:
+        ctx.obj = ServiceContext(service)
 
     if (auth_provider_cls := service.auth()) is not None:
-        if config is None:
-            raise HowTheForkDidYouEndUpHereError(
-                f"Service {service.name!r} provides auth but no config."
-            )
-        app.command()(auth_command_factory(auth_provider_cls, config))
+        app.command()(auth_command_factory(auth_provider_cls))
 
     return app

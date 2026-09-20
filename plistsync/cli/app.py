@@ -50,6 +50,7 @@ class ServiceGroup(TyperGroup):
         # Attach the service app's commands to this placeholder once loaded.
         service_app = get_group(cli_service_factory(service))
         self.commands.update(service_app.commands)
+        self.callback = service_app.callback
 
     def list_commands(self, ctx: Context) -> list[str]:
         self._load()
