@@ -39,6 +39,6 @@ def cli_service_factory(service: Service) -> typer.Typer:
     if (library_cls := service.library()) is not None:
         app.add_typer(playlist_command_factory(library_cls))
 
-    app.add_typer(library_typer_factory(service))
+    app.add_typer(search_typer_factory(service))
 
     return app

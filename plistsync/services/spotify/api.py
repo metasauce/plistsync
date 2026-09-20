@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
+from urllib.parse import urlencode
 
 import requests
 
@@ -17,6 +18,8 @@ from plistsync.utils.session import PlistsyncSession
 
 if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
+
+    from plistsync.core import TrackInfo
 
     from .api_types import (
         PlaylistTracks,
@@ -579,18 +582,34 @@ class TrackApi:
         return tracks[0]
 
     def search(
-        self, query: str, max_results: int = 100
+        self, query: str | TrackInfo, max_results: int = 100
     ) -> list[SpotifyApiTrackResponse]:
         """Search for tracks by a query string.
 
         Parameters
         ----------
         query : str
-            The search query. TODO: maybe we want to type this
+            The search query.
         max_results : int, optional
             The maximum number of results to return, by default 100.
         """
-        next_page = f"/search?type=track&q={query}&limit=50"
+        if isinstance(query, str):
+            raw_query = query
+        else:
+            query_parts = []
+            # TODO: we might want a bit more sanitization for this,
+            # to solve the case when, e.g. a track title contains quotes
+            if title := query.get("title"):
+                query_parts.append(f'track:"{title}"')
+            if artists := query.get("artists"):
+                query_parts.append(f'artist:"{artists[0]}"')
+            if albums := query.get("albums"):
+                query_parts.append(f'album:"{albums[0]}"')
+            raw_query = " ".join(query_parts).replace('"', "'")
+
+        next_page = "/search?" + urlencode(
+            {"type": "track", "q": raw_query, "limit": "50"}
+        )
         tracks: list[SpotifyApiTrackResponse] = []
         while next_page and len(tracks) < max_results:
             json_res = self.session.request(

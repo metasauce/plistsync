@@ -68,7 +68,6 @@ class SerialID(ABC):
     def __repr__(self) -> str:
         return f"{type(self).__name__}(serial={self.serial!r})"
 
-
 class Scope(Enum):
     """Scope in which the id can be used.
 
@@ -185,6 +184,9 @@ class TrackID(SerialID, ABC, Registry):
             f" in service {service_name!r}"
         )
         return None
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(serial={self.serial!r})"
 
 
 # Commonly shared IDS
