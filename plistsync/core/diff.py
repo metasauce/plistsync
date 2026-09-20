@@ -48,20 +48,18 @@ class DeleteOp(BaseOp[T]):
 
 
 Op: TypeAlias = BaseOp[T]
+Ops: TypeAlias = MoveOp[T] | InsertOp[T] | DeleteOp[T]
 
 
 @dataclass(slots=True, frozen=True)
 class Step(Generic[T]):
     """Represents a single operation applied to a list."""
 
-    op: Op[T]
+    op: Ops[T]
     """The single operation to apply."""
 
     list_before: list[T]
     """The list state before this operation was applied."""
-
-
-Ops: TypeAlias = MoveOp[T] | InsertOp[T] | DeleteOp[T]
 
 
 @dataclass
@@ -113,7 +111,7 @@ class Operations(Generic[T]):
 
         return True
 
-    def __getitem__(self, index: int) -> Op[T]:
+    def __getitem__(self, index: int) -> Ops[T]:
         return self.ops[index]
 
     def __iter__(self):
