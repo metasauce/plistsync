@@ -316,15 +316,14 @@ class MultiRequestServicePlaylist(ServicePlaylist[T], ABC):
                     track=[step.op.item for step in batch],
                     tracks_before=batch[0].list_before,
                 )
-            elif isinstance(batch[0].op, MoveOp):
-                # Multi moves at the same time are quite ambiguous
-                for step in batch:
-                    self._remote_move_track(
-                        old_idx=step.op.old_idx,  # type: ignore[attr-defined]
-                        new_idx=step.op.new_idx,  # type: ignore[attr-defined]
-                        track=step.op.item,
-                        tracks_before=step.list_before,
-                    )
+            elif isinstance(op := batch[0].op, MoveOp):
+                # batch_consecutive never batches moves together
+                self._remote_move_track(
+                    old_idx=op.old_idx,
+                    new_idx=op.new_idx,
+                    track=op.item,
+                    tracks_before=batch[0].list_before,
+                )
 
     @abstractmethod
     def _remote_insert_track(

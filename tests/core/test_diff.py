@@ -13,10 +13,11 @@ from plistsync.core.diff import (
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from plistsync.core.diff import (
         Op,
     )
-    from collections.abc import Callable
 
 
 class TestPlaylistDiff:
@@ -189,8 +190,8 @@ class TestListDiffEq:
 
     @staticmethod
     def _ops_equal(
-        actual: list[Op],
-        expected: list[Op],
+        actual: Sequence[Op],
+        expected: Sequence[Op],
         eq_func: Callable[[object, object], bool],
     ) -> bool:
         """Compare operation lists using eq_func for item fields."""
