@@ -30,26 +30,25 @@ class TestCreate:
         assert result.exit_code == 0
         assert option in strip_ansi(result.output)
 
-    @pytest.mark.parametrize(
-        ("args", "user_input", "expected"),
-        [
-            ([], "My Playlist\nMy Description\n\n", ("My Playlist", "My Description")),
-            ([], "My Playlist\n\n\n", ("My Playlist", None)),
-            (["--name", "N", "--description", "D"], "\n", ("N", "D")),
-        ],
-    )
-    def test_prompts_for_metadata(
-        self,
-        create: Invoke,
-        args: list[str],
-        user_input: str,
-        expected: tuple[str, str | None],
-    ) -> None:
-        result = create(args, user_input)
+    def test_name_is_required(self, create: Invoke) -> None:
+        result = create([])
+
+        assert result.exit_code == 2
+        assert "--name" in strip_ansi(result.output)
+        assert MockLibrary.created == []
+
+    def test_name_and_description_options(self, create: Invoke) -> None:
+        result = create(["--name", "N", "--description", "D", "-y"])
 
         assert result.exit_code == 0, result.output
         created = MockLibrary.created[0]
-        assert (created.name, created.description) == expected
+        assert (created.name, created.description) == ("N", "D")
+
+    def test_description_defaults_to_none(self, create: Invoke) -> None:
+        result = create(["--name", "N", "-y"])
+
+        assert result.exit_code == 0, result.output
+        assert MockLibrary.created[0].description is None
 
     def test_confirmation_lists_metadata_and_tracks(self, create: Invoke) -> None:
         result = create(
@@ -96,7 +95,7 @@ class TestCreate:
         assert "Continue?" not in result.output
 
     def test_declining_confirmation_aborts(self, create: Invoke) -> None:
-        result = create([], "N\nD\nn\n")
+        result = create(["--name", "N"], "n\n")
 
         assert result.exit_code != 0
         assert "Aborted" in strip_ansi(result.output)

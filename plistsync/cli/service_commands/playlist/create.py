@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from rich.markup import escape
-from rich.prompt import Prompt
 
 from plistsync.cli.context import (
     ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
@@ -33,7 +32,7 @@ if TYPE_CHECKING:
 def _create_playlist(
     ctx: ServiceCommandContext,
     *,
-    name: str | None,
+    name: str,
     description: str | None,
     add: list[str] | None,
     yes: bool,
@@ -47,21 +46,6 @@ def _create_playlist(
         )
 
     console = stdout_console()
-
-    # Prompt for missing name and description
-    if name is None:
-        name = Prompt.ask("Playlist name", console=console)
-    if description is None:
-        description = (
-            Prompt.ask(
-                "Description (optional)",
-                default="",
-                show_default=False,
-                console=console,
-            )
-            or None
-        )
-    # TODO: Allow to prompt for tracks to add
 
     # Parse ids: string -> TrackID
     ids: list[TrackID] = []
@@ -117,14 +101,14 @@ def register_create_command(app: typer.Typer, library_cls: type[Library]) -> Non
 
     def create(
         ctx: ServiceCommandContext,
-        name: NameOption = None,
+        name: NameOption,
         description: DescriptionOption = None,
         add: AddTrackOption = None,
         yes: YesOption = False,
     ) -> None:
         """Create a playlist in the service library.
 
-        Prompts for missing name and description, then asks for confirmation.
+        Asks for confirmation unless ``--yes`` is given.
         """
         _create_playlist(ctx, name=name, description=description, add=add, yes=yes)
 

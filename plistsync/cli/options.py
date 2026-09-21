@@ -9,7 +9,7 @@ from typing import Annotated, Any, TypeAlias, TypeVar
 import typer
 
 NameOption: TypeAlias = Annotated[
-    str | None,
+    str,
     typer.Option("--name", "-n", help="Name of the playlist."),
 ]
 DescriptionOption: TypeAlias = Annotated[
