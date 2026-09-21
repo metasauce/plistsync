@@ -50,6 +50,18 @@ def create(runner: CliRunner, app: typer.Typer) -> Invoke:
 
 
 @pytest.fixture
+def remove(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist remove``."""
+
+    def _remove(args: list[str] | None = None, user_input: str = "") -> Result:
+        return runner.invoke(
+            app, ["playlist", "remove", *(args or [])], input=user_input
+        )
+
+    return _remove
+
+
+@pytest.fixture
 def list_playlists(runner: CliRunner, app: typer.Typer) -> Invoke:
     """Invoke ``playlist list``."""
 
