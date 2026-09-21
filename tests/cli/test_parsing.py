@@ -6,8 +6,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from plistsync.cli.args.playlist import autocompletion_playlist, parse_playlist
-from plistsync.cli.args.track import parse_track_id
+from plistsync.cli.parsing import (
+    autocompletion_playlist,
+    parse_playlist,
+    parse_track_id,
+)
 from plistsync.core.ids import ISRC
 from tests.core.mock_collections import MockLibrary
 

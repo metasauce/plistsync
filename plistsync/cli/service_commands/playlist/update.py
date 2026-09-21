@@ -7,15 +7,18 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 from rich.markup import escape
 
-from plistsync.cli.args.options import (
+from plistsync.cli.context import (
+    ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
+)
+from plistsync.cli.options import (
     AddTrackOption,  # noqa: TC001 (typer resolves it at runtime)
     YesOption,  # noqa: TC001 (typer resolves it at runtime)
     without_param,
 )
-from plistsync.cli.args.playlist import autocompletion_playlist, parse_playlist
-from plistsync.cli.args.track import parse_track_id
-from plistsync.cli.context import (
-    ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
+from plistsync.cli.parsing import (
+    autocompletion_playlist,
+    parse_playlist,
+    parse_track_id,
 )
 from plistsync.cli.visualization import confirm_or_abort, stdout_console, to_rich
 from plistsync.core.collection import IDLookup

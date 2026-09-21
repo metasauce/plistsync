@@ -5,13 +5,13 @@ from __future__ import annotations
 import typer
 from rich.markup import escape
 
-from plistsync.cli.args.options import (
-    YesOption,  # noqa: TC001 (typer resolves it at runtime)
-)
-from plistsync.cli.args.playlist import autocompletion_playlist, parse_playlist
 from plistsync.cli.context import (
     ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
 )
+from plistsync.cli.options import (
+    YesOption,  # noqa: TC001 (typer resolves it at runtime)
+)
+from plistsync.cli.parsing import autocompletion_playlist, parse_playlist
 from plistsync.cli.visualization import confirm_or_abort, stdout_console
 from plistsync.errors import HowTheForkDidYouEndUpHereError
 
