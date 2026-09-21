@@ -4,13 +4,21 @@ from __future__ import annotations
 
 import io
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
+import typer
 from rich.console import Console, Group
+from rich.prompt import Confirm
 from rich.text import Text
 from typer._click._compat import strip_ansi
 
-from plistsync.cli.visualization import render_playlists, render_tracks, to_rich
+from plistsync.cli.visualization import (
+    confirm_or_abort,
+    render_playlists,
+    render_tracks,
+    to_rich,
+)
 from plistsync.core.diff import list_diff
 from plistsync.core.ids import ISRC
 from plistsync.core.playlist import PlaylistInfo, Snapshot
@@ -160,3 +168,43 @@ def test_render_examples() -> None:
     # Assert the labels so the gallery cannot silently render nothing.
     output = console.export_text()
     assert all(label in output for label in examples)
+
+
+class TestConfirmOrAbort:
+    """``confirm_or_abort`` prints the change and asks for confirmation."""
+
+    def test_yes_skips_prompt_and_output(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        stream = io.StringIO()
+        ask = Mock(side_effect=AssertionError("prompted"))
+        monkeypatch.setattr(Confirm, "ask", ask)
+
+        confirm_or_abort(Console(file=stream), Text("change"), yes=True, default=False)
+
+        ask.assert_not_called()
+        assert stream.getvalue() == ""
+
+    def test_prints_renderable_before_asking(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        stream = io.StringIO()
+        ask = Mock(return_value=True)
+        monkeypatch.setattr(Confirm, "ask", ask)
+
+        confirm_or_abort(Console(file=stream), Text("change"), yes=False, default=False)
+
+        ask.assert_called_once()
+        assert "change" in strip_ansi(stream.getvalue())
+
+    def test_declining_aborts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        stream = io.StringIO()
+        monkeypatch.setattr(Confirm, "ask", Mock(return_value=False))
+
+        with pytest.raises(typer.Exit) as exc:
+            confirm_or_abort(
+                Console(file=stream), Text("change"), yes=False, default=False
+            )
+
+        assert exc.value.exit_code == 1
+        output = strip_ansi(stream.getvalue())
+        assert "change" in output
+        assert "Aborted" in output
