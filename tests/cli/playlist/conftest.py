@@ -8,7 +8,7 @@ import pytest
 
 from plistsync.core.ids import ISRC
 from plistsync.services import Service
-from tests.core.mock_collections import MockLibrary
+from tests.core.mock_collections import MockLibrary, MockNoLookupLibrary
 from tests.core.mock_track import MockTrack
 
 if TYPE_CHECKING:
@@ -31,10 +31,40 @@ class MockLibraryService(Service):
         return MockLibrary
 
 
+class NoLibraryService(Service):
+    """Service without library support."""
+
+    __module__ = "plistsync.services.no_library_cli"
+
+    def library(self) -> None:
+        return None
+
+
+class MockNoLookupService(Service):
+    """Service exposing a mock library without ID lookup."""
+
+    __module__ = "plistsync.services.mock_no_lookup_cli"
+
+    def library(self) -> type[MockNoLookupLibrary]:
+        return MockNoLookupLibrary
+
+
 @pytest.fixture
 def app(service_app: Callable[[Service], typer.Typer]) -> typer.Typer:
     """Command app for the mock library service."""
     return service_app(MockLibraryService())
+
+
+@pytest.fixture
+def no_lookup_app(service_app: Callable[[Service], typer.Typer]) -> typer.Typer:
+    """Command app for a service whose library has no ID lookup."""
+    return service_app(MockNoLookupService())
+
+
+@pytest.fixture
+def no_library_app(service_app: Callable[[Service], typer.Typer]) -> typer.Typer:
+    """Command app for a service without a library."""
+    return service_app(NoLibraryService())
 
 
 @pytest.fixture
@@ -72,6 +102,18 @@ def list_playlists(runner: CliRunner, app: typer.Typer) -> Invoke:
 
 
 @pytest.fixture
+def update(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist update``."""
+
+    def _update(args: list[str] | None = None, user_input: str = "") -> Result:
+        return runner.invoke(
+            app, ["playlist", "update", *(args or [])], input=user_input
+        )
+
+    return _update
+
+
+@pytest.fixture
 def playlist(_mock_library: None) -> MockServicePlaylist:
     """A playlist known to the mock library."""
     return MockLibrary().create_playlist("Party Mix", description="Chill")
@@ -84,6 +126,8 @@ def _mock_library() -> Iterator[None]:
         MockTrack(title="Found by id", artists=["Artist"], ids={ISRC("USRC17607839")})
     ]
     MockLibrary.created.clear()
+    MockNoLookupLibrary.created.clear()
     yield
     MockLibrary.tracks = []
     MockLibrary.created.clear()
+    MockNoLookupLibrary.created.clear()

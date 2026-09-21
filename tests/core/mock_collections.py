@@ -173,3 +173,52 @@ class MockLibrary(
         )
         MockLibrary.created.append(playlist)
         return playlist
+
+
+class MockNoLookupLibrary(Library[MockTrack, MockServicePlaylist], service="test"):
+    """Mock library without ID lookup, to exercise capability gating.
+
+    Mirrors :class:`MockLibrary`, but implements no lookup protocols, so
+    capability-dependent CLI options (e.g. ``--add``) must be hidden.
+    """
+
+    created: ClassVar[list[MockServicePlaylist]] = []
+    """Playlists created through :meth:`create_playlist`."""
+
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        """Service name for the mock."""
+        return "test"
+
+    @property
+    def playlists(self) -> Iterable[MockServicePlaylist]:
+        return self.created
+
+    def get_playlist(
+        self,
+        *,
+        id: PlaylistID | str | None = None,
+        name: str | None = None,
+        **kwargs: Any,
+    ) -> MockServicePlaylist | None:
+        for playlist in self.created:
+            if (id is not None and playlist.id.serial == str(id)) or (
+                name is not None and playlist.name == name
+            ):
+                return playlist
+        return None
+
+    def create_playlist(
+        self,
+        name: str,
+        description: str | None = None,
+        tracks: list[MockTrack] | None = None,
+    ) -> MockServicePlaylist:
+        playlist = MockServicePlaylist(
+            id=MockPlaylistID(name),
+            info=PlaylistInfo(name=name, description=description),
+            tracks=list(tracks or []),
+        )
+        self.created.append(playlist)
+        return playlist
