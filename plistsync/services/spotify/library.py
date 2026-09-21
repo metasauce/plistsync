@@ -53,11 +53,11 @@ class SpotifyLibrary(
         ]
 
     @overload
-    def get_playlist(self, *, name: str | None = None) -> SpotifyPlaylist | None: ...
-    @overload
     def get_playlist(
         self, *, id: PlaylistID | str | None = None
     ) -> SpotifyPlaylist | None: ...
+    @overload
+    def get_playlist(self, *, name: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
     def get_playlist(self, *, url: str | None = None) -> SpotifyPlaylist | None: ...
     @overload
