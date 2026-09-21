@@ -1,8 +1,10 @@
 from __future__ import annotations
+from dataclasses import dataclass
 from functools import cache
 import random
-from typing import Any, TYPE_CHECKING
+from typing import Any, Self, TYPE_CHECKING
 from unittest.mock import Mock
+from plistsync.core.ids import PlaylistID
 from plistsync.core.playlist import (
     MultiRequestServicePlaylist,
     OfflinePlaylist,
@@ -14,6 +16,38 @@ if TYPE_CHECKING:
     from plistsync.core.playlist import (
         Snapshot,
     )
+
+
+@dataclass(frozen=True)
+class MockPlaylistID(PlaylistID, service="test"):
+    """Minimal playlist ID for tests, serialized as ``test:playlist:<id>``."""
+
+    id: str
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse a ``test:playlist:<id>`` serial or a raw id."""
+        if value.startswith("test:playlist:"):
+            value = value[len("test:playlist:") :]
+        return cls(value)
+
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        """Service name for the mock."""
+        return "test"
+
+    @property
+    def serial(self) -> str:
+        return f"test:playlist:{self.id}"
+
+    @property
+    def url(self) -> str:
+        """Public web URL."""
+        return f"https://example.com/playlist/{self.id}"
+
+    def __str__(self) -> str:
+        return self.id
 
 
 class MockServicePlaylist(

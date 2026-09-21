@@ -1,0 +1,29 @@
+"""Playlist management commands for a service.
+
+Each command lives in its own module; this package only wires them together
+into a :class:`typer.Typer` command group.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import typer
+
+from .list import register_list_command
+
+if TYPE_CHECKING:
+    from plistsync.core import Library
+
+
+def playlist_command_factory(library_cls: type[Library]) -> typer.Typer:
+    """Build the ``playlist`` command group for a library."""
+    app = typer.Typer(
+        name="playlist",
+        help="Manage playlists in the service library.",
+        no_args_is_help=True,
+    )
+
+    register_list_command(app)
+
+    return app
