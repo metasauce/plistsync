@@ -38,6 +38,18 @@ def app(service_app: Callable[[Service], typer.Typer]) -> typer.Typer:
 
 
 @pytest.fixture
+def create(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist create``."""
+
+    def _create(args: list[str] | None = None, user_input: str = "") -> Result:
+        return runner.invoke(
+            app, ["playlist", "create", *(args or [])], input=user_input
+        )
+
+    return _create
+
+
+@pytest.fixture
 def list_playlists(runner: CliRunner, app: typer.Typer) -> Invoke:
     """Invoke ``playlist list``."""
 

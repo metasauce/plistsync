@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from .create import register_create_command
 from .list import register_list_command
 
 if TYPE_CHECKING:
@@ -25,5 +26,6 @@ def playlist_command_factory(library_cls: type[Library]) -> typer.Typer:
     )
 
     register_list_command(app)
+    register_create_command(app, library_cls)
 
     return app
