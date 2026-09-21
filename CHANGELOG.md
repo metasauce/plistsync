@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Upcoming
+
+### Fixed
+
+- spotify: Fetching tracks of an empty playlist no longer raises an error. The Spotify API returns `limit=0` and an `href` it rejects for playlists without tracks; those are now short-circuited to an empty track list.
+- spotify: `get_playlist` only maps `404` responses to a missing playlist (`None`); other API or authentication errors are re-raised instead of being swallowed.
+
+### Changes
+
+- spotify: Deleted playlists can no longer be recovered through the API. Removed the corresponding recovery example from the docs.
+
 ## [0.8.0] - 2026-09-04
 
 ### Breaking Changes
