@@ -70,7 +70,9 @@ class FakeLibrary(Library[Any, Any]):
     def playlists(self) -> Iterable[Any]:
         return []
 
-    def get_playlist(self, *, id: PlaylistID | str | None = None) -> Any | None:
+    def get_playlist(
+        self, *, id: PlaylistID | str | None = None, **kwargs: Any
+    ) -> Any | None:
         return None
 
     def create_playlist(
