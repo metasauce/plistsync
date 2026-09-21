@@ -1,35 +1,37 @@
 """Tests for the CLI entrypoint (__main__.py)."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
 
-from plistsync.cli import app
-
-runner = CliRunner()
+if TYPE_CHECKING:
+    import typer
+    from typer.testing import CliRunner
 
 
 class TestCliInvocation:
     """Test CLI invocation using CliRunner."""
 
-    def test_cli_help(self):
+    def test_cli_help(self, runner: CliRunner, cli_app: typer.Typer) -> None:
         """Test that CLI shows help message."""
-        result = runner.invoke(app, ["--help"])
+        result = runner.invoke(cli_app, ["--help"])
         assert result.exit_code == 0
         assert "plistsync" in result.output
         assert "Command line tool" in result.output
 
-    def test_config_help(self):
+    def test_config_help(self, runner: CliRunner, cli_app: typer.Typer) -> None:
         """Test that config subcommand shows help."""
-        result = runner.invoke(app, ["config", "--help"])
+        result = runner.invoke(cli_app, ["config", "--help"])
         assert result.exit_code == 0
         assert "config" in result.output.lower()
 
-    def test_version(self):
+    def test_version(self, runner: CliRunner, cli_app: typer.Typer) -> None:
         """Test that --version prints version info."""
-        result = runner.invoke(app, ["--version"])
+        result = runner.invoke(cli_app, ["--version"])
         assert result.exit_code == 0
         assert "plistsync" in result.output.lower()
 

@@ -1,49 +1,22 @@
+from __future__ import annotations
+
 import json
-from dataclasses import dataclass
-from functools import cache
 from pathlib import Path
-from typing import Self
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from typer.testing import CliRunner
 
-from plistsync.cli import app
-from plistsync.core.ids import ISRC, PlaylistID
+from plistsync.core.ids import ISRC
 from plistsync.core.playlist import PlaylistInfo
 from plistsync.core.track import OfflineTrack
 from plistsync.services.sync import SyncedPlaylist
 from plistsync.services.sync.playlist import _TrackLink
-from tests.core.mock_playlist import MockServicePlaylist
+from tests.core.mock_playlist import MockPlaylistID, MockServicePlaylist
 
-runner = CliRunner()
-
-
-@dataclass(frozen=True)
-class _FakePlaylistID(PlaylistID, service="test"):
-    """Minimal playlist ID for tests."""
-
-    id: str
-
-    @classmethod
-    def parse(cls, value: str) -> Self:
-        """Parse a ``test:playlist:<id>`` serial or raw id."""
-        if value.startswith("test:playlist:"):
-            value = value[len("test:playlist:") :]
-        return cls(value)
-
-    @classmethod
-    @cache
-    def service(cls) -> str:
-        """Service name for the fake."""
-        return "test"
-
-    @property
-    def serial(self) -> str:
-        return f"test:playlist:{self.id}"
-
-    def __str__(self) -> str:
-        return self.id
+if TYPE_CHECKING:
+    import typer
+    from typer.testing import CliRunner
 
 
 class _FakeLibrary:
@@ -59,14 +32,14 @@ class _FakeService:
     name = "test"
 
     def playlist_ids(self):
-        return [_FakePlaylistID]
+        return [MockPlaylistID]
 
     def library(self):
         return _FakeLibrary
 
 
 def _make_service_playlist(
-    pid: _FakePlaylistID,
+    pid: MockPlaylistID,
     name: str,
     tracks: list[OfflineTrack] | None = None,
 ) -> MockServicePlaylist:
@@ -105,12 +78,21 @@ def synced(sync_dir) -> SyncedPlaylist:
     return _create_synced_playlist(sync_dir, name="Party Mix")
 
 
-class TestSyncCreate:
+class _CliTest:
+    """Inject the shared CLI fixtures for tests that invoke commands."""
+
+    @pytest.fixture(autouse=True)
+    def _cli(self, runner: CliRunner, cli_app: typer.Typer) -> None:
+        self.runner = runner
+        self.cli_app = cli_app
+
+
+class TestSyncCreate(_CliTest):
     """Test the ``plistsync sync create`` command."""
 
     def test_create(self, sync_dir):
         """create writes a new synced playlist file and prints a summary."""
-        result = runner.invoke(app, ["sync", "create", "Party Mix"])
+        result = self.runner.invoke(self.cli_app, ["sync", "create", "Party Mix"])
 
         assert result.exit_code == 0
         assert "Party Mix" in result.output
@@ -124,8 +106,8 @@ class TestSyncCreate:
 
     def test_create_with_description(self, sync_dir):
         """-d/--description is stored in the playlist metadata."""
-        result = runner.invoke(
-            app, ["sync", "create", "Party Mix", "-d", "Dancefloor bangers"]
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "create", "Party Mix", "-d", "Dancefloor bangers"]
         )
 
         assert result.exit_code == 0
@@ -135,7 +117,9 @@ class TestSyncCreate:
 
     def test_create_json(self, sync_dir):
         """--json prints the playlist details including the file path."""
-        result = runner.invoke(app, ["sync", "create", "Party Mix", "--json"])
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "create", "Party Mix", "--json"]
+        )
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -147,7 +131,7 @@ class TestSyncCreate:
     def test_create_duplicate_name_warns(self, sync_dir, synced):
         """Creating a playlist with an existing name logs a warning."""
         with patch("plistsync.cli.commands.sync.log.warning") as mock_warning:
-            result = runner.invoke(app, ["sync", "create", "Party Mix"])
+            result = self.runner.invoke(self.cli_app, ["sync", "create", "Party Mix"])
 
         assert result.exit_code == 0
         assert any(
@@ -162,7 +146,7 @@ class TestSyncCreate:
         (sync_dir / "broken.json").write_text("{not valid json", encoding="utf-8")
 
         with patch("plistsync.cli.commands.sync.log.warning") as mock_warning:
-            result = runner.invoke(app, ["sync", "create", "Party Mix"])
+            result = self.runner.invoke(self.cli_app, ["sync", "create", "Party Mix"])
 
         assert result.exit_code == 0
         assert any(
@@ -178,18 +162,20 @@ class TestSyncCreate:
             lambda *args, **kwargs: str(tmp_path),
         )
 
-        result = runner.invoke(app, ["sync", "create", "Party Mix"])
+        result = self.runner.invoke(self.cli_app, ["sync", "create", "Party Mix"])
 
         assert result.exit_code == 0
         assert (tmp_path / "sync").is_dir()
 
 
-class TestSyncRemove:
+class TestSyncRemove(_CliTest):
     """Test the ``plistsync sync remove`` command."""
 
     def test_remove_by_name(self, sync_dir, synced):
         """Removing by name deletes the matching JSON file."""
-        result = runner.invoke(app, ["sync", "remove", "Party Mix", "--confirm"])
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "remove", "Party Mix", "--confirm"]
+        )
 
         assert result.exit_code == 0
         assert "Party Mix" in result.output
@@ -198,7 +184,9 @@ class TestSyncRemove:
 
     def test_remove_by_id(self, sync_dir, synced):
         """Removing by raw ID deletes the matching JSON file."""
-        result = runner.invoke(app, ["sync", "remove", str(synced.id), "-y"])
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "remove", str(synced.id), "-y"]
+        )
 
         assert result.exit_code == 0
         assert "Party Mix" in result.output
@@ -209,7 +197,7 @@ class TestSyncRemove:
         keep = _create_synced_playlist(sync_dir, name="Keep Me")
         drop = _create_synced_playlist(sync_dir, name="Drop Me")
 
-        result = runner.invoke(app, ["sync", "remove", "Drop Me", "-y"])
+        result = self.runner.invoke(self.cli_app, ["sync", "remove", "Drop Me", "-y"])
 
         assert result.exit_code == 0
         assert not (sync_dir / f"{drop.id}.json").exists()
@@ -221,8 +209,8 @@ class TestSyncRemove:
             sync_dir, name="Party Mix", description="Dancefloor bangers"
         )
 
-        result = runner.invoke(
-            app, ["sync", "remove", "Party Mix", "--json", "--confirm"]
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "remove", "Party Mix", "--json", "--confirm"]
         )
 
         assert result.exit_code == 0
@@ -235,14 +223,18 @@ class TestSyncRemove:
 
     def test_remove_aborts_when_not_confirmed(self, sync_dir, synced):
         """Answering 'no' to the confirmation prompt aborts the removal."""
-        result = runner.invoke(app, ["sync", "remove", "Party Mix"], input="n\n")
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "remove", "Party Mix"], input="n\n"
+        )
 
         assert result.exit_code == 1
         assert (sync_dir / f"{synced.id}.json").exists()
 
     def test_remove_confirms(self, sync_dir, synced):
         """Answering 'yes' to the prompt removes the playlist."""
-        result = runner.invoke(app, ["sync", "remove", "Party Mix"], input="y\n")
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "remove", "Party Mix"], input="y\n"
+        )
 
         assert result.exit_code == 0
         assert not (sync_dir / f"{synced.id}.json").exists()
@@ -251,7 +243,7 @@ class TestSyncRemove:
         """Removing an unknown playlist fails with a non-zero exit code."""
         _create_synced_playlist(sync_dir, name="Existing")
 
-        result = runner.invoke(app, ["sync", "remove", "Missing"])
+        result = self.runner.invoke(self.cli_app, ["sync", "remove", "Missing"])
 
         assert result.exit_code == 2
         assert "No synced playlist found matching" in result.output
@@ -263,14 +255,14 @@ class TestSyncRemove:
         _create_synced_playlist(sync_dir, name="Party Mix")
         _create_synced_playlist(sync_dir, name="Party Mix")
 
-        result = runner.invoke(app, ["sync", "remove", "Party Mix"])
+        result = self.runner.invoke(self.cli_app, ["sync", "remove", "Party Mix"])
 
         assert result.exit_code == 2
         assert "Multiple synced playlists match" in result.output
         assert len(list(sync_dir.glob("*.json"))) == 2
 
 
-class TestSyncList:
+class TestSyncList(_CliTest):
     """Test the ``plistsync sync list`` command."""
 
     def test_list_table(self, sync_dir):
@@ -279,7 +271,7 @@ class TestSyncList:
             sync_dir, name="Party Mix", description="Dancefloor bangers"
         )
 
-        result = runner.invoke(app, ["sync", "list"])
+        result = self.runner.invoke(self.cli_app, ["sync", "list"])
 
         assert result.exit_code == 0
         assert "Synced playlists" in result.output
@@ -295,7 +287,7 @@ class TestSyncList:
             sync_dir, name="Party Mix", description="Dancefloor bangers"
         )
 
-        result = runner.invoke(app, ["sync", "list", "--json"])
+        result = self.runner.invoke(self.cli_app, ["sync", "list", "--json"])
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -318,7 +310,7 @@ class TestSyncList:
             "plistsync.cli.commands.sync.SyncedPlaylist.load_from",
             return_value=playlist,
         ):
-            result = runner.invoke(app, ["sync", "list", "--json"])
+            result = self.runner.invoke(self.cli_app, ["sync", "list", "--json"])
 
         assert result.exit_code == 0
         payload = json.loads(result.output)
@@ -328,20 +320,20 @@ class TestSyncList:
         """Corrupt JSON files are skipped instead of breaking commands."""
         (sync_dir / "broken.json").write_text("{not valid json", encoding="utf-8")
 
-        result = runner.invoke(app, ["sync", "list"])
+        result = self.runner.invoke(self.cli_app, ["sync", "list"])
 
         assert result.exit_code == 0
         assert "Party Mix" in result.output
 
     def test_list_empty(self, sync_dir):
         """Listing without playlists prints a hint."""
-        result = runner.invoke(app, ["sync", "list"])
+        result = self.runner.invoke(self.cli_app, ["sync", "list"])
 
         assert result.exit_code == 0
         assert "No synced playlists registered yet" in result.output
 
 
-class TestSyncRegister:
+class TestSyncRegister(_CliTest):
     """Test the ``plistsync sync register`` command."""
 
     @staticmethod
@@ -354,8 +346,8 @@ class TestSyncRegister:
     def test_register_links_playlist(self, sync_dir, synced):
         """register links a service playlist to the synced playlist."""
         with self._patch_service():
-            result = runner.invoke(
-                app,
+            result = self.runner.invoke(
+                self.cli_app,
                 ["sync", "register", "Party Mix", "test:playlist:abc123"],
             )
 
@@ -370,8 +362,8 @@ class TestSyncRegister:
     def test_register_json_output(self, synced):
         """--json prints the registration details."""
         with self._patch_service():
-            result = runner.invoke(
-                app,
+            result = self.runner.invoke(
+                self.cli_app,
                 ["sync", "register", "Party Mix", "test:playlist:abc123", "--json"],
             )
 
@@ -384,8 +376,8 @@ class TestSyncRegister:
 
     def test_register_synced_not_found(self, sync_dir):
         """Registering with an unknown synced playlist fails."""
-        result = runner.invoke(
-            app, ["sync", "register", "does-not-exist", "test:playlist:abc123"]
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "register", "does-not-exist", "test:playlist:abc123"]
         )
 
         assert result.exit_code == 2
@@ -393,8 +385,8 @@ class TestSyncRegister:
 
     def test_register_unresolvable_playlist(self, synced):
         """An unresolvable playlist reference is rejected."""
-        result = runner.invoke(
-            app, ["sync", "register", str(synced.id), "not-a-playlist"]
+        result = self.runner.invoke(
+            self.cli_app, ["sync", "register", str(synced.id), "not-a-playlist"]
         )
 
         assert result.exit_code == 2
@@ -406,8 +398,8 @@ class TestSyncRegister:
 
         services = {"test": _FakeService(), "other": _FakeService()}
         with patch.object(ServiceLoader, "all", return_value=services):
-            result = runner.invoke(
-                app, ["sync", "register", "Party Mix", "test:playlist:abc123"]
+            result = self.runner.invoke(
+                self.cli_app, ["sync", "register", "Party Mix", "test:playlist:abc123"]
             )
 
         assert result.exit_code == 2
@@ -424,8 +416,8 @@ class TestSyncRegister:
         with patch.object(
             ServiceLoader, "all", return_value={"test": _NoLibraryService()}
         ):
-            result = runner.invoke(
-                app, ["sync", "register", "Party Mix", "test:playlist:abc123"]
+            result = self.runner.invoke(
+                self.cli_app, ["sync", "register", "Party Mix", "test:playlist:abc123"]
             )
 
         assert result.exit_code == 1
@@ -433,7 +425,7 @@ class TestSyncRegister:
         assert "does not support library operations" in str(result.exception)
 
 
-class TestSyncShow:
+class TestSyncShow(_CliTest):
     """Test the ``plistsync sync show`` command."""
 
     def _synced_with_linked(self) -> SyncedPlaylist:
@@ -447,7 +439,7 @@ class TestSyncShow:
             ids={ISRC("USRC17607840")},
         )
         linked = _make_service_playlist(
-            _FakePlaylistID("abc123"), "Chill Vibes", tracks=[track_b]
+            MockPlaylistID("abc123"), "Chill Vibes", tracks=[track_b]
         )
 
         synced = SyncedPlaylist(name="Party Mix")
@@ -465,7 +457,7 @@ class TestSyncShow:
             "plistsync.cli.commands.sync.SyncedPlaylist.load_from",
             return_value=synced,
         ):
-            result = runner.invoke(app, ["sync", "show", str(synced.id)])
+            result = self.runner.invoke(self.cli_app, ["sync", "show", str(synced.id)])
 
         assert result.exit_code == 0
         assert "Song A" in result.output
@@ -487,14 +479,14 @@ class TestSyncShow:
             "plistsync.cli.commands.sync.SyncedPlaylist.load_from",
             return_value=synced,
         ):
-            result = runner.invoke(app, ["sync", "show", "Party Mix"])
+            result = self.runner.invoke(self.cli_app, ["sync", "show", "Party Mix"])
 
         assert result.exit_code == 0
         assert "Song A" in result.output
 
     def test_show_not_found(self, sync_dir):
         """An unknown name or ID fails with a non-zero exit code."""
-        result = runner.invoke(app, ["sync", "show", "Missing"])
+        result = self.runner.invoke(self.cli_app, ["sync", "show", "Missing"])
 
         assert result.exit_code == 2
         assert "No synced playlist found matching" in result.output
@@ -508,7 +500,7 @@ class TestSyncShow:
             "plistsync.cli.commands.sync.SyncedPlaylist.load_from",
             return_value=synced,
         ):
-            result = runner.invoke(app, ["sync", "show", str(synced.id)])
+            result = self.runner.invoke(self.cli_app, ["sync", "show", str(synced.id)])
 
         assert result.exit_code == 0
         assert "Synced playlist" in result.output
@@ -517,13 +509,13 @@ class TestSyncShow:
         assert "✗" not in result.output
 
 
-class TestSyncRun:
+class TestSyncRun(_CliTest):
     """Test the ``plistsync sync run`` command."""
 
     def test_run_by_name(self, sync_dir, synced):
         """run synchronises the named playlist and saves its state."""
         with patch.object(SyncedPlaylist, "sync") as mock_sync:
-            result = runner.invoke(app, ["sync", "run", "Party Mix"])
+            result = self.runner.invoke(self.cli_app, ["sync", "run", "Party Mix"])
 
         assert result.exit_code == 0
         mock_sync.assert_called_once()
@@ -532,7 +524,7 @@ class TestSyncRun:
     def test_run_by_id(self, sync_dir, synced):
         """run accepts an ID instead of a name."""
         with patch.object(SyncedPlaylist, "sync") as mock_sync:
-            result = runner.invoke(app, ["sync", "run", str(synced.id)])
+            result = self.runner.invoke(self.cli_app, ["sync", "run", str(synced.id)])
 
         assert result.exit_code == 0
         mock_sync.assert_called_once()
@@ -543,7 +535,9 @@ class TestSyncRun:
         _create_synced_playlist(sync_dir, name="Holiday Hits")
 
         with patch.object(SyncedPlaylist, "sync") as mock_sync:
-            result = runner.invoke(app, ["sync", "run", "Party Mix", "Holiday Hits"])
+            result = self.runner.invoke(
+                self.cli_app, ["sync", "run", "Party Mix", "Holiday Hits"]
+            )
 
         assert result.exit_code == 0
         assert mock_sync.call_count == 2
@@ -554,14 +548,14 @@ class TestSyncRun:
         _create_synced_playlist(sync_dir, name="Holiday Hits")
 
         with patch.object(SyncedPlaylist, "sync") as mock_sync:
-            result = runner.invoke(app, ["sync", "run"])
+            result = self.runner.invoke(self.cli_app, ["sync", "run"])
 
         assert result.exit_code == 0
         assert mock_sync.call_count == 2
 
     def test_run_not_found(self, sync_dir):
         """run fails when the playlist does not exist."""
-        result = runner.invoke(app, ["sync", "run", "Missing"])
+        result = self.runner.invoke(self.cli_app, ["sync", "run", "Missing"])
 
         assert result.exit_code == 2
         assert "No synced playlist found matching" in result.output
@@ -569,13 +563,13 @@ class TestSyncRun:
     def test_run_logs_completion(self, synced):
         """run logs the completion message."""
         with patch("plistsync.cli.commands.sync.log.info") as mock_info:
-            result = runner.invoke(app, ["sync", "run", "Party Mix"])
+            result = self.runner.invoke(self.cli_app, ["sync", "run", "Party Mix"])
 
         assert result.exit_code == 0
         mock_info.assert_any_call("All synchronisations completed.")
 
 
-class TestSyncCompletion:
+class TestSyncCompletion(_CliTest):
     """Test the ``_autocomplete_name_or_id`` shell-completion callback."""
 
     def _complete(self, incomplete: str) -> list[str]:
