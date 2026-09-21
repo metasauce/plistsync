@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-from plistsync.config import Config, ServiceConfig
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from plistsync.config import ServiceConfig
 
 
 @dataclass
 class PlexConfig(ServiceConfig):
+    """Configuration for the Plex service."""
+
     server_url: Annotated[
         str | None,
         "The URL of the Plex server to connect to by default.",
@@ -24,6 +23,11 @@ class PlexConfig(ServiceConfig):
         "E.g. 'my_plex_server'",
     ] = field(default=None)
 
+    redirect_port: Annotated[
+        int,
+        "The port to use for the local redirect server when authenticating.",
+    ] = field(default=5001)
+
     @property
     def app_name(self) -> str:
         return "plistsync-local"
@@ -34,7 +38,3 @@ class PlexConfig(ServiceConfig):
         # user but it is not strictly necessary and one global
         # id might allow us profiling across installs in the future.
         return "510457cfb15e4bf48d34563d0e4f1de1"
-
-    @property
-    def token_path(self) -> Path:
-        return Config.get_dir() / "plex_token.json"

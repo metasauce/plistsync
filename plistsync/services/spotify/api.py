@@ -60,7 +60,7 @@ class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
         spotify_config = SpotifyConfig.get()
         return cls(
             client_id=spotify_config.client_id,
-            token=spotify_config.load_token(),
+            token=Oauth2Token.from_file(spotify_config.token_path),
         )
 
     def _refresh_token(self) -> None:
