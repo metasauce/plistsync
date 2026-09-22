@@ -6,7 +6,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "plistsync"
-copyright = "2025, S. Mohr & P. Spitzner"
+copyright = "2026, S. Mohr & P. Spitzner"
 author = "S. Mohr & P. Spitzner"
 
 master_doc = "index"
