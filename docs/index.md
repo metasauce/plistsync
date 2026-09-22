@@ -9,10 +9,6 @@ hide-toc: true
 :end-before: <!-- end intro -->
 ```
 
-```{note}
-We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](contribution.md), improvements to both code and documentation are welcome!
-```
-
 ## Features
 
 ```{include} ../README.md
@@ -20,22 +16,72 @@ We are always happy for contributions, whether small or big. Feel free to check 
 :end-before: <!-- end features -->
 ```
 
-## Installation
+## Where to go next
 
-```{include} ./getting-started.md
-:start-after: <!-- start installation -->
-:end-before: <!-- end installation -->
+:::::{grid} 1 2 3 3
+:gutter: 2
+
+::::{grid-item-card} Getting started
+:link: getting-started
+:link-type: doc
+
+Install `plistsync` and manage your first playlists from the command line, no coding required.
+::::
+
+::::{grid-item-card} CLI guide
+:link: details/cli
+:link-type: doc
+
+Everything the command line can do, from browsing playlists to syncing them.
+::::
+
+::::{grid-item-card} Core concepts
+:link: details/core-concepts
+:link-type: doc
+
+The key abstractions behind `plistsync`, for building your own tooling.
+::::
+
+::::{grid-item-card} Examples
+:link: examples/readme
+:link-type: doc
+
+Step-by-step guides for common workflows.
+::::
+
+::::{grid-item-card} API reference
+:link: api/index
+:link-type: doc
+
+In-depth reference material for the library.
+::::
+:::::
+
+```{note}
+We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](contribution.md), improvements to both code and documentation are welcome!
 ```
-
-If this is your first time using `plistsync`, we recommend reading the [getting started guide](getting-started.md) to familiarize yourself with the core concepts and functionalities of the library.
 
 ```{toctree}
 :hidden:
-:caption: 📚 Usage
 
 getting-started.md
-details/index.md
+```
+
+```{toctree}
+:hidden:
+:caption: 💻 CLI
+
+details/cli.md
 details/configuration.md
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: 🐍 Library
+
+details/core-concepts.md
+details/architecture.md
 details/advanced/index.md
 examples/readme.md
 ```
