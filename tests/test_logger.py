@@ -57,7 +57,7 @@ class TestInitLogging:
 
     @pytest.mark.parametrize("handler_type", ["basic", "rich"])
     def test_init_logging_with_handler(self, handler_type):
-        from plistsync.config import LoggingConfig
+        from plistsync.logger import LoggingConfig
 
         logger.log.handlers.clear()
         config = LoggingConfig(handler=handler_type)
@@ -65,7 +65,7 @@ class TestInitLogging:
         assert logging.root.handlers
 
     def test_init_logging_debug_log(self, monkeypatch):
-        from plistsync.config import LoggingConfig
+        from plistsync.logger import LoggingConfig
 
         config = LoggingConfig(handler="basic")
         monkeypatch.setattr(

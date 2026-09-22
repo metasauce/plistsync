@@ -2,6 +2,6 @@
 
 from eyconf.cli import create_config_cli
 
-from plistsync.config import Config
+from plistsync.cli.config import Config
 
 config_app = create_config_cli(Config)

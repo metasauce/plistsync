@@ -1,10 +1,9 @@
 import importlib.util
 
-from eyconf.validation import ConfigurationError, MultiConfigurationError
-
 __all__ = [
-    "ConfigurationError",
-    "MultiConfigurationError",
+    "AuthenticationError",
+    "DependencyError",
+    "HowTheForkDidYouEndUpHereError",
 ]
 
 
