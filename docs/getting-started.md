@@ -1,7 +1,7 @@
 # Getting started
 
 ```{note}
-This guide assumes you want to use `plistsync` from the command line. If you are looking to use the Python library instead, start with the [core concepts](details/core-concepts.md).
+This guide assumes you want to use `plistsync` from the command line. If you are looking to use the Python library instead, start with the [core concepts](library/core-concepts.md).
 ```
 
 ```{include} ../README.md
@@ -72,7 +72,7 @@ plistsync <service> playlist list
 plistsync <service> playlist show <playlist>
 ```
 
-`<playlist>` can be a playlist name or its ID. All available services have their own guide in the sidebar. For more information about the available commands, see either each command's help page or the [CLI guide](details/cli.md).
+`<playlist>` can be a playlist name or its ID. All available services have their own guide in the sidebar. For more information about the available commands, see either each command's help page or the [CLI guide](cli/commands.md).
 
 ## Using the Python API
 
@@ -90,4 +90,4 @@ if playlist is None:
 print(f"{playlist.name}: {len(playlist.tracks)} tracks")
 ```
 
-To properly understand what happens under the hood and how to use the `plistsync` abstraction, we recommend to start with the [core concepts](details/core-concepts.md).
+To properly understand what happens under the hood and how to use the `plistsync` abstraction, we recommend starting with the [core concepts](library/core-concepts.md).

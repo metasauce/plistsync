@@ -59,7 +59,7 @@ autoapi_options = [
 ]
 autoapi_keep_files = True
 autodoc_typehints = "signature"
-autoapi_root = "api"
+autoapi_root = "reference/api"
 autoapi_ignore = ["*services*", "*__main__*"]
 suppress_warnings = ["autoapi.python_import_resolution"]
 
