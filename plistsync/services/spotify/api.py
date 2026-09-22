@@ -53,17 +53,6 @@ class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
         self.client_id = client_id
         self.headers["Accept"] = "application/json"
 
-    @classmethod
-    def from_config(cls):
-        """Construct a SpotifyApiSession from the config file."""
-        from .config import SpotifyConfig
-
-        spotify_config = SpotifyConfig.get()
-        return cls(
-            client_id=spotify_config.client_id,
-            token=Oauth2Token.from_file(spotify_config.token_path),
-        )
-
     def _refresh_token(self) -> None:
         """Validate the spotify token by making a test request.
 
@@ -130,10 +119,7 @@ class SpotifyApi:
     track: TrackApi
     user: UserApi
 
-    def __init__(self, session: SpotifyApiSession | None = None):
-        if session is None:
-            session = SpotifyApiSession.from_config()
-
+    def __init__(self, session: SpotifyApiSession):
         self.session = session
         self.playlist = PlaylistApi(self.session, self)
         self.user = UserApi(self.session, self)

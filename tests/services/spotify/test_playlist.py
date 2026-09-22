@@ -2,7 +2,9 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from plistsync.services.spotify.config import SpotifyConfig
 from plistsync.services.spotify.playlist import SpotifyPlaylist, SpotifyPlaylistID
+from plistsync.services.spotify.track import SpotifyPlaylistTrack
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 from typing import TYPE_CHECKING
 
@@ -10,7 +12,9 @@ if TYPE_CHECKING:
     from plistsync.services.spotify.api_types import SpotifyApiPlaylistResponseFull
 
 
-class TestSpotifyPlaylist(TestMultiRequestServicePlaylistBase):
+class TestSpotifyPlaylist(
+    TestMultiRequestServicePlaylistBase[SpotifyPlaylistTrack, SpotifyConfig]
+):
     """Unit tests for the spotify playlist collection."""
 
     @pytest.fixture(autouse=True)
