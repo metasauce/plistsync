@@ -109,7 +109,8 @@ class TestTrackSearch:
 
     def test_id_options_are_visible(self, search_track: Invoke) -> None:  # noqa: F811
         result = search_track(["--help"])
+        output = strip_ansi(result.output)
 
         assert result.exit_code == 0, result.output
-        assert "--isrc" in result.output
-        assert "--max-results" in result.output
+        assert "--isrc" in output
+        assert "--max-results" in output
