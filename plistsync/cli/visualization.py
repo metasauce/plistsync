@@ -203,14 +203,16 @@ def render_playlists(
 ) -> Table:
     """Build a table listing playlists with name, description and linked id."""
     table = _table(title)
-    table.add_column("Name", style="bold")
+    table.add_column("Name", style="bold", max_width=40, overflow="fold")
     table.add_column("Description", max_width=40, overflow="fold")
+    table.add_column("Tracks")
     table.add_column("ID", style="cyan", no_wrap=True)
 
     for playlist in playlists:
         table.add_row(
             escape(playlist.name),
             escape(playlist.description or "-"),
+            str(len(playlist)),
             to_rich(playlist.id),
         )
 
