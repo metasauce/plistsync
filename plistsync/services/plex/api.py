@@ -10,12 +10,11 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 from urllib.parse import quote
 
 import requests
 
-from plistsync.errors import ConfigurationError
 from plistsync.logger import log
 from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
 from plistsync.utils.session import PlistsyncSession
@@ -35,6 +34,7 @@ if TYPE_CHECKING:
         PlexApiTrackResponse,
         PlexServerIdentity,
     )
+    from .config import PlexConfig
 
 
 class PlexToken(Token):
@@ -83,10 +83,12 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
         self.server_url = server_url
 
     @classmethod
-    def from_config(cls):
-        from .config import PlexConfig
+    def from_config(cls, config: PlexConfig) -> Self:
+        """Construct a PlexApiSession from a config.
 
-        plex_config = PlexConfig.get()
+        Loads the stored token unless one is passed in, and resolves the
+        server URL from `server_url` or by looking up `server_name`.
+        """
 
         def _resolve_server_name(server_name: str):
             # we need a temporary session for plex.tv, but later want one that uses the
@@ -96,10 +98,10 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
                 "To speed this up, use a server_url in stead of server_name."
             )
             temp_session = cls(
-                plex_config.app_name,
-                plex_config.client_identifier,
+                config.app_name,
+                config.client_identifier,
                 "https://plex.tv",
-                PlexToken.from_file(plex_config.token_path),
+                PlexToken.from_file(config.token_path),
             )
 
             conns = PlexApi.get_server_connections_for_name(temp_session, server_name)
@@ -107,20 +109,16 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
 
         # priority of server url sources:
         server_url: str
-        if plex_config.server_url:
-            server_url = plex_config.server_url
-        elif plex_config.server_name:
-            server_url = _resolve_server_name(plex_config.server_name)
-        else:
-            raise ConfigurationError(
-                "Specify either plex.server_url or plex.server_name."
-            )
+        if config.server_url:
+            server_url = config.server_url
+        elif config.server_name:
+            server_url = _resolve_server_name(config.server_name)
 
         return cls(
-            plex_config.app_name,
-            plex_config.client_identifier,
+            config.app_name,
+            config.client_identifier,
             server_url,
-            PlexToken.from_file(plex_config.token_path),
+            PlexToken.from_file(config.token_path),
         )
 
     def _validate_token(self) -> None:
@@ -180,10 +178,7 @@ class PlexApi:
     track: TrackApi
     converts: ConvertsApi
 
-    def __init__(self, session: PlexApiSession | None = None) -> None:
-        if session is None:
-            session = PlexApiSession.from_config()
-
+    def __init__(self, session: PlexApiSession) -> None:
         # create permanent session for remaining requests
         self.session = session
         self.playlist = PlaylistApi(self)

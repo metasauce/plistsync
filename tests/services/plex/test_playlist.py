@@ -1,7 +1,9 @@
 from __future__ import annotations
 from unittest.mock import Mock
 import pytest
+from plistsync.services.plex.config import PlexConfig
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
+from plistsync.services.plex.track import PlexTrack
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 from typing import TYPE_CHECKING
 
@@ -12,7 +14,7 @@ if TYPE_CHECKING:
     )
 
 
-class TestPlexPlaylist(TestMultiRequestServicePlaylistBase):
+class TestPlexPlaylist(TestMultiRequestServicePlaylistBase[PlexTrack, PlexConfig]):
     """Unit tests for the plex playlist collection."""
 
     @pytest.fixture(autouse=True)
