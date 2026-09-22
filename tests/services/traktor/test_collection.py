@@ -102,6 +102,22 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         track = collection.find_by_ids(set())
         assert track is None
 
+    def test_find_by_info(self, collection: NMLLibrary):
+        tracks = list(
+            collection.find_by_info(
+                {
+                    "title": "dragger",
+                    "artists": ["amoss"],
+                    "albums": ["watermark volume 2"],
+                }
+            )
+        )
+
+        assert len(tracks) == 1
+        assert tracks[0].title == "Dragger"
+
+        assert list(collection.find_by_info({"title": "not in the collection"})) == []
+
     @pytest.mark.parametrize(
         [
             "backup",

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
-from plistsync.core.collection import IDLookup, Library, TrackStream
+from plistsync.core.collection import IDLookup, InfoLookup, Library, TrackStream
 from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from lxml.etree import _Element, _ElementTree
 
     from plistsync.core import TrackID
+    from plistsync.core import TrackInfo
 
     from .track import NMLPlaylistTrack
 
@@ -32,6 +33,7 @@ class NMLLibrary(
     Library[NMLTrack, NMLPlaylist],
     TrackStream[NMLTrack],
     IDLookup[NMLTrack],
+    InfoLookup[NMLTrack],
 ):
     """A Traktor NML Library.
 
@@ -248,6 +250,48 @@ class NMLLibrary(
             return None
 
         return NMLTrack(entry[0])
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[NMLTrack]:
+        """Find tracks whose metadata matches the supplied metadata.
+
+        NML files are local XML collections, so metadata lookup is performed by
+        scanning the collection. Every supplied, non-empty field must match; artist
+        and album fields match when any requested value is present on the track.
+        Matching is case-insensitive while preserving the collection's order.
+        """
+        title = info.get("title")
+        artists = {artist.casefold() for artist in info.get("artists", []) if artist}
+        albums = {album.casefold() for album in info.get("albums", []) if album}
+
+        if not title and not artists and not albums:
+            return
+
+        normalized_title = title.casefold() if title else None
+        for track in self.tracks:
+            track_info = track.info
+
+            if normalized_title is not None:
+                candidate_title = track_info.get("title", "").casefold()
+                if candidate_title != normalized_title:
+                    continue
+
+            if artists:
+                candidate_artists = {
+                    artist.casefold() for artist in track_info.get("artists", [])
+                }
+                if not artists & candidate_artists:
+                    continue
+
+            if albums:
+                candidate_albums = {
+                    album.casefold() for album in track_info.get("albums", [])
+                }
+                if not albums & candidate_albums:
+                    continue
+
+            yield track
 
     # --------------------------- TrackStream protocol --------------------------- #
 
