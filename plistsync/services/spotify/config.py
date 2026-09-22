@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from plistsync.config import ServiceConfig
+from plistsync.core.config import ServiceConfig
 
 
 @dataclass
