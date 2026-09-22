@@ -15,3 +15,18 @@ The configuration file is automatically located in the following order of preced
 2. **Global Directory**: Otherwise, the OS-specific user config directory is used (via `platformdirs`).
 
 The global config directory and environment variable directory are automatically created if they don't exist.
+
+## Logging
+
+The CLI writes its logs to stderr, controlled by the `logging` section of the configuration file:
+
+```yaml
+logging:
+  level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET
+  handler: "rich" # "rich" or "basic"
+```
+
+- `logging.level` controls how verbose the output is.
+- `logging.handler` selects the output style: `rich` for colorized console output, or `basic` for plain formatting.
+
+The `-v` flag makes the CLI more verbose on the spot. Every `-v` shifts the log level one step down (for example `INFO` to `DEBUG`), up to three times. For library usage, logging is configured in code instead, see the [logging guide](advanced/logging.md).

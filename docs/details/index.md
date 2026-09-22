@@ -1,4 +1,8 @@
 
+---
+orphan: true
+---
+
 # Overview
 
 Managing music across multiple platforms and storage formats is notoriously difficult. Each service (Spotify, Tidal, Plex) and format (local files, Traktor NML) uses different identifiers, metadata formats, and APIs. Users often find themselves:
