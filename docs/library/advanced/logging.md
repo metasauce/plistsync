@@ -1,6 +1,6 @@
 # Logging
 
-For library usage, logging is configured in code. The CLI configures its own logging from the configuration file, see the [CLI guide](../cli.md).
+For library usage, logging is configured in code. The CLI configures its own logging from the configuration file, see the [CLI guide](../../cli/commands.md).
 
 `plistsync` provides a {py:func}`plistsync.logger.init_logging` function that configures logging for the plistsync logger based on a {py:class}`plistsync.config.LoggingConfig`. Call it from your script to set up the plistsync logger:
 
