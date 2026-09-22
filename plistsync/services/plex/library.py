@@ -12,18 +12,20 @@ from plistsync.core.ids import ISRC, FilePath, PlaylistID
 from plistsync.logger import log
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
-from .api import PlexApi
+from .api import PlexApi, PlexApiSession
+from .config import PlexConfig
 from .track import PlexTrack, PlexTrackID
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from typing import Self
 
     from plistsync.core import PathRewrite, TrackID
     from plistsync.services.local.track import FileCache
 
 
 class PlexLibrary(
-    Library[PlexTrack, PlexPlaylist],
+    Library[PlexTrack, PlexPlaylist, PlexConfig],
     TrackStream[PlexTrack],
     IDLookup[PlexTrack],
 ):
@@ -42,16 +44,29 @@ class PlexLibrary(
     id: int
     api: PlexApi
 
-    def __init__(self, section_name_or_id: str | int = "Music"):
+    def __init__(
+        self,
+        api: PlexApi,
+        section_name_or_id: str | int = "Music",
+    ):
         """Initialize the PlexLibrary from plex given a section id.
 
         Parameters
         ----------
+        api : PlexApi
+            Authenticated Plex API client.
         section_name_or_id : str | int
             The Name or ID of the Plex library section to fetch.
         """
-        self.api = PlexApi()
+        self.api = api
         self.id = self.api.converts.section_name_to_id(section_name_or_id)
+
+    @classmethod
+    def from_config(
+        cls, config: PlexConfig, section_name_or_id: str | int = "Music"
+    ) -> Self:
+        """Construct a Plex library from a service config."""
+        return cls(PlexApi(PlexApiSession.from_config(config)), section_name_or_id)
 
     def preload(self, force_reload=False) -> None:
         """Preload the collections tracks.
