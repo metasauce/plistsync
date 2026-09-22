@@ -29,4 +29,4 @@ logging:
 - `logging.level` controls how verbose the output is.
 - `logging.handler` selects the output style: `rich` for colorized console output, or `basic` for plain formatting.
 
-The `-v` flag makes the CLI more verbose on the spot. Every `-v` shifts the log level one step down (for example `INFO` to `DEBUG`), up to three times. For library usage, logging is configured in code instead, see the [logging guide](advanced/logging.md).
+The `-v` flag makes the CLI more verbose on the spot. Every `-v` shifts the log level one step down (for example `INFO` to `DEBUG`), up to three times. For library usage, logging is configured in code instead, see the [logging guide](../library/advanced/logging.md).

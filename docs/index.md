@@ -29,28 +29,28 @@ Install `plistsync` and manage your first playlists from the command line, no co
 ::::
 
 ::::{grid-item-card} CLI guide
-:link: details/cli
+:link: cli/commands
 :link-type: doc
 
 Everything the command line can do, from browsing playlists to syncing them.
 ::::
 
 ::::{grid-item-card} Core concepts
-:link: details/core-concepts
+:link: library/core-concepts
 :link-type: doc
 
 The key abstractions behind `plistsync`, for building your own tooling.
 ::::
 
 ::::{grid-item-card} Examples
-:link: examples/readme
+:link: library/examples/readme
 :link-type: doc
 
 Step-by-step guides for common workflows.
 ::::
 
 ::::{grid-item-card} API reference
-:link: api/index
+:link: reference/api/index
 :link-type: doc
 
 In-depth reference material for the library.
@@ -58,7 +58,7 @@ In-depth reference material for the library.
 :::::
 
 ```{note}
-We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](contribution.md), improvements to both code and documentation are welcome!
+We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](reference/contribution.md), improvements to both code and documentation are welcome!
 ```
 
 ```{toctree}
@@ -71,8 +71,8 @@ getting-started.md
 :hidden:
 :caption: 💻 CLI
 
-details/cli.md
-details/configuration.md
+cli/commands.md
+cli/configuration.md
 ```
 
 ```{toctree}
@@ -80,10 +80,10 @@ details/configuration.md
 :hidden:
 :caption: 🐍 Library
 
-details/core-concepts.md
-details/architecture.md
-details/advanced/index.md
-examples/readme.md
+library/core-concepts.md
+library/architecture.md
+library/advanced/index.md
+library/examples/readme.md
 ```
 
 ```{toctree}
@@ -103,7 +103,7 @@ services/traktor/index
 :hidden:
 :caption: 📖 Reference
 
-changelog.md
-contribution.md
-api/index.md
+reference/changelog.md
+reference/contribution.md
+reference/api/index.md
 ```
