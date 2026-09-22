@@ -9,6 +9,7 @@ import pytest
 from plistsync.core.ids import ISRC
 from plistsync.services import Service
 from tests.core.mock_collections import MockLibrary, MockNoLookupLibrary
+from tests.core.mock_playlist import MockPlaylistID
 from tests.core.mock_track import MockTrack
 
 if TYPE_CHECKING:
@@ -29,6 +30,9 @@ class MockLibraryService(Service):
 
     def library(self) -> type[MockLibrary]:
         return MockLibrary
+
+    def playlist_ids(self) -> tuple[type[MockPlaylistID]]:
+        return (MockPlaylistID,)
 
 
 class NoLibraryService(Service):
@@ -121,6 +125,36 @@ def show(runner: CliRunner, app: typer.Typer) -> Invoke:
         return runner.invoke(app, ["playlist", "show", playlist])
 
     return _show
+
+
+@pytest.fixture
+def search_playlist(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``search playlist``."""
+
+    def _search_playlist(args: list[str] | None = None) -> Result:
+        return runner.invoke(app, ["search", "playlist", *(args or [])])
+
+    return _search_playlist
+
+
+@pytest.fixture
+def playlist_search(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist search``."""
+
+    def _playlist_search(args: list[str] | None = None) -> Result:
+        return runner.invoke(app, ["playlist", "search", *(args or [])])
+
+    return _playlist_search
+
+
+@pytest.fixture
+def search_track(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``search track``."""
+
+    def _search_track(args: list[str] | None = None) -> Result:
+        return runner.invoke(app, ["search", "track", *(args or [])])
+
+    return _search_track
 
 
 @pytest.fixture
