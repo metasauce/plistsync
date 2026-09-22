@@ -9,7 +9,7 @@ from plistsync.services.tidal.config import TidalConfig
 
 
 class TestTidalAuth:
-    """Tidal uses the generic OAuth2 provider with a custom redirect port."""
+    """Tidal uses the generic OAuth2 provider."""
 
     @pytest.fixture
     def auth(self) -> TidalAuth:
@@ -20,7 +20,7 @@ class TestTidalAuth:
 
         assert TidalService().auth() is TidalAuth
 
-    def test_client_id_and_redirect_uri_come_from_config(self, auth: TidalAuth) -> None:
+    def test_client_id_and_redirect_uri(self, auth: TidalAuth) -> None:
         assert auth.client_id() == "my-client"
         assert auth.redirect_uri() == "http://127.0.0.1:5001"
 

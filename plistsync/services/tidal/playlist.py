@@ -11,6 +11,7 @@ from plistsync.core.playlist import (
 )
 from plistsync.logger import log
 
+from .config import TidalConfig
 from .track import TidalPlaylistTrack
 
 if TYPE_CHECKING:
@@ -68,7 +69,7 @@ class TidalPlaylistID(PlaylistID):
         return self.id
 
 
-class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack]):
+class TidalPlaylist(MultiRequestServicePlaylist[TidalPlaylistTrack, TidalConfig]):
     library: TidalLibrary
 
     data: PlaylistResource

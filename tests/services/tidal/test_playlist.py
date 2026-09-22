@@ -2,7 +2,9 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from plistsync.services.tidal.config import TidalConfig
 from plistsync.services.tidal.playlist import TidalPlaylist, TidalPlaylistID
+from plistsync.services.tidal.track import TidalPlaylistTrack
 from tests.abc.playlist import TestMultiRequestServicePlaylistBase
 from typing import TYPE_CHECKING
 
@@ -10,7 +12,9 @@ if TYPE_CHECKING:
     from plistsync.services.tidal.api_types import PlaylistResource
 
 
-class TestsTidalPlaylist(TestMultiRequestServicePlaylistBase):
+class TestsTidalPlaylist(
+    TestMultiRequestServicePlaylistBase[TidalPlaylistTrack, TidalConfig]
+):
     """Unit tests for the tidal playlist collection."""
 
     @pytest.fixture(autouse=True)
