@@ -19,6 +19,7 @@ from .utility import sanitize_plist_name, xpath_string_escape
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from typing import Self
     from uuid import UUID
 
     from lxml.etree import _Element, _ElementTree
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 
 
 class NMLLibrary(
-    Library[NMLTrack, NMLPlaylist],
+    Library[NMLTrack, NMLPlaylist, TraktorConfig],
     TrackStream[NMLTrack],
     IDLookup[NMLTrack],
 ):
@@ -44,21 +45,20 @@ class NMLLibrary(
 
     path: Path
     tree: _ElementTree
+    backup_before_write: bool
 
-    def __init__(self, path: Path | str | None = None):
-        if path is None:
-            path = TraktorConfig.get().path
-
-        if isinstance(path, str):
-            path = Path(path)
-
-        if not path.exists():
-            raise FileNotFoundError(f"File {path} does not exist")
-
+    def __init__(self, path: Path | str, backup_before_write: bool = True):
         self.path = Path(path)
-
+        if not self.path.exists():
+            raise FileNotFoundError(f"File {path} does not exist")
+        self.backup_before_write = backup_before_write
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
+
+    @classmethod
+    def from_config(cls, config: TraktorConfig) -> Self:
+        """Construct a Traktor library from a service config."""
+        return cls(Path(config.path), backup_before_write=config.backup_before_write)
 
     def write(self, backup: bool | None = None):
         """Write changes to NML file.
@@ -67,7 +67,7 @@ class NMLLibrary(
         """
 
         if backup is None:
-            backup = TraktorConfig.get().backup_before_write
+            backup = self.backup_before_write
 
         if backup:
             nml_backup = self.path.with_suffix(
