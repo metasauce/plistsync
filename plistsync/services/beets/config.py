@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from plistsync.config import ServiceConfig
+from plistsync.core.config import ServiceConfig
 
 
 @dataclass

@@ -1,7 +1,9 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from functools import wraps
-from typing import Any, ClassVar, ParamSpec, TypeVar, TYPE_CHECKING
+from typing import Any, ClassVar, Generic, ParamSpec, TYPE_CHECKING
+
+from typing_extensions import TypeVar
 from unittest.mock import ANY, Mock
 
 import pytest
@@ -13,15 +15,20 @@ from plistsync.core.playlist import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from plistsync.core.config import ServiceConfig
     from plistsync.core.playlist import (
         MultiRequestServicePlaylist,
         Playlist,
         ServicePlaylist,
     )
+    from plistsync.core.track import Track
 
 
 P = ParamSpec("P")
 R = TypeVar("R")
+T = TypeVar("T", bound="Track")
+C = TypeVar("C", bound="ServiceConfig | None", default="ServiceConfig | None")
+"""Track and service config type of the playlist under test."""
 
 
 def requires_feature(feature: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
@@ -140,9 +147,9 @@ class TestPlaylistBase(ABC):
             assert id(getattr(playlist, key)) != id(getattr(snapshot, key))
 
 
-class TestServicePlaylistBase(TestPlaylistBase, ABC):
+class TestServicePlaylistBase(TestPlaylistBase, ABC, Generic[T, C]):
     @abstractmethod
-    def create_playlist(self) -> ServicePlaylist:
+    def create_playlist(self) -> ServicePlaylist[T, C]:
         """Create a playlist.
 
         FIXME: Temporary until we unify the playlist init!
@@ -201,9 +208,9 @@ class TestServicePlaylistBase(TestPlaylistBase, ABC):
         playlist._remote_commit.assert_not_called()
 
 
-class TestMultiRequestServicePlaylistBase(TestServicePlaylistBase, ABC):
+class TestMultiRequestServicePlaylistBase(TestServicePlaylistBase[T, C], ABC):
     @abstractmethod
-    def create_playlist(self) -> MultiRequestServicePlaylist:
+    def create_playlist(self) -> MultiRequestServicePlaylist[T, C]:
         """Create a playlist.
 
         FIXME: Temporary until we unify the playlist init!

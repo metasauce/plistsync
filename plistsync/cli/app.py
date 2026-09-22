@@ -10,12 +10,12 @@ from rich.logging import RichHandler
 from typer.core import TyperGroup
 from typer.main import get_group
 
-from plistsync.config import Config
 from plistsync.logger import basic_logging_handler, init_logging, log
 from plistsync.services import ServiceLoader
 
 from .commands.config import config_app
 from .commands.sync import sync_app
+from .config import Config
 from .context import ServiceContext
 from .service_commands import cli_service_factory
 
@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     # signatures must use those types rather than the standalone click package.
     from typer._click import Command, Context
 
-    from plistsync.config import LoggingConfig
+    from plistsync.logger import LoggingConfig
     from plistsync.services import Service
 
 
