@@ -10,12 +10,11 @@ from typing import TYPE_CHECKING
 
 import typer
 
-from ..context import ServiceContext
-from plistsync.cli.service_commands.library import library_typer_factory
-from plistsync.errors import HowTheForkDidYouEndUpHereError
+from plistsync.cli.context import ServiceContext
 
 from .auth import auth_command_factory
 from .playlist import playlist_command_factory
+from .search import search_command_factory
 
 if TYPE_CHECKING:
     from plistsync.services import Service
@@ -38,7 +37,6 @@ def cli_service_factory(service: Service) -> typer.Typer:
 
     if (library_cls := service.library()) is not None:
         app.add_typer(playlist_command_factory(library_cls))
-
-    app.add_typer(search_typer_factory(service))
+        app.add_typer(search_command_factory(library_cls))
 
     return app
