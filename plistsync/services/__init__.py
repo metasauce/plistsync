@@ -15,9 +15,9 @@ from .registry import Registry
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from plistsync.config import ServiceConfig
     from plistsync.core import Library, Playlist, Track
     from plistsync.core.auth import AuthProvider
+    from plistsync.core.config import ServiceConfig
     from plistsync.core.ids import PlaylistID, TrackID
 
 
@@ -39,7 +39,7 @@ class Service(ABC, Registry):
 
     def config(self) -> type[ServiceConfig] | None:
         """Return the service config class registered for this service, if any."""
-        from plistsync.config import ServiceConfig
+        from plistsync.core.config import ServiceConfig
 
         return ServiceConfig.registry().get(self.name, (None,))[0]
 
