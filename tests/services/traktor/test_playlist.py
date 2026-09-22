@@ -3,7 +3,9 @@ import logging
 from uuid import UUID
 
 import pytest
+from plistsync.services.traktor.config import TraktorConfig
 from plistsync.services.traktor.playlist import NMLPlaylistID
+from plistsync.services.traktor.track import NMLPlaylistTrack
 from tests.abc.playlist import (
     TestServicePlaylistBase,
 )
@@ -13,7 +15,7 @@ if TYPE_CHECKING:
     from plistsync.services.traktor import NMLPlaylist, NMLLibrary
 
 
-class TestsTidalPlaylist(TestServicePlaylistBase):
+class TestsTidalPlaylist(TestServicePlaylistBase[NMLPlaylistTrack, TraktorConfig]):
     """Unit tests for the spotify playlist collection."""
 
     supports_description = False
