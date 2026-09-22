@@ -130,7 +130,9 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
         to refresh with the current flow.
         """
         try:
-            response = super().request("GET", f"{self.server_url}/api/v2/user")
+            # Plex moved this endpoint to plex.tv;
+            # it is no longer served by individual Plex Media Server instances.
+            response = super().request("GET", "https://plex.tv/api/v2/user")
             if response.status_code == 401:
                 raise InvalidTokenError(self.token)
             self.token.validated = True
