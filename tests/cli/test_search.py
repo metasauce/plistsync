@@ -31,7 +31,7 @@ class TestPlaylistSearch:
 
     def test_searches_by_name_pattern(
         self,
-        search_playlist: Invoke,
+        search_playlist: Invoke,  # noqa: F811
         playlist: MockServicePlaylist,  # noqa: F811
     ) -> None:
         result = search_playlist(["--name", "Party"])
@@ -43,7 +43,7 @@ class TestPlaylistSearch:
 
     def test_searches_by_description_pattern(
         self,
-        search_playlist: Invoke,
+        search_playlist: Invoke,  # noqa: F811
         playlist: MockServicePlaylist,  # noqa: F811
     ) -> None:
         result = search_playlist(["--description", "Chill"])
@@ -54,7 +54,7 @@ class TestPlaylistSearch:
 
     def test_searches_by_id(
         self,
-        search_playlist: Invoke,
+        search_playlist: Invoke,  # noqa: F811
         playlist: MockServicePlaylist,  # noqa: F811
     ) -> None:
         result = search_playlist(["--id", playlist.id.serial])
@@ -65,7 +65,7 @@ class TestPlaylistSearch:
 
     def test_id_and_pattern_matches_are_combined(
         self,
-        search_playlist: Invoke,
+        search_playlist: Invoke,  # noqa: F811
         playlist: MockServicePlaylist,  # noqa: F811
     ) -> None:
         other = MockLibrary().create_playlist("Work Mix", description="Focus")
@@ -81,7 +81,7 @@ class TestPlaylistSearch:
 
     def test_playlist_search_alias(
         self,
-        playlist_search: Invoke,
+        playlist_search: Invoke,  # noqa: F811
         playlist: MockServicePlaylist,  # noqa: F811
     ) -> None:
         result = playlist_search(["--name", "Party"])

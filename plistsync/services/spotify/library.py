@@ -212,4 +212,13 @@ class SpotifyLibrary(
 
         Spotify returns search results in relevance order.
         """
-        return [SpotifyTrack(track) for track in self.api.track.search(info)]
+        artists = info.get("artists")
+        albums = info.get("albums")
+        return [
+            SpotifyTrack(track)
+            for track in self.api.track.search(
+                title=info.get("title"),
+                artist=artists[0] if artists else None,
+                album=albums[0] if albums else None,
+            )
+        ]
