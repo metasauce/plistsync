@@ -75,17 +75,6 @@ class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
         )
         self.client_id = client_id
 
-    @classmethod
-    def from_config(cls):
-        """Initialize a tidal api from configutation file."""
-        from .config import TidalConfig
-
-        tidal_config = TidalConfig.get()
-        return cls(
-            client_id=tidal_config.client_id,
-            token=Oauth2Token.from_file(tidal_config.token_path),
-        )
-
     def _refresh_token(self) -> None:
         """Refresh the Tidal token.
 
@@ -295,10 +284,7 @@ class TidalApi:
     playlist: TidalPlaylistApi
     user: TidalUserApi
 
-    def __init__(self, session: TidalApiSession | None = None):
-        if session is None:
-            session = TidalApiSession.from_config()
-
+    def __init__(self, session: TidalApiSession):
         self.session = session
         self.tracks = TidalTrackApi(self.session)
         self.playlist = TidalPlaylistApi(self.session)
