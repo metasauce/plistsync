@@ -1,6 +1,6 @@
 # Logging
 
-`plistsync` provides a {py:func}`plistsync.logger.init_logging` function that configures logging for the plistsync logger based on a {py:class}`plistsync.config.LoggingConfig`. The CLI calls this function automatically; for scripts and library usage you should call it yourself.
+`plistsync` provides a {py:func}`plistsync.logger.init_logging` function that configures logging for the plistsync logger based on a {py:class}`plistsync.logger.LoggingConfig`. The CLI calls this function automatically; for scripts and library usage you should call it yourself.
 
 You can retrieve the logger as usual:
 
@@ -24,11 +24,10 @@ logging:
 
 ## Configuring logging from a script
 
-Call {py:func}`plistsync.logger.init_logging` with a {py:class}`~plistsync.config.LoggingConfig` to set up the plistsync logger:
+Call {py:func}`plistsync.logger.init_logging` with a {py:class}`~plistsync.logger.LoggingConfig` to set up the plistsync logger:
 
 ```python
-from plistsync.config import LoggingConfig
-from plistsync.logger import init_logging
+from plistsync.logger import init_logging, LoggingConfig
 
 # Use defaults (level="INFO", handler="rich")
 init_logging()
