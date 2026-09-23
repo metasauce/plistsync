@@ -7,16 +7,22 @@ Matching takes place via file paths.
 The Path rewrite assumes your plex is remote and traktor is local.
 """
 
-from pathlib import Path
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
+from plistsync.cli.config import Config
 from plistsync.core.ids import FilePath
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
+from plistsync.services.plex.config import PlexConfig
 from plistsync.services.plex.library import PlexLibrary
 from plistsync.services.traktor import NMLLibrary, NMLPlaylistTrack
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def main(
@@ -59,7 +65,8 @@ def main(
         path_rewrite = PathRewrite.from_str(plex_path_base, traktor_path_base)
 
     # Get libraries
-    plex_library = PlexLibrary(plex_section_name)
+    plex_config = Config().get_config_for(PlexConfig)
+    plex_library = PlexLibrary.from_config(plex_config, plex_section_name)
     traktor_library = NMLLibrary(traktor_nml_path)
 
     # Get playlists
@@ -120,7 +127,7 @@ def main(
             p_for_plex = path_rewrite.invert.apply(p)
             plex_track = plex_library.find_by_ids([FilePath(p_for_plex)])
             if plex_track is None:
-                log.warning(f"Could not find track in plex: {str(p_for_plex)}")
+                log.warning(f"Could not find track in plex: {p_for_plex!s}")
             else:
                 plex_playlist.tracks.append(plex_track)
 

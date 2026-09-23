@@ -58,7 +58,6 @@ class FakeConfig(ServiceConfig, service="fake"):
     fake_option: str = "default"
 
 
-
 # ``__module__`` must be set after the class body: ``@dataclass`` resolves
 # string annotations via ``sys.modules[cls.__module__]``, and no
 # ``plistsync.services.fake`` module exists.
