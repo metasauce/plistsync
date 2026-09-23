@@ -102,6 +102,10 @@ class AuthProvider(ABC, Registry, Generic[Req, Res, T]):
     def obtain_token(self, request: Req, response: Res) -> T:
         """Interpret the response, obtain a token and return it."""
 
+    @abstractmethod
+    def check_auth(self) -> bool:
+        """Check the current authentication status without user interaction."""
+
 
 # ---------------------------------- OAuth2 ---------------------------------- #
 # TODO: We should move this into its own lazily loaded file, since it imports some deps
