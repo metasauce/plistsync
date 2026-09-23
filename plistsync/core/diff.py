@@ -1,3 +1,5 @@
+"""Diffing operations for turning two playlist states into a list of edits."""
+
 from __future__ import annotations
 
 import bisect

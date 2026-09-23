@@ -10,27 +10,42 @@ from plistsync.core.collection import (
 )
 from plistsync.core.ids import ISRC, PlaylistID
 from plistsync.logger import log
+from plistsync.utils.auth.bearer_token import Oauth2Token
 
-from .api import TidalApi
+from .api import TidalApi, TidalApiSession
+from .config import TidalConfig
 from .playlist import TidalPlaylist, TidalPlaylistID
 from .track import TidalTrack, TidalTrackID
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from typing import Self
 
     from plistsync.core import TrackID
 
 
 class TidalLibrary(
-    Library[TidalTrack, TidalPlaylist],
+    Library[TidalTrack, TidalPlaylist, TidalConfig],
     IDLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
 
     api: TidalApi
 
-    def __init__(self) -> None:
-        self.api = TidalApi()
+    def __init__(self, api: TidalApi) -> None:
+        self.api = api
+
+    @classmethod
+    def from_config(cls, config: TidalConfig) -> Self:
+        """Construct a Tidal library from a service config."""
+        return cls(
+            TidalApi(
+                TidalApiSession(
+                    client_id=config.client_id,
+                    token=Oauth2Token.from_file(config.token_path),
+                )
+            )
+        )
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 

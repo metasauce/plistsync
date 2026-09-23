@@ -1,13 +1,18 @@
 """Export a single Plex playlist to M3U format, with optional path rewriting."""
 
-from pathlib import Path
-from typing import Annotated
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Annotated
 
 import typer
 
+from plistsync.cli.config import Config
 from plistsync.core.rewrite import PathRewrite
 from plistsync.logger import log
-from plistsync.services.plex import PlexLibrary
+from plistsync.services.plex import PlexConfig, PlexLibrary
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def main(
@@ -53,7 +58,8 @@ def main(
         path_rewrite = PathRewrite.from_str(plex_path_base, m3u_path_base)
 
     # Load Plex library and playlist
-    plex_library = PlexLibrary(plex_section_name)
+    plex_config = Config().get_config_for(PlexConfig)
+    plex_library = PlexLibrary.from_config(plex_config, plex_section_name)
     playlist = plex_library.get_playlist(name=playlist_name)
 
     if playlist is None:
@@ -70,16 +76,14 @@ def main(
         if not track.path:
             log.warning(f"Track '{track.title}' has no file path — skipping.")
             continue
-        m3u += str(path_rewrite.apply(track.path)) + '\n'
+        m3u += str(path_rewrite.apply(track.path)) + "\n"
         num_m3u_tracks += 1
 
     # Write M3U file
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(m3u, encoding="utf-8")
 
-    log.info(
-        f"Exported '{playlist.name}' → {output_path} with {num_m3u_tracks} tracks"
-    )
+    log.info(f"Exported '{playlist.name}' → {output_path} with {num_m3u_tracks} tracks")
 
 
 main.__doc__ = __doc__  # set help text from module docstring

@@ -63,7 +63,9 @@ class TestPlexAuth:
 
     @pytest.fixture
     def auth(self) -> PlexAuth:
-        return PlexAuth(PlexConfig(server_url="http://localhost:32400"))
+        return PlexAuth(
+            PlexConfig(server_url="http://localhost:32400", redirect_port=5001)
+        )
 
     @pytest.fixture
     def session(self, monkeypatch: pytest.MonkeyPatch) -> MagicMock:

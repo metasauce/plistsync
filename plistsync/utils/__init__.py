@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import dataclasses
 import json
-import os
-import pathlib
 import re
 import urllib.parse
 from typing import TYPE_CHECKING, TypeVar
@@ -44,18 +42,6 @@ def build_url(base_url: str, params: dict) -> str:
         else:
             url += f"&{key}={urllib.parse.quote(value)}"
     return url
-
-
-def get_config_dir() -> pathlib.Path:
-    """Get the configuration directory.
-
-    Returns
-    -------
-    str: The configuration directory.
-    """
-    o = os.getenv("PSYNC_CONFIG_DIR", "./config")
-    pathlib.Path(o).mkdir(parents=True)
-    return pathlib.Path(o).resolve()
 
 
 def camel_to_snake(text: str) -> str:

@@ -15,6 +15,7 @@ from plistsync.core.playlist import (
 )
 from plistsync.logger import log
 
+from .config import TraktorConfig
 from .path import NMLPath
 from .track import NMLPlaylistTrack
 from .utility import (
@@ -83,7 +84,7 @@ class NMLPlaylistID(PlaylistID):
         return str(self.id.hex)  # Uses hex in internal repr
 
 
-class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack], IDLookup):
+class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack, TraktorConfig], IDLookup):
     """A Traktor NML playlist collection.
 
     Traktor playlists use file paths as the identifiers.

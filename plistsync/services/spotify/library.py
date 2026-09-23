@@ -11,19 +11,22 @@ from plistsync.core.collection import (
 )
 from plistsync.core.ids import ISRC, PlaylistID
 from plistsync.logger import log
+from plistsync.utils.auth.bearer_token import Oauth2Token
 
-from .api import SpotifyApi
+from .api import SpotifyApi, SpotifyApiSession
+from .config import SpotifyConfig
 from .playlist import SpotifyPlaylist, SpotifyPlaylistID
 from .track import SpotifyTrack, SpotifyTrackID
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
+    from typing import Self
 
     from plistsync.core import TrackID, TrackInfo
 
 
 class SpotifyLibrary(
-    Library[SpotifyTrack, SpotifyPlaylist],
+    Library[SpotifyTrack, SpotifyPlaylist, SpotifyConfig],
     IDLookup[SpotifyTrack],
     InfoLookup[SpotifyTrack],
 ):
@@ -35,8 +38,21 @@ class SpotifyLibrary(
 
     api: SpotifyApi
 
-    def __init__(self) -> None:
-        self.api = SpotifyApi()
+    def __init__(self, api: SpotifyApi) -> None:
+        self.api = api
+
+    @classmethod
+    def from_config(cls, config: SpotifyConfig) -> Self:
+        """Construct a Spotify library from a service config."""
+
+        return cls(
+            SpotifyApi(
+                SpotifyApiSession(
+                    client_id=config.client_id,
+                    token=Oauth2Token.from_file(config.token_path),
+                )
+            )
+        )
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 

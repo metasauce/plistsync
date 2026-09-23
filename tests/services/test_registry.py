@@ -66,6 +66,10 @@ class FakeTrack(Track):
 class FakeLibrary(Library[Any, Any]):
     __module__ = SERVICE_MODULE
 
+    @classmethod
+    def from_config(cls, config: object | None = None) -> Self:
+        return cls()
+
     @property
     def playlists(self) -> Iterable[Any]:
         return []

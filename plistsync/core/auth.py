@@ -1,3 +1,5 @@
+"""Authentication providers that obtain initial tokens for plistsync services."""
+
 from __future__ import annotations
 
 import base64
@@ -19,7 +21,7 @@ from plistsync.utils.session import PlistsyncSession
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from plistsync.config import ServiceConfig
+    from plistsync.core.config import ServiceConfig
 
 
 class Interaction(Protocol):
