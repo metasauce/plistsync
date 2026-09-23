@@ -44,11 +44,11 @@ class TidalLibrary(
         return [TidalPlaylist(self, pl, lookup) for pl in playlists]
 
     @overload
-    def get_playlist(self, *, name: str | None = None) -> TidalPlaylist | None: ...
-    @overload
     def get_playlist(
         self, *, id: PlaylistID | str | int | None = None
     ) -> TidalPlaylist | None: ...
+    @overload
+    def get_playlist(self, *, name: str | None = None) -> TidalPlaylist | None: ...
     @overload
     def get_playlist(self, *, url: str | None = None) -> TidalPlaylist | None: ...
 

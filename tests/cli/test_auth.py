@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import patch
 
 import pytest
 from typer._click._compat import strip_ansi
 from typer.main import get_group
-from typer.testing import CliRunner
 
-from plistsync.cli import app
-from plistsync.cli.service_commands import cli_service_factory
 from plistsync.cli.service_commands.auth import CLIInteraction, RawRedirectHandler
-from dataclasses import dataclass
-
 from plistsync.config import Config, ServiceConfig
 from plistsync.core.auth import AuthProvider
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
@@ -24,10 +20,11 @@ from plistsync.services import Service, ServiceLoader
 from plistsync.utils.auth.bearer_token import Token
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Callable, Iterator
     from pathlib import Path
 
-runner = CliRunner()
+    import typer
+    from typer.testing import CliRunner
 
 
 class FakeToken(Token):
@@ -121,9 +118,11 @@ def fake_token_file() -> Iterator[Path]:
 class TestLazyServiceLoading:
     """Services are mounted as top level groups and loaded on demand."""
 
-    def test_root_help_lists_services_without_loading_them(self) -> None:
+    def test_root_help_lists_services_without_loading_them(
+        self, runner: CliRunner, cli_app: typer.Typer
+    ) -> None:
         with patch.object(ServiceLoader, "get") as mock_get:
-            result = runner.invoke(app, ["--help"])
+            result = runner.invoke(cli_app, ["--help"])
 
         assert result.exit_code == 0
         assert "config" in result.output
@@ -131,11 +130,9 @@ class TestLazyServiceLoading:
         assert any(name in result.output for name in ("plex", "spotify", "tidal"))
         mock_get.assert_not_called()
 
-    def test_service_help_loads_only_that_service(self) -> None:
-        # Make sure the config exists, so resolving the service config does not
-        # bootstrap the default config (which loads all services once).
-        Config()
-
+    def test_service_help_loads_only_that_service(
+        self, runner: CliRunner, cli_app: typer.Typer, config: Config
+    ) -> None:
         plex = ServiceLoader.get("plex")
         assert plex is not None
 
@@ -143,20 +140,22 @@ class TestLazyServiceLoading:
             patch.object(ServiceLoader, "get", return_value=plex) as mock_get,
             patch.object(ServiceLoader, "all") as mock_all,
         ):
-            result = runner.invoke(app, ["plex", "--help"])
+            result = runner.invoke(cli_app, ["plex", "--help"])
 
         assert result.exit_code == 0, result.output
         mock_get.assert_any_call("plex")
         mock_all.assert_not_called()
         assert "auth" in result.output
 
-    def test_unknown_command_does_not_load_services(self) -> None:
+    def test_unknown_command_does_not_load_services(
+        self, runner: CliRunner, cli_app: typer.Typer
+    ) -> None:
         with (
             patch.object(ServiceLoader, "list_all", return_value=["plex"]),
             patch.object(ServiceLoader, "get") as mock_get,
             patch.object(ServiceLoader, "all") as mock_all,
         ):
-            result = runner.invoke(app, ["nope", "--help"])
+            result = runner.invoke(cli_app, ["nope", "--help"])
 
         assert result.exit_code != 0
         mock_get.assert_not_called()
@@ -166,35 +165,41 @@ class TestLazyServiceLoading:
 class TestAuthCommand:
     """``plistsync <service> auth`` drives the provider and persists a token."""
 
-    def test_runs_provider_and_saves_token(self, fake_token_file: Path) -> None:
+    def test_runs_provider_and_saves_token(
+        self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
+    ) -> None:
         with (
             _fake_service(),
             patch(
                 "plistsync.cli.service_commands.auth.CLIInteraction"
             ) as mock_interaction,
         ):
-            result = runner.invoke(app, ["fake", "auth"])
+            result = runner.invoke(cli_app, ["fake", "auth"])
 
         assert result.exit_code == 0, result.output
         mock_interaction.assert_called_once_with(mode="forward")
         assert json.loads(fake_token_file.read_text()) == {"token": "secret"}
         assert str(fake_token_file) in result.output
 
-    def test_mode_option_is_forwarded_to_interaction(self) -> None:
+    def test_mode_option_is_forwarded_to_interaction(
+        self, runner: CliRunner, cli_app: typer.Typer
+    ) -> None:
         with (
             _fake_service(),
             patch(
                 "plistsync.cli.service_commands.auth.CLIInteraction"
             ) as mock_interaction,
         ):
-            result = runner.invoke(app, ["fake", "auth", "--mode", "manual"])
+            result = runner.invoke(cli_app, ["fake", "auth", "--mode", "manual"])
 
         assert result.exit_code == 0, result.output
         mock_interaction.assert_called_once_with(mode="manual")
 
-    def test_help_lists_mode_option(self) -> None:
+    def test_help_lists_mode_option(
+        self, runner: CliRunner, cli_app: typer.Typer
+    ) -> None:
         with _fake_service():
-            result = runner.invoke(app, ["fake", "auth", "--help"])
+            result = runner.invoke(cli_app, ["fake", "auth", "--help"])
 
         assert result.exit_code == 0, result.output
         assert "--mode" in strip_ansi(result.output)
@@ -203,8 +208,10 @@ class TestAuthCommand:
 class TestCliServiceFactory:
     """cli_service_factory mounts only the commands a service supports."""
 
-    def test_supported_commands_are_mounted(self) -> None:
-        group = get_group(cli_service_factory(FakeService()))
+    def test_supported_commands_are_mounted(
+        self, service_app: Callable[[Service], typer.Typer]
+    ) -> None:
+        group = get_group(service_app(FakeService()))
 
         assert group.help == "Commands for the fake service."
         assert set(group.commands) == {"auth"}
@@ -213,29 +220,35 @@ class TestCliServiceFactory:
         assert command.help == "Authenticate with fake."
 
     def test_provider_is_constructed_with_resolved_config(
-        self, fake_token_file: Path
+        self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
     ) -> None:
         FakeAuthProvider.instances.clear()
 
         with _fake_service():
-            result = runner.invoke(app, ["fake", "auth"])
+            result = runner.invoke(cli_app, ["fake", "auth"])
 
         assert result.exit_code == 0, result.output
         assert len(FakeAuthProvider.instances) == 1
         assert isinstance(FakeAuthProvider.instances[0].config, FakeConfig)
 
-    def test_unsupported_commands_are_skipped(self) -> None:
+    def test_unsupported_commands_are_skipped(
+        self, service_app: Callable[[Service], typer.Typer]
+    ) -> None:
         class NoAuthService(Service):
             __module__ = "plistsync.services.fake_no_auth"
 
             def auth(self):
                 return None
 
-        group = get_group(cli_service_factory(NoAuthService()))
+        group = get_group(service_app(NoAuthService()))
 
         assert group.commands == {}
 
-    def test_auth_without_config_raises(self) -> None:
+    def test_auth_without_config_raises(
+        self,
+        runner: CliRunner,
+        service_app: Callable[[Service], typer.Typer],
+    ) -> None:
         class NoConfigService(Service):
             __module__ = "plistsync.services.fake_no_config"
 
@@ -245,7 +258,7 @@ class TestCliServiceFactory:
             def config(self):
                 return None
 
-        result = runner.invoke(cli_service_factory(NoConfigService()), ["auth"])
+        result = runner.invoke(service_app(NoConfigService()), ["auth"])
 
         assert result.exit_code != 0
         assert isinstance(result.exception, HowTheForkDidYouEndUpHereError)

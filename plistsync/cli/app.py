@@ -16,6 +16,7 @@ from plistsync.services import ServiceLoader
 
 from .commands.config import config_app
 from .commands.sync import sync_app
+from .context import ServiceContext
 from .service_commands import cli_service_factory
 
 if TYPE_CHECKING:
@@ -26,6 +27,7 @@ if TYPE_CHECKING:
     from typer._click import Command, Context
 
     from plistsync.config import LoggingConfig
+    from plistsync.services import Service
 
 
 class ServiceGroup(TyperGroup):
@@ -37,18 +39,19 @@ class ServiceGroup(TyperGroup):
     """
 
     _loaded: bool = False
+    _service: Service | None = None
 
     def _load(self) -> None:
         if self._loaded:
             return
         self._loaded = True
 
-        service = ServiceLoader.get(self.name or "")
-        if service is None:
+        self._service = ServiceLoader.get(self.name or "")
+        if self._service is None:
             return
 
         # Attach the service app's commands to this placeholder once loaded.
-        service_app = get_group(cli_service_factory(service))
+        service_app = get_group(cli_service_factory(self._service))
         self.commands.update(service_app.commands)
         self.callback = service_app.callback
 
@@ -58,6 +61,9 @@ class ServiceGroup(TyperGroup):
 
     def get_command(self, ctx: Context, cmd_name: str) -> Command | None:
         self._load()
+        # Also runs during shell completion, which does not invoke callbacks.
+        if self._service is not None:
+            ctx.obj = ServiceContext(self._service)
         return super().get_command(ctx, cmd_name)
 
 

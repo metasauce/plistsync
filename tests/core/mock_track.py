@@ -1,9 +1,43 @@
 from __future__ import annotations
-from plistsync.core.track import Track, TrackInfo
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from plistsync.core import TrackID
+from dataclasses import dataclass
+from functools import cache
+from typing import Self
+
+from plistsync.core.ids import TrackID
+from plistsync.core.track import Track, TrackInfo
+
+
+@dataclass(frozen=True)
+class MockTrackID(TrackID, service="test"):
+    """Minimal track ID for tests, serialized as ``test:track:<id>``."""
+
+    id: str
+
+    @classmethod
+    def parse(cls, value: str) -> Self:
+        """Parse a ``test:track:<id>`` serial or a raw id."""
+        if value.startswith("test:track:"):
+            value = value[len("test:track:") :]
+        return cls(value)
+
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        """Service name for the mock."""
+        return "test"
+
+    @property
+    def serial(self) -> str:
+        return f"test:track:{self.id}"
+
+    @property
+    def url(self) -> str:
+        """Public web URL."""
+        return f"https://example.com/track/{self.id}"
+
+    def __str__(self) -> str:
+        return self.id
 
 
 class MockTrack(Track, service="test"):
