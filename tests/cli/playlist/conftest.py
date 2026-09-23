@@ -114,6 +114,16 @@ def update(runner: CliRunner, app: typer.Typer) -> Invoke:
 
 
 @pytest.fixture
+def show(runner: CliRunner, app: typer.Typer) -> Invoke:
+    """Invoke ``playlist show``."""
+
+    def _show(playlist: str) -> Result:
+        return runner.invoke(app, ["playlist", "show", playlist])
+
+    return _show
+
+
+@pytest.fixture
 def playlist(_mock_library: None) -> MockServicePlaylist:
     """A playlist known to the mock library."""
     return MockLibrary().create_playlist("Party Mix", description="Chill")

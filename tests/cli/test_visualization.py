@@ -99,7 +99,7 @@ def test_table_rendering(table: Table, present: tuple[str, ...]) -> None:
     [
         (
             Snapshot(name="Mix", description="Dance", tracks=[track("One")]),
-            ("'Mix'", "Dance", "Tracks", "One"),
+            ("Mix", "Dance", "Tracks", "One"),
             (),
         ),
         (

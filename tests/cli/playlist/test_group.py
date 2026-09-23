@@ -29,6 +29,7 @@ class TestPlaylistGroup:
             "list",
             "ls",
             "update",
+            "show",
         }
         assert get_group(no_library_app).commands == {}
 

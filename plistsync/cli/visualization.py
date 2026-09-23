@@ -114,7 +114,7 @@ def _render_snapshot(obj: Snapshot) -> RenderableType:
     details = Table.grid(padding=(0, 2))
     details.add_column(style="bold cyan", no_wrap=True)
     details.add_column()
-    details.add_row("Name", escape(repr(obj.name)))
+    details.add_row("Name", escape(obj.name))
     details.add_row("Description", escape(obj.description or "-"))
     details.add_row("Tracks", str(len(obj.tracks)))
     if not obj.tracks:

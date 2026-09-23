@@ -13,6 +13,7 @@ import typer
 from .create import register_create_command
 from .list import register_list_command
 from .remove import register_remove_command
+from .show import register_show_command
 from .update import register_update_command
 
 if TYPE_CHECKING:
@@ -31,5 +32,6 @@ def playlist_command_factory(library_cls: type[Library]) -> typer.Typer:
     register_create_command(app, library_cls)
     register_remove_command(app)
     register_update_command(app, library_cls)
+    register_show_command(app)
 
     return app
