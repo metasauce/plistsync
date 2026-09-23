@@ -4,20 +4,23 @@ from __future__ import annotations
 
 import base64
 import hashlib
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
 
 import pytest
 import requests
+from requests_oauth2client import BearerToken
 
 from plistsync.config import ServiceConfig
 from plistsync.core.auth import AuthProvider, OAuth2Provider
 from plistsync.errors import AuthenticationError
-from plistsync.utils.auth.bearer_token import Token
+from plistsync.utils.auth.bearer_token import Oauth2Token, Token
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from plistsync.core.auth import Interaction
 
@@ -101,6 +104,10 @@ class RecordingProvider(AuthProvider[str, str, FakeToken], service="_test_auth_f
         self.calls.append("obtain_token")
         assert (request, response) == ("request", "response")
         return FakeToken()
+
+    def check_auth(self) -> bool:
+        self.calls.append("check_auth")
+        return False
 
 
 class FakeOAuth2Provider(OAuth2Provider, service="_test_core_auth"):
@@ -249,3 +256,65 @@ class TestOAuth2Provider:
 
         with pytest.raises(AuthenticationError, match=match):
             provider.obtain_token(request, callback)
+
+
+def _write_oauth2_token(
+    path: Path, *, expired: bool = False, refresh_token: str | None = None
+) -> None:
+    """Write a real Oauth2Token with an expiry hint in the past or future."""
+    expires_at = datetime.now(UTC) + timedelta(hours=-1 if expired else 1)
+    token = Oauth2Token(
+        BearerToken(
+            access_token="access",
+            expires_at=expires_at,
+            refresh_token=refresh_token,
+        ),
+        path,
+    )
+    token.save()
+
+
+class TestAuthCheck:
+    """Non-interactive authentication status checks."""
+
+    @pytest.fixture
+    def token_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        path = tmp_path / "token.json"
+        monkeypatch.setattr(ServiceConfig, "token_path", property(lambda self: path))
+        return path
+
+    def test_missing_token(self, token_path: Path) -> None:
+        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is False
+
+    def test_valid_token(self, token_path: Path) -> None:
+        _write_oauth2_token(token_path)
+
+        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is True
+
+    def test_expired_token_is_refreshed(
+        self, token_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_oauth2_token(token_path, expired=True, refresh_token="refresh")
+        oauth2_client = MagicMock()
+        oauth2_client.return_value.refresh_token.return_value = BearerToken(
+            access_token="new-access",
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        monkeypatch.setattr("plistsync.core.auth.OAuth2Client", oauth2_client)
+
+        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is True
+        assert Oauth2Token.from_file(token_path).as_dict()["access_token"] == (
+            "new-access"
+        )
+
+    def test_failed_refresh(
+        self, token_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_oauth2_token(token_path, expired=True, refresh_token="refresh")
+        oauth2_client = MagicMock()
+        oauth2_client.return_value.refresh_token.side_effect = (
+            requests.RequestException("boom")
+        )
+        monkeypatch.setattr("plistsync.core.auth.OAuth2Client", oauth2_client)
+
+        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is False

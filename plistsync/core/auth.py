@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Generic, Protocol, TypeVar
 from urllib.parse import parse_qs, urlencode, urlparse
 
 import requests
+from requests_oauth2client import OAuth2Client
 
 from plistsync.errors import AuthenticationError
+from plistsync.logger import log
 from plistsync.services.registry import Registry
-from plistsync.utils.auth.bearer_token import Oauth2Token
+from plistsync.utils.auth.bearer_token import InvalidTokenError, Oauth2Token
 from plistsync.utils.session import PlistsyncSession
 
 if TYPE_CHECKING:
@@ -209,6 +211,27 @@ class OAuth2Provider(AuthProvider[OAuth2Request, str | None, Oauth2Token], ABC):
             code, request.redirect_uri, request.code_verifier
         )
         return Oauth2Token.from_dict(token_data)
+
+    def check_auth(self) -> bool:
+        """Non-interactively check the current authentication status.
+
+        Loads the persisted token and refreshes it if it has expired. A token
+        that cannot be loaded or refreshed is considered not authenticated.
+        """
+        try:
+            token = Oauth2Token.from_file(self.config.token_path)
+            if token.is_expired:
+                token.refresh(
+                    OAuth2Client(
+                        token_endpoint=self.token_endpoint,
+                        client_id=self.client_id(),
+                    )
+                )
+        except InvalidTokenError as e:
+            log.debug("Authentication check failed for %s: %s", type(self).__name__, e)
+            return False
+
+        return True
 
     def _exchange_code(
         self, code: str, redirect_uri: str, code_verifier: str

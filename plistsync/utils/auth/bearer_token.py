@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
@@ -21,10 +21,12 @@ from typing import (
 
 import requests
 from requests_oauth2client import BearerToken as BearerTokenOauth2Client
+from requests_oauth2client import MissingRefreshToken, OAuth2Error
 from requests_oauth2client.tokens import ExpiredAccessToken
 
 if TYPE_CHECKING:
     from requests.structures import CaseInsensitiveDict
+    from requests_oauth2client import OAuth2Client
 
 
 class Token(ABC):
@@ -123,6 +125,17 @@ class Oauth2Token(Token):
         """Update the token data in place."""
         self.client = BearerTokenOauth2Client(**{**self.client.as_dict(), **token_data})
 
+    def refresh(self, client: OAuth2Client) -> None:
+        """Refresh the access token using an OAuth2 client."""
+        try:
+            refreshed = client.refresh_token(self.client)
+        except (OAuth2Error, MissingRefreshToken, requests.RequestException) as e:
+            raise InvalidTokenError(self) from e
+
+        self.update(refreshed.as_dict())
+        if self.file_path is not None:
+            self.save()
+
     def __call__(self, *args, **kwargs):
         return self.client(*args, **kwargs)
 
@@ -145,13 +158,7 @@ class Oauth2Token(Token):
     @property
     def is_expired(self) -> bool:
         """Check if the token is expired."""
-        expires_at = self.client.as_dict().get("expires_at")
-        if expires_at is None:
-            return False
-        # Convert expires_at to datetime if it's a timestamp
-        if isinstance(expires_at, (int, float)):
-            expires_at = datetime.fromtimestamp(expires_at, tz=UTC)
-        return datetime.now(tz=UTC) >= expires_at
+        return bool(self.client.is_expired())
 
 
 class InvalidTokenError(Exception):
