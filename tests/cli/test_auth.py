@@ -17,7 +17,7 @@ from plistsync.config import Config, ServiceConfig
 from plistsync.core.auth import AuthProvider
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.services import Service, ServiceLoader
-from plistsync.utils.auth.bearer_token import Token
+from plistsync.utils.auth.bearer_token import InvalidTokenError, Token
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -83,6 +83,13 @@ class FakeAuthProvider(AuthProvider[None, None, FakeToken]):
     def obtain_token(self, request, response) -> FakeToken:
         # The command persists the token at the service config's token path.
         return FakeToken()
+
+    def check_auth(self) -> bool:
+        try:
+            FakeToken.from_file(self.config.token_path)
+        except InvalidTokenError:
+            return False
+        return True
 
 
 class FakeService(Service):
@@ -205,6 +212,38 @@ class TestAuthCommand:
         assert "--mode" in strip_ansi(result.output)
 
 
+class TestAuthCheck:
+    """``plistsync <service> auth --check`` reports status without interaction."""
+
+    def test_authenticated_token_reports_success(
+        self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
+    ) -> None:
+        FakeToken(fake_token_file).save()
+
+        with (
+            _fake_service(),
+            patch(
+                "plistsync.cli.service_commands.auth.CLIInteraction"
+            ) as mock_interaction,
+        ):
+            result = runner.invoke(cli_app, ["fake", "auth", "--check"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output.strip() == "authenticated"
+        mock_interaction.assert_not_called()
+
+    def test_missing_token_reports_failure(
+        self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
+    ) -> None:
+        fake_token_file.unlink(missing_ok=True)
+
+        with _fake_service():
+            result = runner.invoke(cli_app, ["fake", "auth", "--check"])
+
+        assert result.exit_code == 1
+        assert result.output.strip() == "not authenticated"
+
+
 class TestCliServiceFactory:
     """cli_service_factory mounts only the commands a service supports."""
 
@@ -217,7 +256,9 @@ class TestCliServiceFactory:
         assert set(group.commands) == {"auth"}
         command = group.commands["auth"]
         assert command.name == "auth"
-        assert command.help == "Authenticate with fake."
+        assert command.help == (
+            "Authenticate with fake or check the authentication status with --check."
+        )
 
     def test_provider_is_constructed_with_resolved_config(
         self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
