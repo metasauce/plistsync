@@ -41,6 +41,7 @@ class TestParseTrackId:
         ("value", "expected"),
         [
             ("isrc:USRC17607839", ISRC("USRC17607839")),
+            ("USRC17607839", ISRC("USRC17607839")),
             ("not-a-track", None),
         ],
     )

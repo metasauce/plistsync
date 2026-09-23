@@ -99,8 +99,16 @@ class TestPlaylistSearch:
 class TestTrackSearch:
     """``plistsync <service> search track``."""
 
-    def test_searches_by_isrc(self, search_track: Invoke) -> None:  # noqa: F811
-        result = search_track(["--isrc", "USRC17607839"])
+    def test_searches_by_id_with_isrc(self, search_track: Invoke) -> None:  # noqa: F811
+        result = search_track(["--id", "USRC17607839"])
+        output = strip_ansi(result.output)
+
+        assert result.exit_code == 0, result.output
+        assert "Found by id" in output
+        assert "USRC17607839" in output
+
+    def test_searches_by_positional_isrc(self, search_track: Invoke) -> None:  # noqa: F811
+        result = search_track(["USRC17607839"])
         output = strip_ansi(result.output)
 
         assert result.exit_code == 0, result.output
@@ -112,5 +120,5 @@ class TestTrackSearch:
         output = strip_ansi(result.output)
 
         assert result.exit_code == 0, result.output
-        assert "--isrc" in output
+        assert "--id" in output
         assert "--max-results" in output

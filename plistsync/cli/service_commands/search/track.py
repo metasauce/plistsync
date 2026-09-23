@@ -10,8 +10,9 @@ from plistsync.cli.context import (
     ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
 )
 from plistsync.cli.options import without_param
+from plistsync.cli.parsing import parse_track_id
+from plistsync.cli.visualization import render_tracks, stdout_console
 from plistsync.core.collection import IDLookup, InfoLookup
-from plistsync.core.ids import ISRC
 from plistsync.errors import HowTheForkDidYouEndUpHereError
 from plistsync.logger import log
 
@@ -28,19 +29,18 @@ def register_track_search_command(app: typer.Typer, library_cls: type[Library]) 
         ctx: ServiceCommandContext,
         arg: Annotated[
             str | None,
-            typer.Argument(help="Service track ID or URL."),
+            typer.Argument(help="Track identifier. One of id, uri, url or isrc."),
         ] = None,
-        track_id: Annotated[
-            str | None,
-            typer.Option("--id", help="ID: service track ID or URL."),
-        ] = None,
-        isrc: Annotated[
-            str | None,
+        track_ids: Annotated[
+            list[str] | None,
             typer.Option(
-                "--isrc",
-                help="ID: International Standard Recording Code.",
+                "--id",
+                help="Track identifier. One of id, uri, url or isrc. Can be "
+                "given multiple times and will try to find one matching track "
+                "given the identifiers.",
             ),
         ] = None,
+        # Metadata
         title: Annotated[
             str | None,
             typer.Option(help="Metadata: Track title."),
@@ -67,33 +67,26 @@ def register_track_search_command(app: typer.Typer, library_cls: type[Library]) 
 
         Results for IDs take precedence.
         """
+        service_name = ctx.obj.name
         library = ctx.obj.library
+
         if library is None:
             raise HowTheForkDidYouEndUpHereError(
-                f"Service {ctx.obj.name!r} provides no library, but the "
+                f"Service {service_name!r} provides no library, but the "
                 "'search track' command was invoked."
             )
 
         ids: list[TrackID] = []
-        if isrc is not None:
-            try:
-                ids.append(ISRC.parse(isrc))
-            except ValueError as exc:
-                raise typer.BadParameter(str(exc), param_hint="--isrc") from exc
-
-        id_value = track_id or arg
-        if id_value is not None:
-            for track_id_cls in ctx.obj.service.track_ids():
-                try:
-                    ids.append(track_id_cls.parse(id_value))
-                    break
-                except ValueError:
-                    continue
-            else:
+        for value in [arg, *(track_ids or [])]:
+            if value is None:
+                continue
+            track_id = parse_track_id(value, ctx.obj.service)
+            if track_id is None:
                 raise typer.BadParameter(
-                    f"Invalid track ID for {ctx.obj.name}: {id_value!r}",
+                    f"Invalid track ID for {service_name}: {value!r}",
                     param_hint="--id",
                 )
+            ids.append(track_id)
 
         tracks: list[Track] = []
         if ids:
@@ -121,13 +114,11 @@ def register_track_search_command(app: typer.Typer, library_cls: type[Library]) 
                 if len(tracks) == max_results:
                     break
 
-        for track in tracks:
-            typer.echo(f"{track.ids!r} {track!r}")
+        stdout_console().print(render_tracks(tracks, title=f"{service_name} tracks"))
 
     if not supports_ids:
         without_param(search_track, "arg")
-        without_param(search_track, "track_id")
-        without_param(search_track, "isrc")
+        without_param(search_track, "track_ids")
     if not supports_info:
         without_param(search_track, "title")
         without_param(search_track, "artist")

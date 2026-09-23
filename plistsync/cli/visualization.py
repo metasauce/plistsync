@@ -179,9 +179,9 @@ def _render_track_ids(ids: Iterable[TrackID]) -> Text:
     return text
 
 
-def render_tracks(tracks: Iterable[Track]) -> Table:
+def render_tracks(tracks: Iterable[Track], *, title: str | None = None) -> Table:
     """Build a table listing tracks with artist and title."""
-    table = _table()
+    table = _table(title)
     table.add_column("#", justify="right", style="cyan", no_wrap=True)
     table.add_column("Artist", style="bold")
     table.add_column("Title")
