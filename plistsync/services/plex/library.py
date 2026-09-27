@@ -47,7 +47,7 @@ class PlexLibrary(
     def __init__(
         self,
         api: PlexApi,
-        section_name_or_id: str | int = "Music",
+        section_name_or_id: str | int,
     ):
         """Initialize the PlexLibrary from plex given a section id.
 
@@ -62,11 +62,12 @@ class PlexLibrary(
         self.id = self.api.converts.section_name_to_id(section_name_or_id)
 
     @classmethod
-    def from_config(
-        cls, config: PlexConfig, section_name_or_id: str | int = "Music"
-    ) -> Self:
+    def from_config(cls, config: PlexConfig) -> Self:
         """Construct a Plex library from a service config."""
-        return cls(PlexApi(PlexApiSession.from_config(config)), section_name_or_id)
+        return cls(
+            PlexApi(PlexApiSession.from_config(config)),
+            section_name_or_id=config.section_name_or_id,
+        )
 
     def preload(self, force_reload=False) -> None:
         """Preload the collections tracks.

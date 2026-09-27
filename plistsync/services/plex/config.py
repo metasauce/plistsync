@@ -23,6 +23,11 @@ class PlexConfig(ServiceConfig):
         "E.g. 'my_plex_server'",
     ] = field(default=None)
 
+    section_name_or_id: Annotated[
+        str | int,
+        "The name or ID of the Plex library section to use by default.",
+    ] = field(default="Music")
+
     redirect_port: Annotated[
         int,
         "The port to use for the local redirect server when authenticating.",

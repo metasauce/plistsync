@@ -87,7 +87,10 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         collection.write()
 
         # After reload should be persisteted!
-        reloaded = NMLLibrary(collection.path)
+        reloaded = NMLLibrary(
+            collection.path,
+            backup_before_write=collection.backup_before_write,
+        )
         p2 = reloaded.get_playlist_or_raise(id="6868ecd66b354d37a33b965dae7a82e7")
         assert p2.name == new_name
 

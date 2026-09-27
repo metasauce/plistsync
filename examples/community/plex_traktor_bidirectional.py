@@ -67,7 +67,7 @@ def main(
     # Get libraries
     plex_config = Config().get_config_for(PlexConfig)
     plex_library = PlexLibrary.from_config(plex_config, plex_section_name)
-    traktor_library = NMLLibrary(traktor_nml_path)
+    traktor_library = NMLLibrary(traktor_nml_path, backup_before_write=True)
 
     # Get playlists
     plex_playlist = plex_library.get_playlist(name=playlist_name)
