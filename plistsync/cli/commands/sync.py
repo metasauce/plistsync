@@ -19,7 +19,7 @@ from rich.table import Table
 
 from plistsync.logger import log
 from plistsync.services import ServiceLoader
-from plistsync.services.sync import SyncedPlaylist
+from plistsync.services.sync import RegisterMode, SyncedPlaylist
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -292,7 +292,7 @@ def list_(
     _print(table)
 
 
-@sync_app.command(name="register")
+@sync_app.command(name="register", no_args_is_help=True)
 def register(
     name_or_id: Annotated[
         str,
@@ -315,6 +315,19 @@ def register(
             help="Output the result as JSON.",
         ),
     ] = False,
+    mode: Annotated[
+        RegisterMode,
+        typer.Option(
+            "--mode",
+            help=(
+                "How to merge the incoming playlist.\n\n"
+                "  append: add all incoming tracks to the end;\n\n"
+                "  skip-duplicates: add only tracks without matching IDs;\n\n"
+                "  take-incoming: replace the internal tracks completely;\n\n"
+                "  take-existing: ignore incoming tracks;"
+            ),
+        ),
+    ] = RegisterMode.APPEND,
 ) -> None:
     """Link a existing service playlist to a synced playlist.
 
@@ -364,7 +377,7 @@ def register(
 
     # Register the service playlist with the synced playlist and update on disk
     playlist_name = service_playlist.name
-    sync.register(service_playlist)
+    sync.register(service_playlist, mode=mode)
     sync.sync()
     sync.save_to(__sync_dir() / f"{sync.id}.json")
 

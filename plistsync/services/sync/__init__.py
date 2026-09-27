@@ -1,7 +1,11 @@
 """Synchronisation primitives for cross-service playlist management."""
 
 from plistsync.services import Service
-from plistsync.services.sync.playlist import SyncedPlaylist, SyncedPlaylistID
+from plistsync.services.sync.playlist import (
+    RegisterMode,
+    SyncedPlaylist,
+    SyncedPlaylistID,
+)
 
 
 class SyncService(Service):
@@ -9,6 +13,7 @@ class SyncService(Service):
 
 
 __all__ = [
+    "RegisterMode",
     "SyncedPlaylist",
     "SyncedPlaylistID",
 ]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
@@ -31,6 +32,15 @@ if TYPE_CHECKING:
     from plistsync.services.sync.crdt import RegisterOp
 
 ReplicaID = int
+
+
+class RegisterMode(StrEnum):
+    """Control how a service playlist is merged when it is registered."""
+
+    APPEND = "append"  # default
+    SKIP_DUPLICATES = "skip-duplicates"  # Use hyphens, strings are used in the CLI
+    TAKE_INCOMING = "take-incoming"
+    TAKE_EXISTING = "take-existing"
 
 
 @dataclass
@@ -176,12 +186,17 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
 
     # ------------------------------- Sync specific ------------------------------ #
 
-    def register(self, playlist: ServicePlaylist) -> None:
+    def register(
+        self,
+        playlist: ServicePlaylist,
+        *,
+        mode: RegisterMode = RegisterMode.APPEND,
+    ) -> None:
         """Register a playlist as a synchronization target.
 
-        Existing tracks from the playlist are added to the internal collection.
-        Tracks already in the internal collection but missing from the playlist
-        are preserved.
+        The incoming playlist is merged according to *mode*. In all modes, tracks
+        already in the internal collection are preserved unless ``TAKE_INCOMING``
+        is selected.
 
         Name and description from the playlist are not used; the internal state is
         authoritative. Use :meth:`sync` to push the internal state back to the playlist.
@@ -189,15 +204,24 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
         replica_id = self._new_replica_id()
         self._linked_playlists[replica_id] = playlist
 
-        if playlist.tracks:
-            # Use a fork here so operations carry the new replica ID for versioning.
-            fork = self._fugue.fork(replica_id)
+        # Use a fork here so operations carry the new replica ID for versioning.
+        fork = self._fugue.fork(replica_id)
+        if mode is RegisterMode.TAKE_INCOMING:
+            while len(fork):
+                self._fugue.apply(fork.delete(0))
+
+        if mode is not RegisterMode.TAKE_EXISTING:
             for track in playlist.tracks:
+                offline_track = OfflineTrack.from_track(track)
+                if mode is RegisterMode.SKIP_DUPLICATES and any(
+                    # Simple, ID-based matching keeps this fast
+                    linked_track.track.ids & offline_track.ids
+                    for linked_track in fork
+                ):
+                    continue
                 op = fork.insert(
                     len(fork),
-                    _TrackLink(
-                        track=OfflineTrack.from_track(track), playlists={playlist.id}
-                    ),
+                    _TrackLink(track=offline_track, playlists={playlist.id}),
                 )
                 self._fugue.apply(op)
 
