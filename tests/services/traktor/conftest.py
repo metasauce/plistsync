@@ -24,7 +24,7 @@ def collection(tmp_path: Path) -> NMLLibrary:
     src = Path(__file__).parent.parent.parent / "data" / "traktor_playlist.nml"
     dest = tmp_path / "traktor_playlist.nml"
     shutil.copyfile(src, dest)
-    return NMLLibrary(dest)
+    return NMLLibrary(dest, backup_before_write=True)
 
 
 @pytest.fixture

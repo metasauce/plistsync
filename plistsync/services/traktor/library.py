@@ -47,7 +47,7 @@ class NMLLibrary(
     tree: _ElementTree
     backup_before_write: bool
 
-    def __init__(self, path: Path | str, backup_before_write: bool = True):
+    def __init__(self, path: Path | str, backup_before_write: bool):
         self.path = Path(path)
         if not self.path.exists():
             raise FileNotFoundError(f"File {path} does not exist")

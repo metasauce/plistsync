@@ -49,6 +49,8 @@ services:
     # via plex.tv. In this case, we try local routes first.
     # E.g. 'my_plex_server'
     server_name: null
+    # The name or ID of the Plex library section to use by default.
+    section_name_or_id: Music
 ```
 
 ## Authentication
