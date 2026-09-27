@@ -6,6 +6,7 @@ from requests import HTTPError
 
 from plistsync.core.collection import (
     IDLookup,
+    InfoLookup,
     Library,
 )
 from plistsync.core.ids import ISRC, PlaylistID
@@ -18,12 +19,13 @@ from .track import SpotifyTrack, SpotifyTrackID
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from plistsync.core import TrackID
+    from plistsync.core import TrackID, TrackInfo
 
 
 class SpotifyLibrary(
     Library[SpotifyTrack, SpotifyPlaylist],
     IDLookup[SpotifyTrack],
+    InfoLookup[SpotifyTrack],
 ):
     """A collection representing the full spotify library.
 
@@ -202,3 +204,21 @@ class SpotifyLibrary(
                 yield found_tracks[idx]
             else:
                 yield self.find_by_ids(ids)
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[SpotifyTrack]:
+        """Find Spotify tracks matching the supplied metadata.
+
+        Spotify returns search results in relevance order.
+        """
+        artists = info.get("artists")
+        albums = info.get("albums")
+        return [
+            SpotifyTrack(track)
+            for track in self.api.track.search(
+                title=info.get("title"),
+                artist=artists[0] if artists else None,
+                album=albums[0] if albums else None,
+            )
+        ]

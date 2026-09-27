@@ -21,7 +21,7 @@ class TestPlaylistGroup:
     ) -> None:
         group = get_group(app)
 
-        assert set(group.commands) == {"playlist"}
+        assert set(group.commands) == {"playlist", "search"}
         assert set(group.commands["playlist"].commands) == {
             "create",
             "remove",
@@ -30,7 +30,9 @@ class TestPlaylistGroup:
             "ls",
             "update",
             "show",
+            "search",
         }
+        assert set(group.commands["search"].commands) == {"playlist", "track"}
         assert get_group(no_library_app).commands == {}
 
     def test_ls_alias(self, runner: CliRunner, app: typer.Typer) -> None:
