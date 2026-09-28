@@ -10,7 +10,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from functools import cache, cached_property
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import quote
 
 import requests
@@ -25,7 +25,7 @@ from .api_types import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Mapping
 
     from .api_types import (
         PlexApiConnection,
@@ -40,6 +40,9 @@ if TYPE_CHECKING:
 class PlexToken(Token):
     x_plex_token: str
     validated: bool
+
+    validation_endpoint: ClassVar[str] = "https://plex.tv/api/v2/user"
+    """Endpoint used to validate the token."""
 
     def __init__(self, x_plex_token: str, file_path: Path | None):
         super().__init__(file_path)
@@ -57,6 +60,30 @@ class PlexToken(Token):
         """Prepare the request to use the authentication."""
         request.headers["X-Plex-Token"] = self.x_plex_token
         return request
+
+    def validate(self, headers: Mapping[str, str | bytes] | None = None) -> None:
+        """Check the token against plex.tv.
+
+        Plex tokens cannot be refreshed, so this only verifies that plex.tv
+        still accepts the token.
+
+        Raises
+        ------
+        InvalidTokenError
+            If plex.tv rejects the token.
+        requests.RequestException
+            If plex.tv cannot be reached.
+        """
+        response = PlistsyncSession().get(
+            self.validation_endpoint,
+            auth=self,
+            headers=headers,
+            timeout=30,
+        )
+        if not response.ok:
+            raise InvalidTokenError(self)
+
+        self.validated = True
 
 
 class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
@@ -130,12 +157,7 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
         to refresh with the current flow.
         """
         try:
-            # Plex moved this endpoint to plex.tv;
-            # it is no longer served by individual Plex Media Server instances.
-            response = super().request("GET", "https://plex.tv/api/v2/user")
-            if response.status_code == 401:
-                raise InvalidTokenError(self.token)
-            self.token.validated = True
+            self.token.validate(headers=self.headers)
         except requests.exceptions.RequestException as e:
             raise ValueError(
                 f"Plex token validation failed due to network error: {e!s}"

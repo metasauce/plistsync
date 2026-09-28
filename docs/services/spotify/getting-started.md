@@ -86,6 +86,16 @@ This will start an interactive authentication flow:
 3. Grant `plistsync` the requested permissions
 4. This will save an authentication token in the `config` folder
 
+To check whether the stored credentials are still valid without starting the flow
+again:
+
+```bash
+plistsync spotify auth --check
+```
+
+This prints `authenticated` and exits with code `0` if the token is valid, or
+`not authenticated` with a non-zero exit code otherwise.
+
 ### Authentication Preview
 
 ```{typer} plistsync.cli.app:app::spotify:auth

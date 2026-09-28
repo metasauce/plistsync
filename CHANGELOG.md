@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added `plistsync <service> auth --check` for non-interactive authentication checks: exits `0` printing `authenticated` when credentials are valid, non-zero printing `not authenticated` otherwise.
 - Added a service-agnostic authentication layer in `plistsync.core.auth`. The `AuthProvider` base class splits a flow into `build_request`, `collect_response` and `obtain_token`, and drives user interaction through the `Interaction` protocol, allowing library consumers to run authentication flows programmatically without the CLI. (#117)
 - Added auth providers for `Plex`, `Spotify` and `Tidal`, including a reusable `OAuth2Provider` implementing the authorization code flow with PKCE, and `Service.auth()` for resolving a service's registered provider.
 
@@ -25,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Fixed `Oauth2Token.is_expired` always returning `False`; expired tokens are now detected and refreshed.
 - spotify: Fetching tracks of an empty playlist no longer raises an error. The Spotify API returns `limit=0` and an `href` it rejects for playlists without tracks; those are now short-circuited to an empty track list.
 - spotify: `get_playlist` only maps `404` responses to a missing playlist (`None`); other API or authentication errors are re-raised instead of being swallowed.
 

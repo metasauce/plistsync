@@ -9,6 +9,8 @@ import requests
 
 from plistsync.core.auth import AuthProvider
 from plistsync.errors import AuthenticationError
+from plistsync.logger import log
+from plistsync.utils.auth.bearer_token import InvalidTokenError
 from plistsync.utils.session import PlistsyncSession
 
 from .api import PlexToken
@@ -110,6 +112,20 @@ class PlexAuth(AuthProvider[PlexAuthRequest, str | None, PlexToken]):
                     "Timed out waiting for Plex authentication. Please try again."
                 )
             time.sleep(self.poll_interval)
+
+    def check_auth(self) -> bool:
+        """Non-interactively check the current authentication status.
+
+        Loads the persisted token and verifies it against plex.tv.
+        """
+        try:
+            token = PlexToken.from_file(self.config.token_path)
+            token.validate(headers=self._headers())
+        except (InvalidTokenError, requests.RequestException) as e:
+            log.debug("Plex authentication check failed: %s", e)
+            return False
+
+        return True
 
     def _fetch_auth_token(self, pin_id: int) -> str | None:
         """Fetch the auth token stored on a pin, if the user confirmed it."""

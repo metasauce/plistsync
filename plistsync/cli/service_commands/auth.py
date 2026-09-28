@@ -106,6 +106,16 @@ def auth_command_factory(auth_provider: type[AuthProvider]) -> Callable[..., Non
                 " without browser access.",
             ),
         ] = "forward",
+        check: Annotated[
+            bool,
+            typer.Option(
+                "--check",
+                help="Only check the current authentication status and exit."
+                " Prints 'authenticated' and exits 0 when the stored credentials"
+                " are valid, 'not authenticated' and exits 1 otherwise. No"
+                " interactive flow is started.",
+            ),
+        ] = False,
     ) -> None:
         """Authenticate and persist a token."""
         config = ctx.obj.config
@@ -114,6 +124,14 @@ def auth_command_factory(auth_provider: type[AuthProvider]) -> Callable[..., Non
                 f"Service {ctx.obj.name!r} provides auth but no config."
             )
 
+        if check:
+            if auth_provider(config).check_auth():
+                typer.echo("authenticated")
+            else:
+                typer.echo("not authenticated")
+                raise typer.Exit(code=1)
+            return
+
         token: Token = auth_provider(config).authenticate(CLIInteraction(mode=mode))
         token.file_path = config.token_path
         token.save()
@@ -121,5 +139,8 @@ def auth_command_factory(auth_provider: type[AuthProvider]) -> Callable[..., Non
             f"Authentication successful! Token saved to {str(token.file_path)!r}."
         )
 
-    auth.__doc__ = f"Authenticate with {auth_provider.service()}."
+    auth.__doc__ = (
+        f"Authenticate with {auth_provider.service()} or check the"
+        " authentication status with --check."
+    )
     return auth

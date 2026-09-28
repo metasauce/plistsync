@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlparse
@@ -14,6 +15,7 @@ from plistsync.services.plex.config import PlexConfig
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
 
 class FakeInteraction:
@@ -197,3 +199,25 @@ class TestPlexAuth:
 
         assert token.x_plex_token == "plex-auth-token"
         assert interaction.opened_urls != []
+
+    @pytest.mark.parametrize(("ok", "expected"), [(True, True), (False, False)])
+    def test_check_auth(
+        self,
+        auth: PlexAuth,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        ok: bool,
+        expected: bool,
+    ) -> None:
+        """Loads the persisted token and validates it against plex.tv."""
+        token_file = tmp_path / "plex_token.json"
+        token_file.write_text(json.dumps({"X-Plex-Token": "plex-auth-token"}))
+        monkeypatch.setattr(PlexConfig, "token_path", property(lambda self: token_file))
+        session = MagicMock()
+        monkeypatch.setattr(
+            "plistsync.services.plex.api.PlistsyncSession",
+            lambda *args, **kwargs: session,
+        )
+        session.get.return_value = MagicMock(ok=ok)
+
+        assert auth.check_auth() is expected
