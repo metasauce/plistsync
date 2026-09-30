@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
     from lxml.etree import _Element, _ElementTree
 
-    from plistsync.core import TrackID
-    from plistsync.core import TrackInfo
+    from plistsync.core import TrackID, TrackInfo
 
     from .track import NMLPlaylistTrack
 
@@ -46,6 +45,7 @@ class NMLLibrary(
 
     path: Path
     tree: _ElementTree
+    _track_index_cache: dict[NMLPath, NMLTrack] | None
 
     def __init__(self, path: Path | str | None = None):
         if path is None:
@@ -61,6 +61,7 @@ class NMLLibrary(
 
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
+        self._track_index_cache = None
 
     def write(self, backup: bool | None = None):
         """Write changes to NML file.
@@ -241,15 +242,14 @@ class NMLLibrary(
             the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
             it should will be ignored for the search.
         """
-        entry = self._collection.xpath(
-            f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
-            f"[@FILE={xpath_string_escape(traktor_path.file)}]"
-            f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
-        )
-        if len(entry) == 0:
-            return None
+        return self._track_index().get(traktor_path)
 
-        return NMLTrack(entry[0])
+    def find_by_traktor_paths(
+        self, traktor_paths: Iterable[NMLPath]
+    ) -> list[NMLTrack | None]:
+        """Find multiple tracks by file path using the cached collection index."""
+        index = self._track_index()
+        return [index.get(path) for path in traktor_paths]
 
     # --------------------------- InfoLookup protocol ---------------------------- #
 
@@ -311,6 +311,15 @@ class NMLLibrary(
 
     # ---------------------------------- Helper ---------------------------------- #
 
+    def _track_index(self) -> dict[NMLPath, NMLTrack]:
+        """Return a path index for the collection, building the cache on first use."""
+        if self._track_index_cache is None:
+            index: dict[NMLPath, NMLTrack] = {}
+            for track in self.tracks:
+                index.setdefault(track.traktor_path, track)
+            self._track_index_cache = index
+        return self._track_index_cache
+
     @property
     def _collection(self):
         collection = self.tree.find("COLLECTION")
@@ -361,6 +370,7 @@ class NMLLibrary(
         count = int(collection.get("ENTRIES", "0"))
         collection.set("ENTRIES", str(count + 1))
         inserted = NMLTrack(entry)
+        self._track_index_cache = None
 
         log.debug(f"Inserted track into COLLECTION: {inserted.traktor_path}")
         return inserted
