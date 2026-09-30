@@ -188,6 +188,19 @@ class TestRegister:
 
         assert isrcs(playlist.tracks) == isrcs([track_b])
 
+    def test_register_take_incoming_replaces_metadata(self, track_a):
+        playlist = SyncedPlaylist("internal", description="internal desc")
+        service = make_playlist([track_a], name="incoming")
+        service.info = PlaylistInfo(name="incoming", description="incoming desc")
+
+        playlist.register(service, mode=RegisterMode.TAKE_INCOMING)
+
+        assert playlist.info == {
+            "name": "incoming",
+            "description": "incoming desc",
+        }
+        assert service.info == playlist.info
+
     def test_register_take_existing_preserves_internal_tracks(self, track_a, track_b):
         playlist = SyncedPlaylist("x", tracks=[OfflineTrack.from_track(track_a)])
         service = make_playlist([track_b])

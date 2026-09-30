@@ -37,7 +37,7 @@ ReplicaID = int
 class RegisterMode(StrEnum):
     """Control how a service playlist is merged when it is registered."""
 
-    APPEND = "append"  # default
+    APPEND = "append"
     SKIP_DUPLICATES = "skip-duplicates"  # Use hyphens, strings are used in the CLI
     TAKE_INCOMING = "take-incoming"
     TAKE_EXISTING = "take-existing"
@@ -198,8 +198,9 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
         already in the internal collection are preserved unless ``TAKE_INCOMING``
         is selected.
 
-        Name and description from the playlist are not used; the internal state is
-        authoritative. Use :meth:`sync` to push the internal state back to the playlist.
+        Name and description from the playlist are not used unless
+        ``TAKE_INCOMING`` is selected. In that mode, incoming metadata replaces the
+        internal metadata before the internal state is pushed back to the playlist.
         """
         replica_id = self._new_replica_id()
         self._linked_playlists[replica_id] = playlist
@@ -224,6 +225,9 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
                     _TrackLink(track=offline_track, playlists={playlist.id}),
                 )
                 self._fugue.apply(op)
+
+        if mode is RegisterMode.TAKE_INCOMING:
+            self.info = playlist.info
 
         self._enrich_internal_from(playlist)
         self._push_internal_to(playlist)
