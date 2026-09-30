@@ -57,6 +57,7 @@ def mock_plex_api() -> Mock:
     # Mock track methods
     mock_api.track = Mock()
     mock_api.track.fetch_tracks = Mock(return_value=[])
+    mock_api.track.search = Mock(return_value=[])
 
     # Mock machine_id
     mock_api.machine_id = "mock-machine-id"
