@@ -257,9 +257,11 @@ class NMLLibrary(
         """Find tracks whose metadata matches the supplied metadata.
 
         NML files are local XML collections, so metadata lookup is performed by
-        scanning the collection. Every supplied, non-empty field must match; artist
-        and album fields match when any requested value is present on the track.
-        Matching is case-insensitive while preserving the collection's order.
+        scanning the collection. Every supplied, non-empty field must match as a
+        case-insensitive substring; artist and album fields match when any requested
+        value is contained in any value on the track. Results preserve collection order.
+
+        TODO: the behaviour should be consistent across services. Address together.
         """
         title = info.get("title")
         artists = {artist.casefold() for artist in info.get("artists", []) if artist}
@@ -274,21 +276,29 @@ class NMLLibrary(
 
             if normalized_title is not None:
                 candidate_title = track_info.get("title", "").casefold()
-                if candidate_title != normalized_title:
+                if normalized_title not in candidate_title:
                     continue
 
             if artists:
-                candidate_artists = {
+                candidate_artists = [
                     artist.casefold() for artist in track_info.get("artists", [])
-                }
-                if not artists & candidate_artists:
+                ]
+                if not any(
+                    searchterm in artist
+                    for searchterm in artists
+                    for artist in candidate_artists
+                ):
                     continue
 
             if albums:
-                candidate_albums = {
+                candidate_albums = [
                     album.casefold() for album in track_info.get("albums", [])
-                }
-                if not albums & candidate_albums:
+                ]
+                if not any(
+                    searchterm in album
+                    for searchterm in albums
+                    for album in candidate_albums
+                ):
                     continue
 
             yield track

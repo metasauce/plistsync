@@ -106,9 +106,9 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         tracks = list(
             collection.find_by_info(
                 {
-                    "title": "dragger",
-                    "artists": ["amoss"],
-                    "albums": ["watermark volume 2"],
+                    "title": "drag",
+                    "artists": ["amos"],
+                    "albums": ["watermark volume"],
                 }
             )
         )
