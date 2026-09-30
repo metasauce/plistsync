@@ -118,6 +118,16 @@ class TestNMLLibrary(LibraryCollectionTestBase):
 
         assert list(collection.find_by_info({"title": "not in the collection"})) == []
 
+    def test_playlist_tracks_include_library_metadata(self, collection: NMLLibrary):
+        playlist = collection.get_playlist_or_raise(
+            id="6868ecd66b354d37a33b965dae7a82e7"
+        )
+
+        track = playlist.get_snapshot().tracks[0]
+
+        assert track.title is not None
+        assert track.artists
+
     @pytest.mark.parametrize(
         [
             "backup",
@@ -235,6 +245,9 @@ class TestNMLPlaylist(CollectionTestBase):
         inserted = self.collection.insert_track(playlist_track)
         assert inserted is not None
         assert inserted.traktor_path == traktor_path
+        found = self.collection.find_by_traktor_path(traktor_path)
+        assert found is not None
+        assert found.traktor_path == traktor_path
 
         collection_node = self.collection.tree.find("COLLECTION")
         assert collection_node is not None
