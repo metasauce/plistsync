@@ -19,9 +19,7 @@ from plistsync.logger import log
 from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
 from plistsync.utils.session import PlistsyncSession
 
-from .api_types import (
-    PlexMediaTypes,
-)
+from .api_types import PlexApiTrackResponse, PlexMediaTypes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
@@ -31,7 +29,6 @@ if TYPE_CHECKING:
         PlexApiPlaylistResponse,
         PlexApiPlaylistTrackResponse,
         PlexApiResourcesResponse,
-        PlexApiTrackResponse,
         PlexServerIdentity,
     )
     from .config import PlexConfig
@@ -140,6 +137,10 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
             server_url = config.server_url
         elif config.server_name:
             server_url = _resolve_server_name(config.server_name)
+        else:
+            raise ValueError(
+                "Plex requires either server_url or server_name to be configured."
+            )
 
         return cls(
             config.app_name,
@@ -621,6 +622,128 @@ class TrackApi:
         )
         response.raise_for_status()
         return response.json()["MediaContainer"].get("Metadata", [])
+
+    def search(
+        self,
+        section_id: str | int,
+        *,
+        title: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+    ) -> list[PlexApiTrackResponse]:
+        """Search Plex using only hubs relevant to the supplied metadata.
+
+        Plex's hub search can return incomplete track results, so this method
+        uses hubs as a way to locate the relevant artist or album before
+        expanding their children. Title-only searches use the track hub
+        directly. Album searches expand matching album hubs, while artist-only
+        searches expand matching artist hubs and then their albums. The
+        resulting tracks are deduplicated and filtered locally by title and
+        artist because Plex's search and metadata filters are not always
+        reliable.
+        """
+
+        # ------------------------------ Helpers ----------------------------- #
+
+        def search_hubs(query: str) -> list[dict[str, Any]]:
+            response = self.session.request(
+                "GET",
+                f"{self.session.server_url}/hubs/search",
+                params={"query": query, "limit": 100, "sectionId": section_id},
+            )
+            response.raise_for_status()
+            hubs = response.json().get("MediaContainer", {}).get("Hub", [])
+            return [hubs] if isinstance(hubs, dict) else hubs
+
+        def hub_metadata(
+            hubs: list[dict[str, Any]], hub_id: str
+        ) -> list[dict[str, Any]]:
+            for hub in hubs:
+                if (hub.get("hubIdentifier") or hub.get("type")) == hub_id:
+                    return hub.get("Metadata", [])
+            return []
+
+        def matching_hub_metadata(
+            hubs: list[dict[str, Any]], hub_id: str, value: str
+        ) -> list[dict[str, Any]]:
+            value = value.casefold()
+            return [
+                item
+                for item in hub_metadata(hubs, hub_id)
+                if value in str(item.get("title", "")).casefold()
+            ]
+
+        def fetch_children(key: str | None) -> list[dict[str, Any]]:
+            if not key:
+                return []
+            if not key.rstrip("/").endswith("/children"):
+                key = f"{key}/children"
+            response = self.session.request(
+                "GET",
+                f"{self.session.server_url}{key}",
+                params={"X-Plex-Container-Size": 1000},
+            )
+            response.raise_for_status()
+            return response.json().get("MediaContainer", {}).get("Metadata", [])
+
+        def add_tracks(items: list[dict[str, Any]]) -> None:
+            for item in items:
+                if item.get("type") != "track":
+                    continue
+                track_id = str(item.get("ratingKey", ""))
+                if track_id and track_id not in seen_ids:
+                    seen_ids.add(track_id)
+                    tracks.append(cast(PlexApiTrackResponse, item))
+
+        # --------------------------- Resolve hubs --------------------------- #
+
+        terms = [term for term in (title, artist, album) if term]
+        if not terms:
+            raise ValueError("Provide at least one of artist, album, or title.")
+
+        hubs_by_query = {term: search_hubs(term) for term in dict.fromkeys(terms)}
+        tracks: list[PlexApiTrackResponse] = []
+        seen_ids: set[str] = set()
+
+        if title and not artist and not album:
+            add_tracks(hub_metadata(hubs_by_query[title], "track"))
+            return tracks
+
+        if album:
+            albums = matching_hub_metadata(hubs_by_query[album], "album", album)
+        else:
+            albums = []
+            if artist is None:
+                return tracks
+            for artist_item in matching_hub_metadata(
+                hubs_by_query[artist], "artist", artist
+            ):
+                albums.extend(
+                    item
+                    for item in fetch_children(artist_item.get("key"))
+                    if item.get("type") == "album"
+                )
+
+        for album_item in albums:
+            add_tracks(fetch_children(album_item.get("key")))
+
+        if title or artist:
+            title_value = title.casefold() if title else None
+            artist_value = artist.casefold() if artist else None
+            tracks = [
+                track
+                for track in tracks
+                if (
+                    title_value is None
+                    or title_value in str(track.get("title", "")).casefold()
+                )
+                and (
+                    artist_value is None
+                    or artist_value in str(track.get("grandparentTitle", "")).casefold()
+                    or artist_value in str(track.get("originalTitle", "")).casefold()
+                )
+            ]
+        return tracks
 
     def fetch_track(self, track_id: str | int) -> PlexApiTrackResponse:
         """Fetch a specific track by its ID.
