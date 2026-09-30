@@ -59,7 +59,8 @@ def main(
 
     # Load Plex library and playlist
     plex_config = Config().get_config_for(PlexConfig)
-    plex_library = PlexLibrary.from_config(plex_config, plex_section_name)
+    plex_config.section_name_or_id = plex_section_name
+    plex_library = PlexLibrary.from_config(plex_config)
     playlist = plex_library.get_playlist(name=playlist_name)
 
     if playlist is None:
