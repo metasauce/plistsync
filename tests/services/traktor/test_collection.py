@@ -79,6 +79,11 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
+        # batch lookup
+        matches = self.collection.find_by_traktor_paths([tp_exists, tp_nonexistent])
+        assert matches[0] is not None
+        assert matches[1] is None
+
     def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
@@ -117,6 +122,7 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         assert tracks[0].title == "Dragger"
 
         assert list(collection.find_by_info({"title": "not in the collection"})) == []
+        assert list(collection.find_by_info({})) == []
 
     def test_playlist_tracks_include_library_metadata(self, collection: NMLLibrary):
         playlist = collection.get_playlist_or_raise(
@@ -352,6 +358,17 @@ class TestNMLPlaylist(CollectionTestBase):
         with p1.edit():
             p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
         assert len(p1) == 1
+
+    def test_overwrite_tracks_preserves_library_link(self):
+        """Replacing playlist tracks keeps the owning library reference."""
+        p1 = self.collection.get_playlist(name=self.name)
+        assert p1 is not None
+        track = p1.tracks[0]
+
+        with p1.edit():
+            p1.tracks = [track]
+
+        assert p1.tracks[0].library is self.collection
 
     @pytest.mark.skipif(
         sys.platform == "linux",
