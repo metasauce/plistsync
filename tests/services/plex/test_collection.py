@@ -113,3 +113,18 @@ class TestPlexLibrary(LibraryCollectionTestBase):
         with pytest.raises(ValueError):
             for library_collection in self.create_collection():
                 library_collection.get_playlist(name="foo", id=121)
+
+    def test_find_by_info(self):
+        """Find tracks through Plex's hub search endpoint."""
+        library = next(iter(self.create_collection()))
+        raw_track = library.api.track.fetch_tracks.return_value[0]
+        library.api.track.search.return_value = [raw_track]
+
+        tracks = list(
+            library.find_by_info(
+                {"title": "Test", "artists": ["Artist"], "albums": ["Album"]}
+            )
+        )
+
+        assert len(tracks) == 1
+        assert tracks[0].title == "Test Track"
