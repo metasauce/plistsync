@@ -9,40 +9,78 @@ This guide will help you set up Traktor integration with `plistsync` from start 
 First, install the Traktor optional dependencies:
 
 ::::{tab-set}
-:sync-group: environment
+:sync-group: install-method
 
-:::{tab-item} pip
-:sync: pip
+:::{tab-item} uv tool
+:sync: uv-tool
+
+Installs `plistsync` as a standalone CLI tool.
 
 ```bash
-pip install 'plistsync[traktor]'
+uv tool install "plistsync[traktor]"
 ```
 
 :::
 
-:::{tab-item} uv
-:sync: uv
+:::{tab-item} pipx
+:sync: pipx
+
+Installs `plistsync` as a standalone CLI tool.
+
+```bash
+pipx install "plistsync[traktor]"
+```
+
+:::
+
+:::{tab-item} uv add
+:sync: uv-add
+
+Adds `plistsync` as a dependency of your project.
 
 ```bash
 uv add plistsync --extra traktor
 ```
 
 :::
+
+:::{tab-item} pip
+:sync: pip
+
+Installs into the current environment, works for both.
+
+```bash
+pip install "plistsync[traktor]"
+```
+
+:::
+
 ::::
 
 ## Configuration
 
-By default the `traktor` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+::::{tab-set}
 
+:::{tab-item} CLI
+:sync: cli
 
-```yaml
-# ./config/config.yaml
-services:
-  traktor:
-    # The absolute path to the nml file you want to use as your default traktor
-    # library.
-    path: /replace/me/with/a/path/to/nml.nml
-    # Create a backup of the libraries nml file before every write.
-    backup_before_write: true
+By default the `traktor` service has a configuration section in your `plistsync` configuration file. If not, add the following snippet to your `config.yaml`:
 
+```{plistsync-config} plistsync.services.traktor.config.TraktorConfig
+:service: traktor
 ```
+
+:::
+
+:::{tab-item} Library
+:sync: library
+
+Construct a traktor configuration from custom values.
+
+```{plistsync-config} plistsync.services.traktor.config.TraktorConfig
+:type: library
+```
+
+:::
+
+::::
