@@ -6,6 +6,7 @@ expected behaviors of various collection types, as well as utilities for track h
 and path rewriting.
 """
 
+from .auth import AuthProvider, Interaction
 from .collection import Collection, Library
 from .ids import PlaylistID, TrackID
 from .matching import Matches
@@ -14,7 +15,9 @@ from .rewrite import PathRewrite
 from .track import Track, TrackInfo
 
 __all__ = [
+    "AuthProvider",
     "Collection",
+    "Interaction",
     "Library",
     "Matches",
     "PathRewrite",

@@ -1,3 +1,5 @@
+"""Authentication providers that obtain initial tokens for plistsync services."""
+
 from __future__ import annotations
 
 import base64
