@@ -58,6 +58,8 @@ class ServiceConfig(ABC, Registry):
 
 @dataclass
 class LoggingConfig:
+    """Logging configuration for the plistsync logger."""
+
     level: Annotated[
         Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"],
         "Log level to set when `enabled=True` (one of: DEBUG, INFO, WARNING, ERROR,"

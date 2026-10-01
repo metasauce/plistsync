@@ -194,6 +194,11 @@ module = ["nest_asyncio.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+# Sphinx/docutils ship no type stubs
+module = ["plistsync_config"]
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
 # If tests/ is a package => tests.*
 # If tests are discovered as top-level modules => test_*
 module = ["tests.*"]

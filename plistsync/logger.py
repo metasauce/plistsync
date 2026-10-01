@@ -1,3 +1,5 @@
+"""Logging setup helpers for plistsync."""
+
 from __future__ import annotations
 
 import logging
