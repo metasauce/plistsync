@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -12,19 +13,17 @@ if TYPE_CHECKING:
     from lxml.etree import _Element
 
 
+@dataclass(frozen=True, slots=True, init=False, eq=False)
 class NMLPath:
     """OS-agnostik representation of a File Path in Traktor.
 
     Follows the logic in NML Playlists: volume/:directory/:file
     """
 
-    _parts: list[str]
-
-    # We treat volume id as optional, and use the volume by default
-    # Should only be changed through our location helpers
+    _parts: tuple[str, ...]
     _volume_id: str | None
 
-    def __init__(self, path: str):
+    def __init__(self, path: str, volume_id: str | None = None):
         """Construct a TraktorPath from a Traktor-style path string.
 
         As used by Traktors NML files in the playlist section: volume/:directory/:file
@@ -33,8 +32,8 @@ class NMLPath:
             raise ValueError(
                 f"Invalid Traktor path: {path}, follow schema volume/:directory/:file"
             )
-        self._parts = [p for p in path.split("/:") if p]
-        self._volume_id = None
+        object.__setattr__(self, "_parts", tuple(p for p in path.split("/:") if p))
+        object.__setattr__(self, "_volume_id", volume_id)
 
     @property
     def volume(self) -> str:
@@ -42,6 +41,17 @@ class NMLPath:
 
     @property
     def volume_id(self) -> str | None:
+        """
+        ID of the volume.
+
+        Optional because playlist paths contain only the volume name.
+        When set, it is preserved as the ``VOLUMEID`` attribute when converting
+        the path to a collection ``LOCATION`` element. When omitted during
+        initialization, the volume name is used as the volume ID.
+
+        The volume ID is not part of path equality or hashing;
+        paths are identified by their volume, directories, and filename."
+        """
         if self._volume_id is not None:
             return self._volume_id
         return self.volume
@@ -53,7 +63,7 @@ class NMLPath:
         return "/:" + "/:".join(self._parts[1:-1]) + "/:"
 
     @property
-    def parts(self) -> list[str]:
+    def parts(self) -> tuple[str, ...]:
         return self._parts
 
     @property
@@ -90,10 +100,7 @@ class NMLPath:
             raise ValueError("Could not find DIR, FILE or VOLUME in NML LOCATION entry")
 
         dir_parts = [p for p in dir.split("/:") if p]
-        tp = cls("/:".join([vol, *dir_parts, file]))
-        tp._volume_id = volid
-
-        return tp
+        return cls("/:".join([vol, *dir_parts, file]), volume_id=volid)
 
     def to_nml_location(self, parent: _Element | None = None) -> _Element:
         """
@@ -174,3 +181,6 @@ class NMLPath:
         if not isinstance(value, NMLPath):
             return False
         return str(self) == str(value)
+
+    def __hash__(self) -> int:
+        return hash(str(self))

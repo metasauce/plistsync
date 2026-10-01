@@ -127,6 +127,9 @@ class NMLPlaylistTrack(Track):
     but it will also remove tracks from a playlist if they are neither found on disk nor
     in the main collection.
 
+    To get meaningful data in NMLPlaylistTrack.info, the track needs to be linked
+    to a NMLLibrary instance.
+
     ```
     # macOS
     <ENTRY>
@@ -145,8 +148,9 @@ class NMLPlaylistTrack(Track):
     """
 
     entry: _Element
+    library: NMLLibrary | None
 
-    def __init__(self, entry: _Element):
+    def __init__(self, entry: _Element, library: NMLLibrary | None = None):
         """Initialize a NMLPlaylistTrack with an XML entry.
 
         Parameters
@@ -156,28 +160,35 @@ class NMLPlaylistTrack(Track):
         """
 
         self.entry = entry
+        self.library = library
 
     @classmethod
-    def from_traktor_path(cls, traktor_path: NMLPath) -> NMLPlaylistTrack:
+    def from_traktor_path(
+        cls, traktor_path: NMLPath, library: NMLLibrary | None = None
+    ) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack with underlying XML Entry from a Traktor path."""
         entry = Element("ENTRY")
         primary_key = SubElement(entry, "PRIMARYKEY")
         primary_key.set("TYPE", "TRACK")
         primary_key.set("KEY", str(traktor_path))
-        return cls(entry)
+        return cls(entry, library=library)
 
     @classmethod
-    def from_path(cls, path: PurePath) -> NMLPlaylistTrack:
+    def from_path(
+        cls, path: PurePath, library: NMLLibrary | None = None
+    ) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack with underlying XML Entry from a path.
 
         This path must be absolute and contain the volume name see also
         :py:func:`TraktorPath.from_path`
         Avoid using path.resolve(), as it might break depending on the OS.
         """
-        return cls.from_traktor_path(NMLPath.from_path(path))
+        return cls.from_traktor_path(NMLPath.from_path(path), library=library)
 
     @classmethod
-    def from_track(cls, track: Track) -> NMLPlaylistTrack:
+    def from_track(
+        cls, track: Track, library: NMLLibrary | None = None
+    ) -> NMLPlaylistTrack:
         """Create a NMLPlaylistTrack.
 
         Includes underlying XML Entry from any
@@ -187,7 +198,7 @@ class NMLPlaylistTrack(Track):
             raise ValueError(
                 "Track does not have a path, cannot create NMLPlaylistTrack."
             )
-        return cls.from_path(track.path)
+        return cls.from_path(track.path, library=library)
 
     def to_nml_track(
         self, collection: NMLLibrary, insert_if_not_found: bool = True
@@ -231,11 +242,12 @@ class NMLPlaylistTrack(Track):
 
     @property
     def info(self) -> TrackInfo:
-        info = TrackInfo()
+        # Playlist entries contain only a path; the owning library is needed to
+        # resolve that path to the metadata-bearing NMLTrack in the collection.
+        if self.library is None:
+            return TrackInfo()
 
-        # PS 2025-08-23:
-        # NMLPlaylistTrack does not have metadata, only path.
-        # We _could_ get the data from the main collection, but since conversion
-        # is so easy, I dont think its worth the added complexity.
-
-        return info
+        track = self.library.find_by_traktor_path(self.traktor_path)
+        if track is None:
+            return TrackInfo()
+        return track.info

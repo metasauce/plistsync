@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
-from plistsync.core.collection import IDLookup, Library, TrackStream
+from plistsync.core.collection import IDLookup, InfoLookup, Library, TrackStream
 from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from lxml.etree import _Element, _ElementTree
 
-    from plistsync.core import TrackID
+    from plistsync.core import TrackID, TrackInfo
 
     from .track import NMLPlaylistTrack
 
@@ -32,6 +32,7 @@ class NMLLibrary(
     Library[NMLTrack, NMLPlaylist],
     TrackStream[NMLTrack],
     IDLookup[NMLTrack],
+    InfoLookup[NMLTrack],
 ):
     """A Traktor NML Library.
 
@@ -44,6 +45,7 @@ class NMLLibrary(
 
     path: Path
     tree: _ElementTree
+    _track_index_cache: dict[NMLPath, NMLTrack] | None
 
     def __init__(self, path: Path | str | None = None):
         if path is None:
@@ -59,6 +61,7 @@ class NMLLibrary(
 
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
+        self._track_index_cache = None
 
     def write(self, backup: bool | None = None):
         """Write changes to NML file.
@@ -239,15 +242,66 @@ class NMLLibrary(
             the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
             it should will be ignored for the search.
         """
-        entry = self._collection.xpath(
-            f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
-            f"[@FILE={xpath_string_escape(traktor_path.file)}]"
-            f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
-        )
-        if len(entry) == 0:
-            return None
+        return self._track_index().get(traktor_path)
 
-        return NMLTrack(entry[0])
+    def find_by_traktor_paths(
+        self, traktor_paths: Iterable[NMLPath]
+    ) -> list[NMLTrack | None]:
+        """Find multiple tracks by file path using the cached collection index."""
+        index = self._track_index()
+        return [index.get(path) for path in traktor_paths]
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[NMLTrack]:
+        """Find tracks whose metadata matches the supplied metadata.
+
+        NML files are local XML collections, so metadata lookup is performed by
+        scanning the collection. Every supplied, non-empty field must match as a
+        case-insensitive substring; artist and album fields match when any requested
+        value is contained in any value on the track. Results preserve collection order.
+
+        TODO: the behaviour should be consistent across services. Address together.
+        """
+        title = info.get("title")
+        artists = {artist.casefold() for artist in info.get("artists", []) if artist}
+        albums = {album.casefold() for album in info.get("albums", []) if album}
+
+        if not title and not artists and not albums:
+            return
+
+        normalized_title = title.casefold() if title else None
+        for track in self.tracks:
+            track_info = track.info
+
+            if normalized_title is not None:
+                candidate_title = track_info.get("title", "").casefold()
+                if normalized_title not in candidate_title:
+                    continue
+
+            if artists:
+                candidate_artists = [
+                    artist.casefold() for artist in track_info.get("artists", [])
+                ]
+                if not any(
+                    searchterm in artist
+                    for searchterm in artists
+                    for artist in candidate_artists
+                ):
+                    continue
+
+            if albums:
+                candidate_albums = [
+                    album.casefold() for album in track_info.get("albums", [])
+                ]
+                if not any(
+                    searchterm in album
+                    for searchterm in albums
+                    for album in candidate_albums
+                ):
+                    continue
+
+            yield track
 
     # --------------------------- TrackStream protocol --------------------------- #
 
@@ -266,6 +320,15 @@ class NMLLibrary(
         return int(n_str)
 
     # ---------------------------------- Helper ---------------------------------- #
+
+    def _track_index(self) -> dict[NMLPath, NMLTrack]:
+        """Return a path index for the collection, building the cache on first use."""
+        if self._track_index_cache is None:
+            index: dict[NMLPath, NMLTrack] = {}
+            for track in self.tracks:
+                index.setdefault(track.traktor_path, track)
+            self._track_index_cache = index
+        return self._track_index_cache
 
     @property
     def _collection(self):
@@ -317,6 +380,7 @@ class NMLLibrary(
         count = int(collection.get("ENTRIES", "0"))
         collection.set("ENTRIES", str(count + 1))
         inserted = NMLTrack(entry)
+        self._track_index_cache = None
 
         log.debug(f"Inserted track into COLLECTION: {inserted.traktor_path}")
         return inserted

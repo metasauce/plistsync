@@ -28,7 +28,7 @@ class TestTraktorPath:
         assert tp.volume is not None
         assert tp.directories is not None
         assert tp.file is not None
-        assert tp.parts == list(expected_parts)
+        assert tp.parts == expected_parts
         assert isinstance(tp.pure_path, PurePosixPath)
         assert str(tp.pure_path).startswith("/Volumes/")
 
@@ -63,7 +63,7 @@ class TestTraktorPath:
         assert tp.volume is not None
         assert tp.directories is not None
         assert tp.file is not None
-        assert tp.parts == list(expected_parts)
+        assert tp.parts == expected_parts
         assert isinstance(tp.pure_path, PureWindowsPath)
 
         assert str(tp.pure_path).startswith(tp.volume)
@@ -93,7 +93,7 @@ class TestTraktorPath:
     def test_directory_structure(self):
         # Test the directory structure of a valid TraktorPath
         valid_path = NMLPath("C:/:foo/:bar/:baz/:file.flac")
-        assert valid_path.parts == ["C:", "foo", "bar", "baz", "file.flac"]
+        assert valid_path.parts == ("C:", "foo", "bar", "baz", "file.flac")
         assert valid_path.volume == "C:"
         assert valid_path.directories == "/:foo/:bar/:baz/:"
         assert valid_path.file == "file.flac"
@@ -107,6 +107,14 @@ class TestTraktorPath:
         assert loc.get("FILE") == "Track.flac"
         assert loc.get("VOLUME") == "D:"
         assert loc.get("VOLUMEID") == "D:"
+
+    def test_path_is_immutable_and_hashable(self):
+        path = NMLPath("D:/:Music/:track.flac")
+
+        with pytest.raises(AttributeError):
+            path._parts = ("D:", "changed.flac")  # type: ignore
+
+        assert {path: "track"}[NMLPath("D:/:Music/:track.flac")] == "track"
 
     def test_to_nml_location_with_parent(self):
         path = NMLPath("Macintosh HD/:Users/:paul/:Music/:track.mp3")
