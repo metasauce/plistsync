@@ -48,9 +48,6 @@ class NMLPath:
         When set, it is preserved as the ``VOLUMEID`` attribute when converting
         the path to a collection ``LOCATION`` element. When omitted during
         initialization, the volume name is used as the volume ID.
-
-        The volume ID is not part of path equality or hashing;
-        paths are identified by their volume, directories, and filename."
         """
         if self._volume_id is not None:
             return self._volume_id
