@@ -150,11 +150,15 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC, Registry):
         self.info = info
 
     def get_snapshot(self) -> Snapshot[T]:
-        """Get a snapshot of the current state of the playlist."""
+        """Get a snapshot of the current state of the playlist.
+
+        Tracks in the snapshot are references to the same track objects as in the
+        original playlist! Tracks are typcially mutable. Use with care.
+        """
         return Snapshot(
             name=self.name,
             description=self.description,
-            tracks=deepcopy(self.tracks),
+            tracks=list(self.tracks),
         )
 
     def __repr__(self) -> str:
