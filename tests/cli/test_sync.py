@@ -12,6 +12,7 @@ from plistsync.core.playlist import PlaylistInfo
 from plistsync.core.track import OfflineTrack
 from plistsync.services.sync import SyncedPlaylist
 from plistsync.services.sync.playlist import _TrackLink
+from plistsync.services.sync.playlist import RegisterMode
 from tests.core.mock_playlist import MockPlaylistID, MockServicePlaylist
 
 if TYPE_CHECKING:
@@ -373,6 +374,27 @@ class TestSyncRegister(_CliTest):
         assert payload["name"] == "Party Mix"
         assert payload["playlist"] == "test:playlist:abc123"
         assert payload["tracks"] == 0
+
+    def test_register_mode_is_forwarded(self, synced):
+        """The registration merge mode is forwarded to SyncedPlaylist."""
+        with (
+            self._patch_service(),
+            patch.object(SyncedPlaylist, "register") as register,
+        ):
+            result = self.runner.invoke(
+                self.cli_app,
+                [
+                    "sync",
+                    "register",
+                    "Party Mix",
+                    "test:playlist:abc123",
+                    "--mode",
+                    RegisterMode.TAKE_INCOMING.value,
+                ],
+            )
+
+        assert result.exit_code == 0
+        assert register.call_args.kwargs["mode"] is RegisterMode.TAKE_INCOMING
 
     def test_register_synced_not_found(self, sync_dir):
         """Registering with an unknown synced playlist fails."""

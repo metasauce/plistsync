@@ -8,7 +8,11 @@ from plistsync.core.ids import ISRC, PlaylistID
 from plistsync.services.sync.crdt.lww import LWWRegister
 from plistsync.core.matching import Matches
 from plistsync.core.playlist import PlaylistInfo
-from plistsync.services.sync.playlist import SyncedPlaylist, SyncedPlaylistID
+from plistsync.services.sync.playlist import (
+    RegisterMode,
+    SyncedPlaylist,
+    SyncedPlaylistID,
+)
 from plistsync.core.track import OfflineTrack
 from plistsync.services.spotify import SpotifyPlaylistID
 from plistsync.services.tidal import TidalPlaylistID
@@ -167,6 +171,49 @@ class TestRegister:
         playlist.register(second)
 
         assert playlist._linked_playlists == {1: first, 2: second}
+
+    def test_register_skip_duplicates_preserves_existing_tracks(self, track_a, track_b):
+        playlist = SyncedPlaylist("x", tracks=[OfflineTrack.from_track(track_a)])
+        service = make_playlist([track_a, track_b])
+
+        playlist.register(service, mode=RegisterMode.SKIP_DUPLICATES)
+
+        assert isrcs(playlist.tracks) == isrcs([track_a, track_b])
+
+    def test_register_take_incoming_replaces_existing_tracks(self, track_a, track_b):
+        playlist = SyncedPlaylist("x", tracks=[OfflineTrack.from_track(track_a)])
+        service = make_playlist([track_b])
+
+        playlist.register(service, mode=RegisterMode.TAKE_INCOMING)
+
+        assert isrcs(playlist.tracks) == isrcs([track_b])
+
+    def test_register_take_incoming_replaces_metadata(self, track_a):
+        playlist = SyncedPlaylist("internal", description="internal desc")
+        service = make_playlist([track_a], name="incoming")
+        service.info = PlaylistInfo(name="incoming", description="incoming desc")
+
+        playlist.register(service, mode=RegisterMode.TAKE_INCOMING)
+
+        assert playlist.info == {
+            "name": "incoming",
+            "description": "incoming desc",
+        }
+        assert service.info == playlist.info
+
+    def test_register_take_existing_preserves_internal_tracks(self, track_a, track_b):
+        playlist = SyncedPlaylist("x", tracks=[OfflineTrack.from_track(track_a)])
+        service = make_playlist([track_b])
+        service.library.match = Mock(
+            return_value=Matches(
+                truth=track_a, found=[track_a], found_similarities=[1.0]
+            )
+        )
+
+        playlist.register(service, mode=RegisterMode.TAKE_EXISTING)
+
+        assert isrcs(playlist.tracks) == isrcs([track_a])
+        assert isrcs(service.tracks) == isrcs([track_a])
 
 
 class TestRefresh:
