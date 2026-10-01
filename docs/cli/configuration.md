@@ -20,10 +20,8 @@ The global config directory and environment variable directory are automatically
 
 The CLI writes its logs to stderr, controlled by the `logging` section of the configuration file:
 
-```yaml
-logging:
-  level: "INFO" # DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET
-  handler: "rich" # "rich" or "basic"
+```{plistsync-config} plistsync.config.LoggingConfig
+:section: logging
 ```
 
 - `logging.level` controls how verbose the output is.
