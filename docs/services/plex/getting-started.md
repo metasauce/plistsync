@@ -9,25 +9,52 @@ This guide will help you set up Plex integration with `plistsync` from start to 
 First, install the Plex optional dependencies:
 
 ::::{tab-set}
-:sync-group: environment
+:sync-group: install-method
 
-:::{tab-item} pip
-:sync: pip
+:::{tab-item} uv tool
+:sync: uv-tool
+
+Installs `plistsync` as a standalone CLI tool.
 
 ```bash
-pip install 'plistsync[plex]'
+uv tool install "plistsync[plex]"
 ```
 
 :::
 
-:::{tab-item} uv
-:sync: uv
+:::{tab-item} pipx
+:sync: pipx
+
+Installs `plistsync` as a standalone CLI tool.
+
+```bash
+pipx install "plistsync[plex]"
+```
+
+:::
+
+:::{tab-item} uv add
+:sync: uv-add
+
+Adds `plistsync` as a dependency of your project.
 
 ```bash
 uv add plistsync --extra plex
 ```
 
 :::
+
+:::{tab-item} pip
+:sync: pip
+
+Installs into the current environment, works for both.
+
+```bash
+pip install "plistsync[plex]"
+```
+
+:::
+
 ::::
 
 ### Plex Account
@@ -36,20 +63,31 @@ You'll need an active Plex account to use this application. If you don't have on
 
 ## Configuration
 
-By default the `plex` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+::::{tab-set}
 
-```yaml
-# ./config/config.yaml
-services:
-  plex:
-    # The URL of the Plex server to connect to by default.
-    # E.g. 'http://localhost:32400' or 'https://plex.mydomain.com'
-    server_url: null
-    # Instead of the server url, you can specify its name and we look it up online
-    # via plex.tv. In this case, we try local routes first.
-    # E.g. 'my_plex_server'
-    server_name: null
+:::{tab-item} CLI
+:sync: cli
+
+By default the `plex` service has a configuration section in your `plistsync` configuration file. If not, add the following snippet to your `config.yaml`:
+
+```{plistsync-config} plistsync.services.plex.config.PlexConfig
+:service: plex
 ```
+
+:::
+
+:::{tab-item} Library
+:sync: library
+
+Construct a plex configuration from custom values.
+
+```{plistsync-config} plistsync.services.plex.config.PlexConfig
+:type: library
+```
+
+:::
+
+::::
 
 ## Authentication
 

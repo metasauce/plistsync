@@ -1,59 +1,92 @@
 # Getting Started
 
-This guide will help you set up Tidal integration with `plistsync` from start to finish.
+This guide sets up the Tidal integration with `plistsync` from start to finish.
 
 ## Prerequisites
 
-### Installation
+- An active [Tidal account](https://tidal.com). Free accounts are sufficient for `plistsync`.
+- `plistsync` must be authenticated with your Tidal account, see {ref}`the CLI authentication <tidal-cli-authenticate>` or {ref}`the library authentication <tidal-library-authenticate>`.
 
-First, install the Tidal optional dependencies:
+## Installation
+
+Install the Tidal optional dependencies:
 
 ::::{tab-set}
-:sync-group: environment
+:sync-group: install-method
 
-:::{tab-item} pip
-:sync: pip
+:::{tab-item} uv tool
+:sync: uv-tool
+
+Installs `plistsync` as a standalone CLI tool.
 
 ```bash
-pip install 'plistsync[tidal]'
+uv tool install "plistsync[tidal]"
 ```
 
 :::
 
-:::{tab-item} uv
-:sync: uv
+:::{tab-item} pipx
+:sync: pipx
+
+Installs `plistsync` as a standalone CLI tool.
+
+```bash
+pipx install "plistsync[tidal]"
+```
+
+:::
+
+:::{tab-item} uv add
+:sync: uv-add
+
+Adds `plistsync` as a dependency of your project.
 
 ```bash
 uv add plistsync --extra tidal
 ```
 
 :::
+
+:::{tab-item} pip
+:sync: pip
+
+Installs into the current environment.
+
+```bash
+pip install "plistsync[tidal]"
+```
+
+:::
+
 ::::
-
-### Tidal Account
-
-You'll need an active Tidal account. If you don't have one, sign up at [tidal.com](https://tidal.com).
-For tidal, free accounts are sufficient to use the API and `plistsync`.
 
 ## Configuration
 
-By default the `tidal` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+::::{tab-set}
 
+:::{tab-item} CLI
+:sync: cli
 
-```yaml
-# ./config/config.yaml
-services:
-  tidal:
-    # The client ID for talking to the Tidal API. You can use the build-in one
-    # or obtain a new client ID by registering an Developer application.
-    client_id: XhEgdcjkjfqTqw1y
-    # The client secret for talking to the Tidal API. Not required unless you want to
-    # use your own client.
-    client_secret: null
-    # The country code for the Tidal API. This is required for some endpoints.
-    # It influences track availability slightly.
-    country_code: US
+By default the `tidal` service has a configuration section in your `plistsync` configuration file. If not, add the following snippet to your `config.yaml`:
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:service: tidal
 ```
+
+:::
+
+:::{tab-item} Library
+:sync: library
+
+Construct a tidal configuration from custom values.
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:type: library
+```
+
+:::
+
+::::
 
 :::{dropdown} API Credentials
 
@@ -65,49 +98,6 @@ If you want to use your own credentials, you need to obtain API credentials:
 2. Log in with your Tidal account
 3. Create a new application
 4. Generate your `client_id` (and optionally `client_secret`)
+
 :::
 
-## Authentication
-
-Once configured, authenticate `plistsync` with your Tidal account:
-
-```bash
-plistsync tidal auth
-```
-
-This will start an interactive authentication flow:
-
-1. You'll be prompted to open a browser to Tidal's authorization page
-2. Log in with your Tidal credentials
-3. Grant `plistsync` the requested permissions
-4. This will save an authentication token in the `config` folder
-
-To check whether the stored credentials are still valid without starting the flow
-again:
-
-```bash
-plistsync tidal auth --check
-```
-
-This prints `authenticated` and exits with code `0` if the token is valid, or
-`not authenticated` with a non-zero exit code otherwise.
-
-### Authentication Preview
-
-```{typer} plistsync.cli.app:app::tidal:auth
----
-prog: plistsync tidal auth
-width: 80
----
-```
-
-## Verification
-
-Test that everything is working by getting your user data:
-
-```python
-from plistsync.services.tidal.api import TidalApi
-print(TidalApi().user.me())
-```
-
-This should return your user's ID and email.
