@@ -19,6 +19,11 @@ language = "en"
 templates_path = ["_templates"]
 exclude_patterns: list[str] = []
 
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
+
 
 extensions = [
     "sphinx.ext.intersphinx",
@@ -31,6 +36,7 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.mermaid",
     "sphinx_togglebutton",
+    "plistsync_config",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
@@ -60,7 +66,7 @@ autoapi_options = [
 autoapi_keep_files = True
 autodoc_typehints = "signature"
 autoapi_root = "reference/api"
-autoapi_ignore = ["*services*", "*__main__*"]
+autoapi_ignore = ["*cli*", "*services*", "*__main__*"]
 suppress_warnings = ["autoapi.python_import_resolution"]
 
 
