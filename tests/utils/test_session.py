@@ -1,10 +1,11 @@
 import threading
 from importlib.metadata import version
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
 from requests import Response
+from requests.adapters import HTTPAdapter
 
 from plistsync.utils.session import RateLimitAdapter, PlistsyncSession
 
@@ -31,6 +32,24 @@ class TestRateLimitAdapter:
         monkeypatch.setattr("plistsync.utils.session.time.sleep", sleep_mock)
         return sleep_mock
 
+    @pytest.fixture
+    def no_network(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Stub the HTTP transport so ``send`` runs without real network I/O."""
+
+        def fake_send(
+            adapter: HTTPAdapter,
+            request: requests.PreparedRequest,
+            *args: object,
+            **kwargs: object,
+        ) -> Response:
+            response = Response()
+            response.status_code = 200
+            response.request = request
+            response._content = b"{}"
+            return response
+
+        monkeypatch.setattr(HTTPAdapter, "send", fake_send)
+
     @pytest.mark.parametrize(
         "rate_limit, expected_calls_after_two_sends",
         [
@@ -40,18 +59,25 @@ class TestRateLimitAdapter:
     )
     def test_rate_limiting(
         self,
-        adapter,
-        mock_sleep,
-        rate_limit,
-        expected_calls_after_two_sends,
-    ):
+        adapter: RateLimitAdapter,
+        mock_sleep: MagicMock,
+        no_network: None,
+        rate_limit: float,
+        expected_calls_after_two_sends: int,
+    ) -> None:
         """Fixed: Assert total sleeps after exactly two sends."""
         adapter.rate_limit = rate_limit
         adapter.send(_prepared_request())
         adapter.send(_prepared_request())
         assert mock_sleep.call_count == expected_calls_after_two_sends
 
-    def test_custom_wait_time(self, adapter, mock_sleep, monkeypatch):
+    def test_custom_wait_time(
+        self,
+        adapter: RateLimitAdapter,
+        mock_sleep: MagicMock,
+        no_network: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """Fixed: Force elapsed=0 so custom wait always triggers once per send."""
         adapter._wait_time = lambda elapsed: 0.5
         monkeypatch.setattr(
@@ -61,17 +87,28 @@ class TestRateLimitAdapter:
         adapter.send(_prepared_request())
         adapter.send(_prepared_request())
         assert mock_sleep.call_count == 2
-        mock_sleep.assert_has_calls([((0.5,),), ((0.5,),)], any_order=False)
+        mock_sleep.assert_has_calls([call(0.5), call(0.5)], any_order=False)
 
     @pytest.mark.parametrize("method", ["GET", "POST", "PUT", "DELETE", "PATCH"])
-    def test_different_methods(self, adapter, mock_sleep, method):
+    def test_different_methods(
+        self,
+        adapter: RateLimitAdapter,
+        mock_sleep: MagicMock,
+        no_network: None,
+        method: str,
+    ) -> None:
         """Parameterized: works with all HTTP methods."""
         request = _prepared_request(method=method)
         adapter.send(_prepared_request())  # First: no sleep
         adapter.send(request)
         mock_sleep.assert_called_once()
 
-    def test_thread_safety(self, adapter, mock_sleep):
+    def test_thread_safety(
+        self,
+        adapter: RateLimitAdapter,
+        mock_sleep: MagicMock,
+        no_network: None,
+    ) -> None:
         """Thread-safe: concurrent requests respect rate limit."""
 
         def make_request():

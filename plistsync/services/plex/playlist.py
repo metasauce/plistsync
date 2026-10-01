@@ -11,6 +11,7 @@ from plistsync.core.playlist import (
 )
 from plistsync.logger import log
 
+from .config import PlexConfig
 from .track import PlexTrack
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class PlexPlaylistID(PlaylistID):
         return self.id
 
 
-class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack]):
+class PlexPlaylist(MultiRequestServicePlaylist[PlexTrack, PlexConfig]):
     """
     A collection of all tracks in a Plex playlist.
 

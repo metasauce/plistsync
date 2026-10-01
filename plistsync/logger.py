@@ -1,27 +1,35 @@
+"""Logging setup helpers for plistsync."""
+
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from plistsync.config import LoggingConfig
+from dataclasses import dataclass, field
+from typing import Annotated, Literal
 
 log = logging.getLogger("plistsync")
 
 
-def _parse_log_level(level: str | int) -> int:
-    if isinstance(level, int):
-        return level
-    return logging.getLevelNamesMapping().get(level.upper(), logging.INFO)
+@dataclass
+class LoggingConfig:
+    level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", "NOTSET"],
+        "Log level to set when `enabled=True` (one of: DEBUG, INFO, WARNING, ERROR,"
+        "CRITICAL, NOTSET); INFO is recommended for production, DEBUG is useful for "
+        "troubleshooting.",
+    ] = field(default="INFO")
+    handler: Annotated[
+        Literal["basic", "rich"],
+        "Logging backend to initialize when `enabled=True`: 'basic' uses standard "
+        "library logging with plain text output to stderr, while 'rich' uses "
+        "RichHandler for nicer console formatting (and richer tracebacks if enabled).",
+    ] = field(default="rich")
 
 
 def init_logging(
     config: LoggingConfig | None = None,
     log_level_offset: int | None = None,
 ) -> None:
-    """Initialize plistsync logging from config. Call from CLI/app, not at import."""
-    from plistsync.config import LoggingConfig
-
+    """Initialize plistsync logging from config."""
     logging_config = config or LoggingConfig()
 
     # set level of log from config or use overwrite
@@ -102,3 +110,9 @@ def rich_logging_handler(
     handler.setFormatter(logging.Formatter("%(message)s"))
     handler.name = "rich"
     return handler
+
+
+def _parse_log_level(level: str | int) -> int:
+    if isinstance(level, int):
+        return level
+    return logging.getLevelNamesMapping().get(level.upper(), logging.INFO)
