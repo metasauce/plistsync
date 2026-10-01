@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Added a service-agnostic authentication layer in `plistsync.core.auth`. The `AuthProvider` base class splits a flow into `build_request`, `collect_response` and `obtain_token`, and drives user interaction through the `Interaction` protocol, allowing library consumers to run authentication flows programmatically without the CLI. (#117)
 - Added auth providers for `Plex`, `Spotify` and `Tidal`, including a reusable `OAuth2Provider` implementing the authorization code flow with PKCE, and `Service.auth()` for resolving a service's registered provider.
+- Registering playlists to a synced playlists now has a `mode`, to select which source takes priority.
+  CLI: `plistsync sync register --mode`. Supported Modes are `append|skip-duplicates|take-incoming|take-existing`.
 
 ### Changes
 
