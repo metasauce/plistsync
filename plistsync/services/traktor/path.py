@@ -18,12 +18,6 @@ class NMLPath:
     """OS-agnostik representation of a File Path in Traktor.
 
     Follows the logic in NML Playlists: volume/:directory/:file
-
-    ``volume_id`` is optional because playlist paths contain only the volume name.
-    When provided, it is preserved as the ``VOLUMEID`` attribute when converting
-    the path to a collection ``LOCATION`` element. When omitted, the volume name
-    is used as the volume ID. The volume ID is not part of path equality or hashing;
-    paths are identified by their volume, directories, and filename.
     """
 
     _parts: tuple[str, ...]
@@ -47,6 +41,17 @@ class NMLPath:
 
     @property
     def volume_id(self) -> str | None:
+        """
+        ID of the volume.
+
+        Optional because playlist paths contain only the volume name.
+        When set, it is preserved as the ``VOLUMEID`` attribute when converting
+        the path to a collection ``LOCATION`` element. When omitted during
+        initialization, the volume name is used as the volume ID.
+
+        The volume ID is not part of path equality or hashing;
+        paths are identified by their volume, directories, and filename."
+        """
         if self._volume_id is not None:
             return self._volume_id
         return self.volume
