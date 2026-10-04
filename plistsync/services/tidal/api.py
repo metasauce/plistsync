@@ -453,6 +453,43 @@ class TidalTrackApi:
 
         return result, lookup
 
+    def search(
+        self,
+        query: str,
+        *,
+        max_results: int = 100,
+        include: list[str] | None = None,
+    ) -> list[tuple[TrackResource, LookupDict[TrackIncludedResource]]]:
+        """Search for tracks via free-text query.
+
+        The Tidal API only exposes a single `query` parameter for search;
+        there are no structured field filters. The caller is responsible for
+        assembling the desired query string.
+
+        Parameters
+        ----------
+        query : str
+            Free-text query sent to Tidal.
+        max_results : int, optional
+            The maximum number of results to return, by default 100.
+        include : list[str] | None, optional
+            Related resources to include in the response.
+        """
+        if not query.strip():
+            return []
+
+        doc = self.session.get_paginated(
+            "/searchResults",
+            include=include or ["albums", "artists"],
+            params={
+                "query": query,
+                "type": "tracks",
+                "limit": str(min(max_results, 100)),
+            },
+        )
+        lookup = include_to_lookup(doc.get("included", []))
+        return [(track, lookup) for track in doc.get("data", [])]
+
 
 class TidalPlaylistApi:
     session: TidalApiSession

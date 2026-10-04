@@ -6,6 +6,7 @@ from requests import HTTPError
 
 from plistsync.core.collection import (
     IDLookup,
+    InfoLookup,
     Library,
 )
 from plistsync.core.ids import ISRC, PlaylistID
@@ -18,12 +19,13 @@ from .track import TidalTrack, TidalTrackID
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from plistsync.core import TrackID
+    from plistsync.core import TrackID, TrackInfo
 
 
 class TidalLibrary(
     Library[TidalTrack, TidalPlaylist],
     IDLookup[TidalTrack],
+    InfoLookup[TidalTrack],
 ):
     """A collection of Tidal library items."""
 
@@ -199,3 +201,31 @@ class TidalLibrary(
 
         for idx, ids in enumerate(ids_list):
             yield found_tracks.get(idx, None)
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[TidalTrack]:
+        """Find Tidal tracks matching the supplied metadata.
+
+        Tidal returns search results in relevance order.
+        """
+        artists = info.get("artists")
+        albums = info.get("albums")
+        title = info.get("title")
+
+        query_parts = []
+        if title:
+            query_parts.append(title)
+        if artists:
+            query_parts.append(artists[0])
+        if albums:
+            query_parts.append(albums[0])
+
+        raw_query = " ".join(query_parts)
+        if not raw_query:
+            return []
+
+        return [
+            TidalTrack(track, lookup)
+            for track, lookup in self.api.tracks.search(raw_query)
+        ]
