@@ -13,7 +13,7 @@ import pytest
 import requests
 from requests_oauth2client import BearerToken
 
-from plistsync.config import ServiceConfig
+from plistsync.core.config import ServiceConfig
 from plistsync.core.auth import AuthProvider, OAuth2Provider
 from plistsync.errors import AuthenticationError
 from plistsync.utils.auth.bearer_token import Oauth2Token, Token

@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from plistsync.cli import app as plist_app
 from plistsync.cli.service_commands import cli_service_factory
-from plistsync.config import Config
+from plistsync.cli.config import Config
 
 if TYPE_CHECKING:
     from collections.abc import Callable

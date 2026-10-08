@@ -184,14 +184,8 @@ def mock_plex_api_with_data(
 
 
 @pytest.fixture
-def plex_library_collection_mock(monkeypatch, mock_plex_api_with_data):
-    """Fixture for a PlexLibrary with mocked API."""
+def plex_library_collection_mock(mock_plex_api_with_data):
+    """Fixture for a PlexLibrary with a mocked API client."""
     from plistsync.services.plex import PlexLibrary
 
-    # Monkeypatch the PlexApi constructor to return our mock
-    monkeypatch.setattr(
-        "plistsync.services.plex.library.PlexApi",
-        lambda **kwargs: mock_plex_api_with_data,
-    )
-
-    return PlexLibrary("Music")
+    return PlexLibrary(mock_plex_api_with_data, section_name_or_id="Music")

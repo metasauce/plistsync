@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Annotated
 
-from plistsync.config import ServiceConfig
+from plistsync.core.config import ServiceConfig
 
 
 @dataclass
@@ -23,14 +23,19 @@ class PlexConfig(ServiceConfig):
         "E.g. 'my_plex_server'",
     ] = field(default=None)
 
+    section_name_or_id: Annotated[
+        str | int,
+        "The name or ID of the Plex library section to use by default.",
+    ] = field(default="Music")
+
     redirect_port: Annotated[
         int,
         "The port to use for the local redirect server when authenticating.",
-    ] = field(default=5001)
+    ] = field(default=20556)
 
     @property
     def app_name(self) -> str:
-        return "plistsync-local"
+        return "plistsync"
 
     @property
     def client_identifier(self) -> str:

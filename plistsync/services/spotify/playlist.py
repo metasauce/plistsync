@@ -10,6 +10,7 @@ from plistsync.core.playlist import (
     PlaylistInfo,
 )
 
+from .config import SpotifyConfig
 from .track import SpotifyPlaylistTrack
 
 if TYPE_CHECKING:
@@ -63,7 +64,7 @@ class SpotifyPlaylistID(PlaylistID):
         return self.id
 
 
-class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack]):
+class SpotifyPlaylist(MultiRequestServicePlaylist[SpotifyPlaylistTrack, SpotifyConfig]):
     """A collection representing a spotify playlist."""
 
     library: SpotifyLibrary
