@@ -88,21 +88,26 @@ class JsonFileIO(DataIO[M | None], Generic[M]):
             ) from None
 
     def load(self) -> M | None:
-        """Load the model from the JSON file, or ``None`` if it does not exist."""
+        """Load the model from the JSON file, or ``None`` if it is unusable."""
         if not self.path.exists():
             log.debug("File %s does not exist; returning None.", self.path)
             return None
 
-        with self.path.open("r", encoding="utf-8") as f:
-            data = json.load(f)
-        return self._model_type().model_validate(data)
+        try:
+            with self.path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            return self._model_type().model_validate(data)
+        except (OSError, ValueError) as e:
+            log.warning("Could not read %s: %s", self.path, e)
+            return None
 
     def save(self) -> None:
         """Write the cached model to the JSON file."""
         if self._data is None:
             raise ValueError("No data to save.")
+        payload = self._data.model_dump(mode="json")
         with self.path.open("w", encoding="utf-8") as f:
-            json.dump(self._data.model_dump(mode="json"), f, indent=4)
+            json.dump(payload, f, indent=4)
 
 
 class ConfigIO(ABC):
