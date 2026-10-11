@@ -8,7 +8,7 @@ and path rewriting.
 
 from .auth import AuthProvider, Interaction
 from .collection import Collection, Library
-from .config import ServiceConfig
+from .config import ConfigIO, ServiceConfig
 from .ids import PlaylistID, TrackID
 from .matching import Matches
 from .playlist import Playlist, ServicePlaylist
@@ -18,6 +18,7 @@ from .track import Track, TrackInfo
 __all__ = [
     "AuthProvider",
     "Collection",
+    "ConfigIO",
     "Interaction",
     "Library",
     "Matches",
