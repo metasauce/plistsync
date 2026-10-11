@@ -43,12 +43,12 @@ class DataIO(ABC, Generic[D]):
     def save(self) -> None:
         """Save the data to the source."""
 
-    def __set__(self, data: D) -> None:
+    def __set__(self, obj: object, value: D) -> None:
         """Set the data and save it to the source."""
-        self._data = data
+        self._data = value
         self.save()
 
-    def __get__(self) -> D:
+    def __get__(self, obj: object | None, objtype: type | None = None) -> D:
         """Get the cached data, if any or loaded."""
         if self._data is not None:
             return self._data
@@ -96,6 +96,7 @@ class JsonFileIO(DataIO[M | None], Generic[M]):
         try:
             with self.path.open("r", encoding="utf-8") as f:
                 data = json.load(f)
+                log.debug("Loaded from %s", self.path)
             return self._model_type().model_validate(data)
         except (OSError, ValueError) as e:
             log.warning("Could not read %s: %s", self.path, e)
@@ -139,11 +140,11 @@ class ServiceConfig(ABC, Registry):
 
     def __getattribute__(self, name: str) -> Any:
         value = object.__getattribute__(self, name)
-        return value.__get__() if isinstance(value, DataIO) else value
+        return value.__get__(self) if isinstance(value, DataIO) else value
 
     def __setattr__(self, name: str, value: Any) -> None:
         current = self.__dict__.get(name)
-        if isinstance(current, DataIO):
-            current.__set__(value)
+        if isinstance(current, DataIO) and not isinstance(value, DataIO):
+            current.__set__(self, value)
         else:
             object.__setattr__(self, name, value)
