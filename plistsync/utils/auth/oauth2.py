@@ -222,16 +222,15 @@ class OAuth2Provider(AuthProvider[OAuth2Request, str | None, OAuth2Token], ABC):
         that cannot be loaded or refreshed is considered not authenticated.
         """
         try:
-            token_data = self.config.load_token()
-            if token_data is None:
+            token = getattr(self.config, "token", None)
+            if not isinstance(token, OAuth2Token):
                 return False
-            token = OAuth2Token.model_validate(token_data)
             if token.is_expired:
                 token.refresh(
                     token_endpoint=self.token_endpoint,
                     client_id=self.client_id(),
                 )
-                self.config.save_token(token.model_dump(mode="json", exclude_none=True))
+                setattr(self.config, "token", token)
         except (InvalidTokenError, KeyError, TypeError, ValueError) as e:
             log.debug("Authentication check failed for %s: %s", type(self).__name__, e)
             return False

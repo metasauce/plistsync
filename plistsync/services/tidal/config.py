@@ -8,6 +8,7 @@ from plistsync.utils.auth.oauth2 import OAuth2Token
 
 _DEFAULT_CLIENT_ID = "XhEgdcjkjfqTqw1y"
 _DEFAULT_REDIRECT_PORT = 20556
+_DEFAULT_COUNTRY_CODE = "US"
 
 
 @dataclass
@@ -29,7 +30,7 @@ class TidalConfig(ServiceConfig):
         str,
         "The country code for the Tidal API. This is required for some endpoints. It"
         "influences track availability slightly.",
-    ] = field(default="US")
+    ] = field(default=_DEFAULT_COUNTRY_CODE)
 
     token: DataIO[OAuth2Token] | OAuth2Token | None = field(default=None)
 
@@ -37,11 +38,13 @@ class TidalConfig(ServiceConfig):
         self,
         client_id: str = _DEFAULT_CLIENT_ID,
         redirect_port: int = _DEFAULT_REDIRECT_PORT,
+        country_code: str = _DEFAULT_COUNTRY_CODE,
         token: DataIO[OAuth2Token] | OAuth2Token | str | None = None,
     ) -> None:
         """Initialize the config, normalizing the token."""
         self.client_id = client_id
         self.redirect_port = redirect_port
+        self.country_code = country_code
         if isinstance(token, str):
             token = OAuth2Token(access_token=SecretStr(token))
         # Store the raw field: a DataIO is kept as-is instead of using token.__set__
