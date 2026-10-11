@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from plistsync.core.auth import OAuth2Provider
+from plistsync.utils.auth.oauth2 import OAuth2Provider
 
 if TYPE_CHECKING:
     from .config import TidalConfig
