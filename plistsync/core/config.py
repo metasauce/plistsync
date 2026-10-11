@@ -7,14 +7,22 @@ persists their authentication tokens.
 
 from __future__ import annotations
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
+from pydantic import BaseModel
+
+from plistsync.logger import log
 from plistsync.services.registry import Registry
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 T = TypeVar("T", bound="ServiceConfig")
 D = TypeVar("D")
+M = TypeVar("M", bound=BaseModel)
 
 
 class DataIO(ABC, Generic[D]):
@@ -53,6 +61,48 @@ class DataIO(ABC, Generic[D]):
         from pydantic_core import core_schema
 
         return core_schema.any_schema()
+
+
+@dataclass
+class JsonFileIO(DataIO[M | None], Generic[M]):
+    """JSON-file backed :class:`DataIO` for pydantic-style models.
+
+    The model class is taken from the generic subscription, so construct it as
+    ``JsonFileIO[SomeModel](path)``.
+    """
+
+    path: Path
+
+    if TYPE_CHECKING:
+        # Set by the typing machinery when instantiated via ``FileIO[X](...)``.
+        __orig_class__: ClassVar[Any]
+
+    def _model_type(self) -> type[M]:
+        """Model class carried by the generic subscription."""
+        try:
+            return self.__orig_class__.__args__[0]
+        except AttributeError:
+            raise TypeError(
+                f"{type(self).__name__} must be parameterized with a model class, "
+                "e.g. JsonFileIO[SomeModel](path)."
+            ) from None
+
+    def load(self) -> M | None:
+        """Load the model from the JSON file, or ``None`` if it does not exist."""
+        if not self.path.exists():
+            log.debug("File %s does not exist; returning None.", self.path)
+            return None
+
+        with self.path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        return self._model_type().model_validate(data)
+
+    def save(self) -> None:
+        """Write the cached model to the JSON file."""
+        if self._data is None:
+            raise ValueError("No data to save.")
+        with self.path.open("w", encoding="utf-8") as f:
+            json.dump(self._data.model_dump(mode="json"), f, indent=4)
 
 
 class ConfigIO(ABC):
