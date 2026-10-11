@@ -108,6 +108,7 @@ class JsonFileIO(DataIO[M | None], Generic[M]):
         payload = self._data.model_dump(mode="json")
         with self.path.open("w", encoding="utf-8") as f:
             json.dump(payload, f, indent=4)
+        log.debug("Saved to %s", self.path)
 
 
 class ConfigIO(ABC):

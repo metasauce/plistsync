@@ -6,8 +6,6 @@ import inspect
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Generic, Protocol, TypeVar
 
-from pydantic import BaseModel
-
 from plistsync.services.registry import Registry
 
 if TYPE_CHECKING:
@@ -40,12 +38,8 @@ class Interaction(Protocol):
         ...
 
 
-class Token(ABC, BaseModel):
-    """A service token that can be persisted and authenticates requests.
-
-    Tokens are pydantic models: persist with :meth:`model_dump` and restore with
-    :meth:`model_validate`.
-    """
+class Token(ABC):
+    """Abstract base for a service token that can authenticate requests."""
 
     @property
     def is_expired(self) -> bool:
