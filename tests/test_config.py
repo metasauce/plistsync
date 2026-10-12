@@ -3,11 +3,11 @@ from dataclasses import dataclass
 import sys
 from unittest.mock import MagicMock, patch
 import pytest
-import os
 import yaml
 from importlib.metadata import entry_points
 from importlib.util import find_spec
-from plistsync.config import Config, ServiceConfig
+from plistsync.cli.config import Config
+from plistsync.core.config import ServiceConfig
 from plistsync.services import ServiceLoader
 from typing import TYPE_CHECKING
 
@@ -16,14 +16,15 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture(autouse=True)
-def temp_config_file(tmp_path):
+def temp_config_file(tmp_path, monkeypatch):
     config_file = tmp_path / "config.yaml"
     # Pre-seed a minimal valid config so that Config() loads it
     config_file.write_text("logging:\n  level: INFO\n")
-    os.environ["PSYNC_CONFIG_DIR"] = str(tmp_path)
+    monkeypatch.setenv("PSYNC_CONFIG_DIR", str(tmp_path))
     # The first get_dir() call is cached for the whole process
     Config.get_dir.cache_clear()
-    return config_file, tmp_path
+    yield config_file, tmp_path
+    Config.get_dir.cache_clear()
 
 
 def _reload_service_configs() -> None:
@@ -104,16 +105,18 @@ class TestServiceConfig:
         assert "my_option" in content
 
     def test_get_returns_config(self):
-        """ServiceConfig subclass can retrieve its own instance from Config."""
-        cfg = self.MyConfig.get()
+        """ServiceConfig subclasses can retrieve their instance from Config."""
+        cfg = Config().get_config_for(self.MyConfig)
         assert isinstance(cfg, self.MyConfig)
         assert cfg.my_option == "default_value"
 
     def test_get_raises_when_not_registered(self):
-        """ServiceConfig.get() raises ValueError if the class is not registered."""
-        with patch.dict("plistsync.config.ServiceConfig._REGISTRY", {}, clear=True):
+        """get_config_for raises ValueError if the class is not registered."""
+        with patch.dict(
+            "plistsync.core.config.ServiceConfig._REGISTRY", {}, clear=True
+        ):
             with pytest.raises(ValueError, match="is not registered"):
-                TestServiceConfig.MyConfig.get()
+                Config().get_config_for(TestServiceConfig.MyConfig)
 
 
 class TestConfigDirectory:
@@ -128,9 +131,9 @@ class TestConfigDirectory:
         self.global_config_dir = tmp_path / "user_config_dir"
 
         # Store patches as instance variables
-        cwd_patcher = patch("plistsync.config.Path.cwd", return_value=cwd_dir)
+        cwd_patcher = patch("plistsync.cli.config.Path.cwd", return_value=cwd_dir)
         user_config_patcher = patch(
-            "plistsync.config.user_config_dir",
+            "plistsync.cli.config.user_config_dir",
             return_value=self.global_config_dir,
         )
 
@@ -248,9 +251,6 @@ class TestConfigEdgeCases:
         with patch.object(ServiceLoader, "all") as mock_all:
             Config(preload_services=True)
             mock_all.assert_called_once()
-
-    def test_redirect_port_default(self):
-        assert Config().redirect_port == 5001
 
 
 class TestGetServiceConfigSlowPath:

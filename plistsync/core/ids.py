@@ -1,3 +1,5 @@
+"""Track and playlist identifiers shared across plistsync services."""
+
 from __future__ import annotations
 
 import re

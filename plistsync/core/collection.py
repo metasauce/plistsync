@@ -51,6 +51,7 @@ from typing import (
     Generic,
     ParamSpec,
     Protocol,
+    Self,
     overload,
     runtime_checkable,
 )
@@ -59,6 +60,7 @@ from typing_extensions import TypeVar
 
 from plistsync.services.registry import Registry
 
+from .config import ServiceConfig
 from .ids import Scope
 from .matching import Matches, fuzzy_match
 from .track import Track
@@ -72,13 +74,12 @@ if TYPE_CHECKING:
 
     from .ids import PlaylistID, TrackID
     from .matching import Similarity
-    from .playlist import ServicePlaylist
+    from .playlist import Playlist, ServicePlaylist
     from .track import TrackInfo
 
 
-Plist = TypeVar(
-    "Plist", bound="ServicePlaylist", default="ServicePlaylist", covariant=True
-)
+Plist = TypeVar("Plist", bound="Playlist", default="ServicePlaylist", covariant=True)
+Conf = TypeVar("Conf", bound="ServiceConfig | None", default=ServiceConfig | None)
 
 
 @runtime_checkable
@@ -533,13 +534,22 @@ class Collection(ABC, Generic[T]):
             )
 
 
-class Library(Generic[T, Plist], Collection[T], ABC, Registry):
+class Library(Generic[T, Plist, Conf], Collection[T], ABC, Registry):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
     It provides a framework for managing tracks and playlists, allowing each service
     to implement its specifics.
     """
+
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config: Conf) -> Self:
+        """Create a library from its service config.
+
+        ``config`` is ``None`` for services that have no configuration.
+        """
+        ...
 
     @property
     def name(self) -> str:

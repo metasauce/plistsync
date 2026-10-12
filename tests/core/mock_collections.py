@@ -17,9 +17,10 @@ from .mock_track import MockTrack
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
-    from typing import Any
+    from typing import Any, Self
 
     from plistsync.core import PlaylistID, TrackID
+    from plistsync.core.config import ServiceConfig
     from plistsync.core.track import TrackInfo
 
 
@@ -118,6 +119,11 @@ class MockLibrary(
     the library before the code under test instantiates it by class.
     """
 
+    @classmethod
+    def from_config(cls, config: ServiceConfig | None = None) -> Self:
+        """Mock libraries ignore the config."""
+        return cls()
+
     tracks: ClassVar[list[MockTrack]] = []
     """Tracks :meth:`find_by_ids` searches."""
 
@@ -181,6 +187,11 @@ class MockNoLookupLibrary(Library[MockTrack, MockServicePlaylist], service="test
     Mirrors :class:`MockLibrary`, but implements no lookup protocols, so
     capability-dependent CLI options (e.g. ``--add``) must be hidden.
     """
+
+    @classmethod
+    def from_config(cls, config: ServiceConfig | None = None) -> Self:
+        """Mock libraries ignore the config."""
+        return cls()
 
     created: ClassVar[list[MockServicePlaylist]] = []
     """Playlists created through :meth:`create_playlist`."""

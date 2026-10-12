@@ -12,8 +12,9 @@ import pytest
 from typer._click._compat import strip_ansi
 from typer.main import get_group
 
+from plistsync.cli.config import Config
 from plistsync.cli.service_commands.auth import CLIInteraction, RawRedirectHandler
-from plistsync.config import Config, ServiceConfig
+from plistsync.core.config import ServiceConfig
 from plistsync.core.auth import AuthProvider
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.services import Service, ServiceLoader
@@ -54,7 +55,7 @@ class FakeConfig(ServiceConfig, service="fake"):
     valid, since an empty service section is parsed as ``None``.
     """
 
-    redirect_port: int = 5001
+    fake_option: str = "default"
 
 
 # ``__module__`` must be set after the class body: ``@dataclass`` resolves

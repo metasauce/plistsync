@@ -19,7 +19,6 @@ def plist_config(tmpdir_factory):
         f"""
         logging:
             level: DEBUG
-        redirect_port: 5001
         services:
             beets:
                 enabled: true

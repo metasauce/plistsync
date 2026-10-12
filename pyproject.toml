@@ -111,6 +111,7 @@ include = ["plistsync/py.typed"]
 include = [
     "pyproject.toml",
     "plistsync/**/*.py",
+    "examples/**/*.py",
     "tests/**/*.py",
     "docs/**/*.ipynb",
 ]
