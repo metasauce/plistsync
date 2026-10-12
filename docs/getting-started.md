@@ -1,9 +1,5 @@
 # Getting started
 
-```{note}
-This guide assumes you want to use `plistsync` from the command line. If you are looking to use the Python library instead, start with the [core concepts](library/core-concepts.md).
-```
-
 ```{include} ../README.md
 :start-after: <!-- start overview -->
 :end-before: <!-- end overview -->
@@ -11,15 +7,15 @@ This guide assumes you want to use `plistsync` from the command line. If you are
 
 ## Installation
 
-<!-- start installation -->
-
-Install `plistsync` from [PyPI](https://pypi.org/project/plistsync/) as a standalone tool:
+`plistsync` is available on [PyPI](https://pypi.org/project/plistsync/). Pick the install method that matches how you want to use it:
 
 ::::{tab-set}
 :sync-group: install-method
 
 :::{tab-item} uv tool
 :sync: uv-tool
+
+Installs `plistsync` as a standalone CLI tool.
 
 ```bash
 uv tool install "plistsync[allservices]"
@@ -30,14 +26,29 @@ uv tool install "plistsync[allservices]"
 :::{tab-item} pipx
 :sync: pipx
 
+Installs `plistsync` as a standalone CLI tool, isolated from other environments.
+
 ```bash
 pipx install "plistsync[allservices]"
 ```
 
 :::
 
+:::{tab-item} uv add
+:sync: uv-add
+
+Adds `plistsync` as a dependency of your project.
+
+```bash
+uv add plistsync --extra allservices
+```
+
+:::
+
 :::{tab-item} pip
 :sync: pip
+
+Installs into the current environment, works for both.
 
 ```bash
 pip install "plistsync[allservices]"
@@ -47,47 +58,32 @@ pip install "plistsync[allservices]"
 
 ::::
 
-To keep the package slim and flexible, all services (like Spotify or Tidal) are optional. The commands above include all of them via the `allservices` extra, drop it if you want only the core.
+To keep the package slim and flexible, all services (like Spotify or Tidal) are optional. The commands above include all of them via the `allservices` extra. Drop it to install only the core.
 
 ```{note}
 `plistsync` follows [Semantic Versioning](https://semver.org/). While we strive to maintain backward compatibility within the same major version, **we strongly recommend using a lockfile** (such as `requirements.txt` for pip or `uv.lock` for uv) to prevent unexpected breaking changes when upgrading between major versions.
 ```
 
-<!-- end installation -->
+## Choose your path
 
-## Using the CLI
+The same core powers both the command line tool and the Python library. Pick whichever fits your workflow. You can always switch later. Both paths share the same vocabulary, explained in [Core concepts](core-concepts.md).
 
-The command line is the fastest way to manage your playlists, no coding required. Every service speaks the same syntax, so once you get a feel for the commands, they work with every service.
+:::::{grid} 1 2 2 2
+:gutter: 3
 
-Check that everything works:
+::::{grid-item-card} 💻 Using the CLI
+For everyday use in the terminal, with no coding required.
 
-```bash
-plistsync --help
-```
+- {doc}`Quickstart <cli/getting-started>`: authenticate a service and manage your first playlists.
+- {doc}`All commands <cli/commands>`: browse, search, match, and sync playlists.
+- {doc}`Settings & configuration <cli/configuration>`: credentials, config file, and logging.
+::::
 
-For example, inspect a playlist:
+::::{grid-item-card} 🐍 Using the Library
+For developers and advanced users who want to build scripts and tooling.
 
-```bash
-plistsync <service> playlist list
-plistsync <service> playlist show <playlist>
-```
-
-`<playlist>` can be a playlist name or its ID. All available services have their own guide in the sidebar. For more information about the available commands, see either each command's help page or the [CLI guide](cli/commands.md).
-
-## Using the Python API
-
-Prefer code? Everything the CLI does just wraps our core library. You can use it programatically if you prefer. For example, this creates a playlist (or finds it) and prints its track count:
-
-```python
-from plistsync.services.spotify import SpotifyLibrary
-
-library = SpotifyLibrary()
-
-playlist = library.get_playlist(name="My Playlist")
-if playlist is None:
-    playlist = library.create_playlist(name="My Playlist")
-
-print(f"{playlist.name}: {len(playlist.tracks)} tracks")
-```
-
-To properly understand what happens under the hood and how to use the `plistsync` abstraction, we recommend starting with the [core concepts](library/core-concepts.md).
+- {doc}`Python quickstart <library/getting-started>`: install the package and write your first script.
+- {doc}`Examples <library/examples/readme>`: ready-to-run notebooks and scripts.
+- {doc}`API reference <reference/api/index>`: in-depth reference for every module and class.
+::::
+:::::

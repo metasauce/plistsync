@@ -23,7 +23,7 @@ Track membership and ordering live in a **Fugue**, a list CRDT from [_The Art of
 
 ### LWW register: the playlist metadata
 
-Name and description live in an op-based **last-writer-wins register**. Each field keeps the value of the operation with the highest version, where versions are ordered Lamport-style by counter first and replica ID as a tie-breaker; concurrent updates therefore converge to the same winner on every replica. The full operation history is retained so replicas merge by replaying the operations they have not seen yet.
+Name and description live in an op-based **last-writer-wins register**. Each field keeps the value of the operation with the highest version, where versions are ordered Lamport-style by counter first and replica ID as a tie-breaker. Concurrent updates therefore converge to the same winner on every replica. The full operation history is retained so replicas merge by replaying the operations they have not seen yet.
 
 Note that the register has no deletion semantics: clearing a description is an explicit write of `None`, while fields a service does not report at all are left untouched.
 

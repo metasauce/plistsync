@@ -17,7 +17,7 @@ language = "en"
 
 
 templates_path = ["_templates"]
-exclude_patterns: list[str] = []
+exclude_patterns: list[str] = ["build", "_build"]
 
 import sys  # noqa: E402
 from pathlib import Path  # noqa: E402

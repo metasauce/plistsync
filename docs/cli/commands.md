@@ -1,3 +1,8 @@
+```{warning}
+The CLI guide is work in progress and may be missing some parts. Feel free to open an
+issue or PR if you find something missing or unclear.
+```
+
 # Commands
 
 The command line is the fastest way to manage your playlists. Every service speaks the same syntax, so once you get a feel for the commands, they work with every service.

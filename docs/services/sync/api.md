@@ -1,6 +1,6 @@
 # API
 
-The same workflow is available programmatically through `plistsync.services.sync`; every CLI step maps to a method on the `SyncedPlaylist` class. If you are new to synced playlists, start with [Getting started](getting-started). The examples assume your services are installed, configured, and authenticated.
+The same workflow is available programmatically through `plistsync.services.sync`. Every CLI step maps to a method on the `SyncedPlaylist` class. If you are new to synced playlists, start with [Getting started](getting-started). The examples assume your services are installed, configured, and authenticated.
 
 ## Create a synced playlist
 
