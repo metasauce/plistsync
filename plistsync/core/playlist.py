@@ -29,7 +29,7 @@ from typing_extensions import TypeVar
 
 from plistsync.services.registry import Registry
 
-from .collection import C, Collection, TrackStream
+from .collection import Collection, Conf, TrackStream
 from .diff import DeleteOp, InsertOp, MoveOp, batch_consecutive, list_diff
 from .track import OfflineTrack, Track
 
@@ -171,7 +171,7 @@ class Playlist(Generic[T], Collection[T], TrackStream[T], ABC, Registry):
         return len(self.tracks)
 
 
-class ServicePlaylist(Generic[T, C], Playlist[T], ABC):
+class ServicePlaylist(Generic[T, Conf], Playlist[T], ABC):
     """Abstract base class for playlists synchronized with music services.
 
     Extends `Playlist` with methods to manage the lifecycle and state synchronization
@@ -186,7 +186,7 @@ class ServicePlaylist(Generic[T, C], Playlist[T], ABC):
       - `update()` - bulk update by comparing remote and local snapshots
     """
 
-    library: Library[Track, Self, C]
+    library: Library[Track, Self, Conf]
 
     # --------------------------- Required (protocol) ---------------------------- #
 
@@ -268,7 +268,7 @@ class ServicePlaylist(Generic[T, C], Playlist[T], ABC):
             raise
 
 
-class MultiRequestServicePlaylist(ServicePlaylist[T, C], ABC):
+class MultiRequestServicePlaylist(ServicePlaylist[T, Conf], ABC):
     """Playlist for APIs where modifications have to be split into mulitple requests.
 
     Subclass this and implement:

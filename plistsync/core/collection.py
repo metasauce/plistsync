@@ -79,7 +79,7 @@ if TYPE_CHECKING:
 
 
 Plist = TypeVar("Plist", bound="Playlist", default="ServicePlaylist", covariant=True)
-C = TypeVar("C", bound="ServiceConfig | None", default=None)
+Conf = TypeVar("Conf", bound="ServiceConfig | None", default=None)
 
 
 @runtime_checkable
@@ -534,7 +534,7 @@ class Collection(ABC, Generic[T]):
             )
 
 
-class Library(Generic[T, Plist, C], Collection[T], ABC, Registry):
+class Library(Generic[T, Plist, Conf], Collection[T], ABC, Registry):
     """Represents a collection of tracks in a library with playlist management.
 
     This class serves as a base for library collections across diverse services.
@@ -544,7 +544,7 @@ class Library(Generic[T, Plist, C], Collection[T], ABC, Registry):
 
     @classmethod
     @abstractmethod
-    def from_config(cls, config: C) -> Self:
+    def from_config(cls, config: Conf) -> Self:
         """Create a library from its service config.
 
         ``config`` is ``None`` for services that have no configuration.
