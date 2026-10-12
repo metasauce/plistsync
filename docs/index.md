@@ -16,46 +16,9 @@ hide-toc: true
 :end-before: <!-- end features -->
 ```
 
-## Where to go next
+## Getting started
 
-:::::{grid} 1 2 3 3
-:gutter: 2
-
-::::{grid-item-card} Getting started
-:link: getting-started
-:link-type: doc
-
-Install `plistsync` and manage your first playlists from the command line, no coding required.
-::::
-
-::::{grid-item-card} CLI guide
-:link: cli/commands
-:link-type: doc
-
-Everything the command line can do, from browsing playlists to syncing them.
-::::
-
-::::{grid-item-card} Core concepts
-:link: library/core-concepts
-:link-type: doc
-
-The key abstractions behind `plistsync`, for building your own tooling.
-::::
-
-::::{grid-item-card} Examples
-:link: library/examples/readme
-:link-type: doc
-
-Step-by-step guides for common workflows.
-::::
-
-::::{grid-item-card} API reference
-:link: reference/api/index
-:link-type: doc
-
-In-depth reference material for the library.
-::::
-:::::
+New to `plistsync`? The [Getting started guide](getting-started.md) covers installation and helps you choose between the CLI and the library.
 
 ```{note}
 We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](reference/contribution.md), improvements to both code and documentation are welcome!
@@ -65,12 +28,14 @@ We are always happy for contributions, whether small or big. Feel free to check 
 :hidden:
 
 getting-started.md
+core-concepts.md
 ```
 
 ```{toctree}
 :hidden:
 :caption: 💻 CLI
 
+cli/getting-started.md
 cli/commands.md
 cli/configuration.md
 ```
@@ -80,9 +45,8 @@ cli/configuration.md
 :hidden:
 :caption: 🐍 Library
 
-library/core-concepts.md
-library/architecture.md
-library/advanced/index.md
+library/getting-started.md
+library/guides/index.md
 library/examples/readme.md
 ```
 
@@ -104,6 +68,7 @@ services/traktor/index
 :caption: 📖 Reference
 
 reference/changelog.md
+reference/architecture.md
 reference/contribution.md
 reference/api/index.md
 ```

@@ -6,7 +6,8 @@
 # Core concepts
 
 This page explains the words used throughout the `plistsync` documentation. The same
-terms apply whether you use the command line or the Python library.
+terms apply whether you use the command line or the Python library. Together they form
+the layer that maps every service onto the same libraries, playlists, and tracks.
 
 ## Services
 
