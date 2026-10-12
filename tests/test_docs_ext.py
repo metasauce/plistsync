@@ -10,6 +10,7 @@ from docs._ext.plistsync_config import (
     dataclass_to_file,
     dataclass_to_python,
 )
+from docs._ext.plistsync_install import install_tabs
 from plistsync.core.config import DataIO  # noqa: TC001
 
 
@@ -85,3 +86,23 @@ def test_yaml_skips_dataio_fields_and_keeps_comments() -> None:
 
     assert "# The display name." in code
     assert "token" not in code
+
+
+def test_install_tabs_renders_methods_for_extra() -> None:
+    code = "\n".join(install_tabs("spotify"))
+
+    assert "::::{tab-set}" in code
+    assert ":sync-group: install-method" in code
+    for label in ("uv tool", "pipx", "uv add", "pip"):
+        assert f":::{{tab-item}} {label}" in code
+    assert 'uv tool install "plistsync[spotify]"' in code
+    assert "uv add plistsync --extra spotify" in code
+    assert 'pip install "plistsync[spotify]"' in code
+
+
+def test_install_tabs_without_extra_installs_core() -> None:
+    code = "\n".join(install_tabs())
+
+    assert 'uv tool install "plistsync"' in code
+    assert "uv add plistsync" in code
+    assert "--extra" not in code

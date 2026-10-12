@@ -11,58 +11,13 @@ This guide sets up the Tidal integration with `plistsync` from start to finish.
 
 Install the Tidal optional dependencies:
 
-::::{tab-set}
-:sync-group: install-method
-
-:::{tab-item} uv tool
-:sync: uv-tool
-
-Installs `plistsync` as a standalone CLI tool.
-
-```bash
-uv tool install "plistsync[tidal]"
+```{plistsync-install} tidal
 ```
-
-:::
-
-:::{tab-item} pipx
-:sync: pipx
-
-Installs `plistsync` as a standalone CLI tool.
-
-```bash
-pipx install "plistsync[tidal]"
-```
-
-:::
-
-:::{tab-item} uv add
-:sync: uv-add
-
-Adds `plistsync` as a dependency of your project.
-
-```bash
-uv add plistsync --extra tidal
-```
-
-:::
-
-:::{tab-item} pip
-:sync: pip
-
-Installs into the current environment.
-
-```bash
-pip install "plistsync[tidal]"
-```
-
-:::
-
-::::
 
 ## Configuration
 
 ::::{tab-set}
+:sync-group: config-method
 
 :::{tab-item} CLI
 :sync: cli

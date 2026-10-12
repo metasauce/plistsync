@@ -9,54 +9,8 @@
 
 `plistsync` is available on [PyPI](https://pypi.org/project/plistsync/). Pick the install method that matches how you want to use it:
 
-::::{tab-set}
-:sync-group: install-method
-
-:::{tab-item} uv tool
-:sync: uv-tool
-
-Installs `plistsync` as a standalone CLI tool.
-
-```bash
-uv tool install "plistsync[allservices]"
+```{plistsync-install} allservices
 ```
-
-:::
-
-:::{tab-item} pipx
-:sync: pipx
-
-Installs `plistsync` as a standalone CLI tool, isolated from other environments.
-
-```bash
-pipx install "plistsync[allservices]"
-```
-
-:::
-
-:::{tab-item} uv add
-:sync: uv-add
-
-Adds `plistsync` as a dependency of your project.
-
-```bash
-uv add plistsync --extra allservices
-```
-
-:::
-
-:::{tab-item} pip
-:sync: pip
-
-Installs into the current environment, works for both.
-
-```bash
-pip install "plistsync[allservices]"
-```
-
-:::
-
-::::
 
 To keep the package slim and flexible, all services (like Spotify or Tidal) are optional. The commands above include all of them via the `allservices` extra. Drop it to install only the core.
 

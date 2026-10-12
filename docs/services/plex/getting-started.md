@@ -8,54 +8,8 @@ This guide will help you set up Plex integration with `plistsync` from start to 
 
 First, install the Plex optional dependencies:
 
-::::{tab-set}
-:sync-group: install-method
-
-:::{tab-item} uv tool
-:sync: uv-tool
-
-Installs `plistsync` as a standalone CLI tool.
-
-```bash
-uv tool install "plistsync[plex]"
+```{plistsync-install} plex
 ```
-
-:::
-
-:::{tab-item} pipx
-:sync: pipx
-
-Installs `plistsync` as a standalone CLI tool.
-
-```bash
-pipx install "plistsync[plex]"
-```
-
-:::
-
-:::{tab-item} uv add
-:sync: uv-add
-
-Adds `plistsync` as a dependency of your project.
-
-```bash
-uv add plistsync --extra plex
-```
-
-:::
-
-:::{tab-item} pip
-:sync: pip
-
-Installs into the current environment, works for both.
-
-```bash
-pip install "plistsync[plex]"
-```
-
-:::
-
-::::
 
 ### Plex Account
 
@@ -64,6 +18,7 @@ You'll need an active Plex account to use this application. If you don't have on
 ## Configuration
 
 ::::{tab-set}
+:sync-group: config-method
 
 :::{tab-item} CLI
 :sync: cli

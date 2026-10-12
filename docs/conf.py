@@ -37,6 +37,7 @@ extensions = [
     "sphinxcontrib.mermaid",
     "sphinx_togglebutton",
     "plistsync_config",
+    "plistsync_install",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
