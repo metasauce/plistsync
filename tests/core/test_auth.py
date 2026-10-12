@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -11,15 +12,15 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 import requests
-from requests_oauth2client import BearerToken
+from pydantic import ValidationError
 
-from plistsync.core.config import ServiceConfig
-from plistsync.core.auth import AuthProvider, OAuth2Provider
+from plistsync.core.auth import AuthProvider, Token
+from plistsync.core.config import JsonFileIO, ServiceConfig
 from plistsync.errors import AuthenticationError
-from plistsync.utils.auth.bearer_token import Oauth2Token, Token
+from plistsync.utils.auth.oauth2 import OAuth2Provider, OAuth2Token
+from tests.core.mock_auth import FakeInteraction
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
     from plistsync.core.auth import Interaction
@@ -28,54 +29,8 @@ if TYPE_CHECKING:
 class FakeToken(Token):
     """Minimal token for testing the provider flow."""
 
-    def __init__(self) -> None:
-        super().__init__(None)
-
-    def as_dict(self) -> dict:
-        return {"token": "secret"}
-
-    @classmethod
-    def from_dict(cls, token_dict: dict) -> FakeToken:
-        return cls()
-
     def __call__(self, request):
         return request
-
-
-class FakeInteraction:
-    """In-memory implementation of the auth interaction protocol.
-
-    Parameters
-    ----------
-    redirect:
-        Value returned by :meth:`capture_redirect`: a fixed callback URL,
-        ``None``, or a callable receiving this interaction and the redirect
-        URI (e.g. to echo the ``state`` from the URL a provider opened).
-    """
-
-    def __init__(
-        self,
-        redirect: str | None | Callable[[FakeInteraction, str], str | None] = None,
-    ) -> None:
-        self.redirect = redirect
-        self.opened_urls: list[str] = []
-        self.captured_uris: list[str] = []
-        self.messages: list[str] = []
-
-    def open_url(self, url: str) -> None:
-        self.opened_urls.append(url)
-
-    def show(self, message: str) -> None:
-        self.messages.append(message)
-
-    def ask(self, message: str) -> str:
-        return ""
-
-    def capture_redirect(self, redirect_uri: str) -> str | None:
-        self.captured_uris.append(redirect_uri)
-        if callable(self.redirect):
-            return self.redirect(self, redirect_uri)
-        return self.redirect
 
 
 def _oauth2_callback(interaction: FakeInteraction, redirect_uri: str) -> str:
@@ -124,6 +79,16 @@ class FakeOAuth2Provider(OAuth2Provider, service="_test_core_auth"):
         return "http://127.0.0.1:1234/callback"
 
 
+@pytest.fixture
+def oauth_session(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
+    """Mock the HTTP session used by the provider and by token refresh."""
+    session = MagicMock()
+    monkeypatch.setattr(
+        "plistsync.utils.auth.oauth2.PlistsyncSession", lambda *args, **kwargs: session
+    )
+    return session
+
+
 def test_build_request_uses_configured_redirect_uri() -> None:
     provider = FakeOAuth2Provider(ServiceConfig())
 
@@ -168,42 +133,27 @@ class TestAuthProvider:
         assert OAuth2Provider.registry() is AuthProvider.registry()
 
 
-class TestInteraction:
-    """The Interaction protocol is structural: the four primitives suffice."""
-
-    def test_in_memory_interaction_satisfies_protocol(self) -> None:
-        interaction: Interaction = FakeInteraction()
-
-        interaction.open_url("https://example.com")
-
-        assert interaction.opened_urls == ["https://example.com"]
-
-
 class TestOAuth2Provider:
     """The PKCE authorization-code flow, end to end."""
 
     def test_authenticate_exchanges_code_for_token(
-        self, monkeypatch: pytest.MonkeyPatch
+        self, oauth_session: MagicMock
     ) -> None:
         provider = FakeOAuth2Provider(ServiceConfig())
         interaction = FakeInteraction(redirect=_oauth2_callback)
-        session = MagicMock()
-        session.post.return_value.json.return_value = {
+        oauth_session.post.return_value.json.return_value = {
             "access_token": "access",
             "refresh_token": "refresh",
             "token_type": "Bearer",
             "expires_in": 3600,
         }
-        monkeypatch.setattr(
-            "plistsync.core.auth.PlistsyncSession", lambda *args, **kwargs: session
-        )
 
         token = provider.authenticate(interaction)
 
-        assert token.as_dict()["access_token"] == "access"
+        assert token.access_token.get_secret_value() == "access"
 
-        assert session.post.call_args.args[0] == provider.token_endpoint
-        data = session.post.call_args.kwargs["data"]
+        assert oauth_session.post.call_args.args[0] == provider.token_endpoint
+        data = oauth_session.post.call_args.kwargs["data"]
         assert data["grant_type"] == "authorization_code"
         assert data["client_id"] == "client-id"
         assert data["code"] == "auth-code"
@@ -223,15 +173,9 @@ class TestOAuth2Provider:
         )
         assert challenge == expected_challenge
 
-    def test_authenticate_wraps_exchange_errors(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_authenticate_wraps_exchange_errors(self, oauth_session: MagicMock) -> None:
         provider = FakeOAuth2Provider(ServiceConfig())
-        session = MagicMock()
-        session.post.side_effect = requests.RequestException("boom")
-        monkeypatch.setattr(
-            "plistsync.core.auth.PlistsyncSession", lambda *args, **kwargs: session
-        )
+        oauth_session.post.side_effect = requests.RequestException("boom")
 
         with pytest.raises(AuthenticationError, match="Failed to obtain token"):
             provider.authenticate(FakeInteraction(redirect=_oauth2_callback))
@@ -258,63 +202,88 @@ class TestOAuth2Provider:
             provider.obtain_token(request, callback)
 
 
-def _write_oauth2_token(
-    path: Path, *, expired: bool = False, refresh_token: str | None = None
-) -> None:
-    """Write a real Oauth2Token with an expiry hint in the past or future."""
-    expires_at = datetime.now(UTC) + timedelta(hours=-1 if expired else 1)
-    token = Oauth2Token(
-        BearerToken(
-            access_token="access",
-            expires_at=expires_at,
-            refresh_token=refresh_token,
-        ),
-        path,
+def _oauth2_token(
+    *, expired: bool = False, refresh_token: str | None = None
+) -> OAuth2Token:
+    """An OAuth2 token whose expiry lies in the past or the future."""
+    return OAuth2Token(
+        access_token="access",
+        expires_at=datetime.now(UTC) + timedelta(hours=-1 if expired else 1),
+        refresh_token=refresh_token,
     )
-    token.save()
+
+
+def _config(tmp_path: Path, *, token: OAuth2Token | None = None) -> ServiceConfig:
+    """A config whose ``token`` field persists to ``tmp_path`` as JSON."""
+    config = ServiceConfig()
+    config.token = JsonFileIO[OAuth2Token](tmp_path / "token.json")
+    if token is not None:
+        config.token = token
+    return config
 
 
 class TestAuthCheck:
     """Non-interactive authentication status checks."""
 
-    @pytest.fixture
-    def token_path(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-        path = tmp_path / "token.json"
-        monkeypatch.setattr(ServiceConfig, "token_path", property(lambda self: path))
-        return path
+    def test_missing_token(self, tmp_path: Path) -> None:
+        assert FakeOAuth2Provider(_config(tmp_path)).check_auth() is False
 
-    def test_missing_token(self, token_path: Path) -> None:
-        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is False
+    def test_valid_token(self, tmp_path: Path) -> None:
+        config = _config(tmp_path, token=_oauth2_token())
 
-    def test_valid_token(self, token_path: Path) -> None:
-        _write_oauth2_token(token_path)
-
-        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is True
+        assert FakeOAuth2Provider(config).check_auth() is True
 
     def test_expired_token_is_refreshed(
-        self, token_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, oauth_session: MagicMock
     ) -> None:
-        _write_oauth2_token(token_path, expired=True, refresh_token="refresh")
-        oauth2_client = MagicMock()
-        oauth2_client.return_value.refresh_token.return_value = BearerToken(
-            access_token="new-access",
-            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        config = _config(
+            tmp_path, token=_oauth2_token(expired=True, refresh_token="refresh")
         )
-        monkeypatch.setattr("plistsync.core.auth.OAuth2Client", oauth2_client)
+        oauth_session.post.return_value.json.return_value = {
+            "access_token": "new-access",
+            "expires_in": 3600,
+        }
 
-        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is True
-        assert Oauth2Token.from_file(token_path).as_dict()["access_token"] == (
+        assert FakeOAuth2Provider(config).check_auth() is True
+        assert json.loads((tmp_path / "token.json").read_text())["access_token"] == (
             "new-access"
         )
-
-    def test_failed_refresh(
-        self, token_path: Path, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        _write_oauth2_token(token_path, expired=True, refresh_token="refresh")
-        oauth2_client = MagicMock()
-        oauth2_client.return_value.refresh_token.side_effect = (
-            requests.RequestException("boom")
+        assert oauth_session.post.call_args.args[0] == FakeOAuth2Provider.token_endpoint
+        assert (
+            oauth_session.post.call_args.kwargs["data"]["grant_type"] == "refresh_token"
         )
-        monkeypatch.setattr("plistsync.core.auth.OAuth2Client", oauth2_client)
 
-        assert FakeOAuth2Provider(ServiceConfig()).check_auth() is False
+    def test_failed_refresh(self, tmp_path: Path, oauth_session: MagicMock) -> None:
+        config = _config(
+            tmp_path, token=_oauth2_token(expired=True, refresh_token="refresh")
+        )
+        oauth_session.post.side_effect = requests.RequestException("boom")
+
+        assert FakeOAuth2Provider(config).check_auth() is False
+
+
+class TestOAuth2TokenSecrets:
+    """Secret fields are masked in repr/errors but revealed on serialization."""
+
+    @pytest.fixture
+    def token(self) -> OAuth2Token:
+        return OAuth2Token(access_token="secret-access", refresh_token="secret-refresh")
+
+    def test_repr_masks_secrets(self, token: OAuth2Token) -> None:
+        rendered = repr(token)
+
+        assert "secret-access" not in rendered
+        assert "secret-refresh" not in rendered
+
+    def test_serialization_reveals_secrets(self, token: OAuth2Token) -> None:
+        payload = token.model_dump(mode="json")
+
+        assert payload["access_token"] == "secret-access"
+        assert payload["refresh_token"] == "secret-refresh"
+
+    def test_validation_error_does_not_leak_secret(self) -> None:
+        with pytest.raises(ValidationError) as excinfo:
+            OAuth2Token(access_token="secret-access", expires_at="not-a-date")
+
+        assert "secret-access" not in str(excinfo.value)
+        assert "secret-access" not in excinfo.value.json()

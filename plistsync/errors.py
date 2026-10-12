@@ -4,6 +4,7 @@ __all__ = [
     "AuthenticationError",
     "DependencyError",
     "HowTheForkDidYouEndUpHereError",
+    "InvalidTokenError",
 ]
 
 
@@ -34,6 +35,17 @@ class DependencyError(ImportError):
 
 class AuthenticationError(Exception):
     pass
+
+
+class InvalidTokenError(Exception):
+    """Raised when a token is missing, expired, or rejected."""
+
+    def __init__(self, token: object | None = None):
+        if token is not None:
+            self.message = f"Invalid token: {token}"
+        else:
+            self.message = "Token not found. Have you created a token?"
+        super().__init__(self.message)
 
 
 class HowTheForkDidYouEndUpHereError(Exception):

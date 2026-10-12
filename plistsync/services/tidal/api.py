@@ -3,22 +3,17 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
-import requests
-
 from plistsync.logger import log
 from plistsync.utils import chunk_list
-from plistsync.utils.auth.bearer_token import (
-    InvalidTokenError,
-    Oauth2Token,
-    TokenSession,
-)
-from plistsync.utils.session import PlistsyncSession
+from plistsync.utils.auth.oauth2 import OAuth2Token
+from plistsync.utils.session import PlistsyncSession, TokenSession
 
 from .api_types import (
     T_Included,
 )
 
 if TYPE_CHECKING:
+    import requests
     from requests.structures import CaseInsensitiveDict
 
     from .api_types import (
@@ -49,14 +44,13 @@ LookupDict = dict[tuple[str, str], T_Included]
 MAX_FILTER_SIZE = 20  # Tidal limits 20 elements per request
 
 
-class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
+class TidalApiSession(PlistsyncSession, TokenSession[OAuth2Token]):
     """A request Session configured for Tidal.
 
     Automatically attaches the auth token and refreshes
     it as needed. Use for making multiple requests to the API.
     """
 
-    # Used in BearerTokenSession
     status_codes_expired: ClassVar[list[int]] = [401]
     status_codes_rate_limit: ClassVar[list[int]] = [429]
 
@@ -67,7 +61,7 @@ class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
     def __init__(
         self,
         client_id: str,
-        token: Oauth2Token,
+        token: OAuth2Token,
     ):
         super().__init__(
             rate_limit=0.25,  # Tidal allows 4 requests per second
@@ -76,30 +70,12 @@ class TidalApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
         self.client_id = client_id
 
     def _refresh_token(self) -> None:
-        """Refresh the Tidal token.
-
-        This function will refresh the Tidal token using the refresh token.
-        It will update the token in place.
-        """
+        """Refresh the Tidal token in place using the refresh token."""
         log.debug("Refreshing expired Tidal token...")
-        res = requests.Session.request(
-            self,
-            "POST",
-            "https://auth.tidal.com/v1/oauth2/token",
-            data={
-                "grant_type": "refresh_token",
-                "client_id": self.client_id,
-                "refresh_token": self.token.as_dict()["refresh_token"],
-            },
+        self.token.refresh(
+            token_endpoint="https://auth.tidal.com/v1/oauth2/token",
+            client_id=self.client_id,
         )
-        try:
-            res.raise_for_status()
-        except requests.HTTPError as e:
-            log.error(res.text, stack_info=False)
-            raise InvalidTokenError(self.token) from e
-
-        token_data = res.json()
-        self.token.update(token_data)
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))

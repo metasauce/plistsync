@@ -5,20 +5,21 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import cache
 from typing import TYPE_CHECKING, ClassVar
 from unittest.mock import patch
 
 import pytest
+from pydantic import BaseModel
 from typer._click._compat import strip_ansi
 from typer.main import get_group
 
 from plistsync.cli.config import Config
 from plistsync.cli.service_commands.auth import CLIInteraction, RawRedirectHandler
-from plistsync.core.config import ServiceConfig
-from plistsync.core.auth import AuthProvider
+from plistsync.core.auth import AuthProvider, Token
+from plistsync.core.config import DataIO, ServiceConfig
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.services import Service, ServiceLoader
-from plistsync.utils.auth.bearer_token import InvalidTokenError, Token
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -28,18 +29,10 @@ if TYPE_CHECKING:
     from typer.testing import CliRunner
 
 
-class FakeToken(Token):
+class FakeToken(BaseModel, Token):
     """Minimal persistable token for CLI tests."""
 
-    def __init__(self, file_path: Path | None = None) -> None:
-        super().__init__(file_path)
-
-    def as_dict(self) -> dict:
-        return {"token": "secret"}
-
-    @classmethod
-    def from_dict(cls, token_dict: dict) -> FakeToken:
-        return cls()
+    token: str = "secret"
 
     def __call__(self, request):
         return request
@@ -47,21 +40,19 @@ class FakeToken(Token):
 
 @dataclass
 class FakeConfig(ServiceConfig, service="fake"):
-    """Config for the fake service.
+    """Config for the fake service, persisting its token as JSON.
 
-    ``service="fake"`` registers it without relying on the module path. The
-    module override below makes the service name -- and therefore the token
-    path -- resolve to ``fake``. The field keeps the generated default config
-    valid, since an empty service section is parsed as ``None``.
+    The ``fake_option`` field keeps the generated default config from being
+    empty, since an empty service section is parsed as ``None``.
     """
 
     fake_option: str = "default"
+    token: DataIO[FakeToken] | None = None
 
-
-# ``__module__`` must be set after the class body: ``@dataclass`` resolves
-# string annotations via ``sys.modules[cls.__module__]``, and no
-# ``plistsync.services.fake`` module exists.
-FakeConfig.__module__ = "plistsync.services.fake"
+    @classmethod
+    @cache
+    def service(cls) -> str:
+        return "fake"
 
 
 class FakeAuthProvider(AuthProvider[None, None, FakeToken]):
@@ -82,15 +73,10 @@ class FakeAuthProvider(AuthProvider[None, None, FakeToken]):
         return None
 
     def obtain_token(self, request, response) -> FakeToken:
-        # The command persists the token at the service config's token path.
         return FakeToken()
 
     def check_auth(self) -> bool:
-        try:
-            FakeToken.from_file(self.config.token_path)
-        except InvalidTokenError:
-            return False
-        return True
+        return isinstance(self.config.token, FakeToken)
 
 
 class FakeService(Service):
@@ -187,7 +173,6 @@ class TestAuthCommand:
         assert result.exit_code == 0, result.output
         mock_interaction.assert_called_once_with(mode="forward")
         assert json.loads(fake_token_file.read_text()) == {"token": "secret"}
-        assert str(fake_token_file) in result.output
 
     def test_mode_option_is_forwarded_to_interaction(
         self, runner: CliRunner, cli_app: typer.Typer
@@ -219,7 +204,7 @@ class TestAuthCheck:
     def test_authenticated_token_reports_success(
         self, runner: CliRunner, cli_app: typer.Typer, fake_token_file: Path
     ) -> None:
-        FakeToken(fake_token_file).save()
+        fake_token_file.write_text(json.dumps({"token": "secret"}))
 
         with (
             _fake_service(),

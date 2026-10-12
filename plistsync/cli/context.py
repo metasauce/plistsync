@@ -23,8 +23,6 @@ class ServiceContext:
     @cached_property
     def library(self) -> Library | None:
         """Instantiate the service's library, if it supports one."""
-        from plistsync.cli.config import Config
-
         library_cls = self.service.library()
         if library_cls is None:
             return None
@@ -36,10 +34,12 @@ class ServiceContext:
     @cached_property
     def config(self) -> ServiceConfig | None:
         """Resolve the service's config, if it supports one."""
-        from plistsync.cli.config import Config
+        from plistsync.cli.config import UserDirConfigIO
 
         config_cls = self.service.config()
-        return Config().get_config_for(config_cls) if config_cls is not None else None
+        if config_cls is None:
+            return None
+        return UserDirConfigIO().load(config_cls)
 
     @property
     def name(self) -> str:

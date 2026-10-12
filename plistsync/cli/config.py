@@ -1,10 +1,4 @@
-"""YAML configuration management for the plistsync CLI.
-
-Uses the ``eyconf`` library to load and validate the configuration file. The
-plain dataclasses live in :mod:`plistsync.core.config` and
-:mod:`plistsync.logger`; this module owns everything that is specific to the
-CLI: file locations and the disk-backed loading.
-"""
+"""CLI-side configuration: file locations, loading and token persistence."""
 
 from __future__ import annotations
 
@@ -12,13 +6,14 @@ import os
 from dataclasses import dataclass, field, make_dataclass
 from functools import cache
 from pathlib import Path
-from typing import Annotated, TypeVar
+from typing import Annotated, Any, TypeVar, get_args, get_origin, get_type_hints
 
 from eyconf import EYConf
 from eyconf.decorators import allow_additional
 from platformdirs import user_config_dir
 
-from plistsync.core.config import ServiceConfig
+from plistsync.core import Token
+from plistsync.core.config import ConfigIO, DataIO, JsonFileIO, ServiceConfig
 from plistsync.logger import LoggingConfig, log
 from plistsync.services import ServiceLoader
 
@@ -175,8 +170,19 @@ class Config(EYConf[BaseConfigSchema]):
             If the config class is not registered.
         """
         for service_name, config_classes in ServiceConfig.registry().items():
-            if config_cls in config_classes:
-                return self.get_service_config(service_name)  # type: ignore[return-value]
+            if config_cls not in config_classes:
+                continue
+
+            service_config = self.get_service_config(service_name)
+            if isinstance(service_config, config_cls):
+                return service_config
+
+            # The service was registered only after this instance built its
+            # schema, so its config section is still raw "extra data". Rebuild
+            # the schema (now including the service) and reload.
+            self._schema = self._build_schema()
+            self.reload()
+            return self.get_service_config(service_name)  # type: ignore[return-value]
 
         raise ValueError(f"Service config {config_cls.__name__} is not registered.")
 
@@ -201,9 +207,8 @@ class Config(EYConf[BaseConfigSchema]):
         Raises
         ------
         ValueError
-            If the service is not registered or has no config schema.
-        ConfigurationError
-            If the service is not enabled in the configuration.
+            If the service is not registered, has no config schema, or the
+            config instance cannot be resolved.
         """
         # Already in the schema: fast return
         if service_config := self.data.services.get(service_name):
@@ -243,7 +248,49 @@ class Config(EYConf[BaseConfigSchema]):
         return super().default_yaml()
 
 
+def _dataio_token_type(annotation: Any) -> type[Token] | None:
+    """Return ``D`` if ``annotation`` contains a ``DataIO[D]``, else ``None``."""
+    for candidate in (annotation, *get_args(annotation)):
+        if get_origin(candidate) is DataIO:
+            args = get_args(candidate)
+            if args and isinstance(args[0], type) and issubclass(args[0], Token):
+                return args[0]
+    return None
+
+
+@dataclass
+class UserDirConfigIO(ConfigIO):
+    """Wrapper around EYCONF."""
+
+    config: Config = field(default_factory=Config)
+    directory: Path = field(default_factory=Config.get_dir)
+
+    def load(self, service_config_cls: type[C]) -> C:
+        # TODO: Re-evaluate. For now we only allow the special-case DataIO[Token]
+        # We should move the DataIO serialization logic into eyconf at some point
+        service_config = self.config.get_config_for(service_config_cls)
+        service_name = service_config_cls.service()
+
+        hints = get_type_hints(
+            service_config_cls, include_extras=True, localns={"DataIO": DataIO}
+        )
+        for name, annotation in hints.items():
+            token_type = _dataio_token_type(annotation)
+            if token_type is None:
+                continue
+            path = self.directory / f"{service_name}_{name}.json"
+            setattr(service_config, name, JsonFileIO[token_type](path))  # type: ignore[valid-type]
+
+        return service_config
+
+    def save(self, service_config: ServiceConfig) -> None:
+        # Currently only saves tokens via dataio
+        # See eyconf issue: #31
+        pass
+
+
 __all__ = [
     "BaseConfigSchema",
     "Config",
+    "UserDirConfigIO",
 ]
