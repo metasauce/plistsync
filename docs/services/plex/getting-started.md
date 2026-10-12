@@ -76,13 +76,26 @@ By default the `plex` service has a configuration section in your `plistsync` co
 
 :::
 
-:::{tab-item} Library
+:::{tab-item} Library (inline)
 :sync: library
 
-Construct a plex configuration from custom values.
+Construct a plex configuration in code from custom values you provide
+directly:
 
 ```{plistsync-config} plistsync.services.plex.config.PlexConfig
 :type: library
+```
+
+:::
+
+:::{tab-item} Library (from file)
+:sync: file
+
+Load the configuration from your user config directory, where the CLI stores the
+values you configured:
+
+```{plistsync-config} plistsync.services.plex.config.PlexConfig
+:type: file
 ```
 
 :::
