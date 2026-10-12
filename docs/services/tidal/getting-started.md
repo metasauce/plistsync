@@ -75,13 +75,26 @@ By default the `tidal` service has a configuration section in your `plistsync` c
 
 :::
 
-:::{tab-item} Library
+:::{tab-item} Library (inline)
 :sync: library
 
-Construct a tidal configuration from custom values.
+Construct a tidal configuration in code from custom values you provide
+directly:
 
 ```{plistsync-config} plistsync.services.tidal.config.TidalConfig
 :type: library
+```
+
+:::
+
+:::{tab-item} Library (from file)
+:sync: file
+
+Load the configuration from your user config directory, where the CLI stores the
+values you configured:
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:type: file
 ```
 
 :::

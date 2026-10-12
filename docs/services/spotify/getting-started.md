@@ -101,13 +101,26 @@ By default the `spotify` service has a configuration section in your `plistsync`
 
 :::
 
-:::{tab-item} Library
+:::{tab-item} Library (inline)
 :sync: library
 
-Construct a spotify configuration from custom values.
+Construct a spotify configuration in code from custom values you provide
+directly:
 
 ```{plistsync-config} plistsync.services.spotify.config.SpotifyConfig
 :type: library
+```
+
+:::
+
+:::{tab-item} Library (from file)
+:sync: file
+
+Load the configuration from your user config directory, where the CLI stores the
+values you configured:
+
+```{plistsync-config} plistsync.services.spotify.config.SpotifyConfig
+:type: file
 ```
 
 :::
