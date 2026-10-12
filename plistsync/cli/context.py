@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 import typer
 
 if TYPE_CHECKING:
-    from plistsync.core import Library, ServicePlaylist, Track
+    from plistsync.core import Library
     from plistsync.core.config import ServiceConfig
     from plistsync.services import Service
 
@@ -31,14 +31,7 @@ class ServiceContext:
 
         config_cls = self.service.config()
         config = Config().get_config_for(config_cls) if config_cls is not None else None
-
-        # The registry pairs every library class with its service config class;
-        # the erased ``type[Library]`` view cannot express that pairing.
-        factory = cast(
-            "type[Library[Track, ServicePlaylist, ServiceConfig | None]]",
-            library_cls,
-        )
-        return cast("Library", factory.from_config(config))
+        return library_cls.from_config(config)
 
     @cached_property
     def config(self) -> ServiceConfig | None:

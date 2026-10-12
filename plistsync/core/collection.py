@@ -60,6 +60,7 @@ from typing_extensions import TypeVar
 
 from plistsync.services.registry import Registry
 
+from .config import ServiceConfig
 from .ids import Scope
 from .matching import Matches, fuzzy_match
 from .track import Track
@@ -71,7 +72,6 @@ T = TypeVar("T", bound=Track, covariant=True)
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
 
-    from .config import ServiceConfig
     from .ids import PlaylistID, TrackID
     from .matching import Similarity
     from .playlist import Playlist, ServicePlaylist
@@ -79,7 +79,7 @@ if TYPE_CHECKING:
 
 
 Plist = TypeVar("Plist", bound="Playlist", default="ServicePlaylist", covariant=True)
-Conf = TypeVar("Conf", bound="ServiceConfig | None", default=None)
+Conf = TypeVar("Conf", bound="ServiceConfig | None", default=ServiceConfig | None)
 
 
 @runtime_checkable
