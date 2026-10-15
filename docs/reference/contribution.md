@@ -7,4 +7,5 @@
 :hidden:
 
 ../dev/debug.md
+../dev/integration-tests.md
 ```
