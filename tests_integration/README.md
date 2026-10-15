@@ -25,8 +25,8 @@ reorder and remove tracks, then delete it.
 pytest at the directory explicitly:
 
 ```bash
-uv run pytest tests_integration            # all services
-uv run pytest tests_integration/spotify    # a single service
+uv run pytest tests_integration --no-cov            # all services
+uv run pytest tests_integration/spotify --no-cov    # a single service
 ```
 
 Configuration is read from the normal config directory (`PSYNC_CONFIG_DIR` or the

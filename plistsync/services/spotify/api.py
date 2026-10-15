@@ -211,10 +211,11 @@ class PlaylistApi:
         return playlist
 
     def delete(self, playlist_id: str):
-        """Delete a playlist from the owners library.
+        """Remove a playlist from the current user's library.
 
-        Note that spotify never really deletes playlists.
-        Rather, owners unfollow them (so others can still use them)
+        Spotify has no dedicated delete endpoint: for a playlist you own,
+        removing it from the library is what the app's "Delete" does. See
+        "Remove Items from Library" in the Web API reference.
         """
         return self.session.request(
             "DELETE",
@@ -491,9 +492,9 @@ class PlaylistApi:
             raise ValueError("No track URIs provided to remove from playlist")
 
         for data_chunk in chunk_list(track_uris, 100):
-            body: dict[str, Any] = {"tracks": []}
+            body: dict[str, Any] = {"items": []}
             for uri in data_chunk:
-                body["tracks"].append({"uri": uri})
+                body["items"].append({"uri": uri})
 
             response = self.session.request(
                 "DELETE",
