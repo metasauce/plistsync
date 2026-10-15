@@ -6,5 +6,4 @@
 :maxdepth: 2
 
 getting-started
-collections
 ```
