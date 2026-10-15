@@ -187,9 +187,10 @@ asyncio_default_fixture_loop_scope = "function"
 [tool.coverage.run]
 branch = true
 source = ["plistsync"]
+omit = ["*/tests_integration/*"]
 
 [tool.coverage.report]
-omit = ["*/tests/*"]
+omit = ["*/tests/*", "*/tests_integration/*"]
 exclude_lines = ["if TYPE_CHECKING"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 
