@@ -27,9 +27,7 @@ class ServiceContext:
         if library_cls is None:
             return None
 
-        config_cls = self.service.config()
-        config = Config().get_config_for(config_cls) if config_cls is not None else None
-        return library_cls.from_config(config)
+        return library_cls.from_config(self.config)
 
     @cached_property
     def config(self) -> ServiceConfig | None:
