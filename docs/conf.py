@@ -6,7 +6,7 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "plistsync"
-copyright = "2025, S. Mohr & P. Spitzner"
+copyright = "2026, S. Mohr & P. Spitzner"
 author = "S. Mohr & P. Spitzner"
 
 master_doc = "index"
@@ -17,7 +17,12 @@ language = "en"
 
 
 templates_path = ["_templates"]
-exclude_patterns: list[str] = []
+exclude_patterns: list[str] = ["build", "_build", "jupyter_execute"]
+
+import sys  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 
 extensions = [
@@ -31,6 +36,8 @@ extensions = [
     "sphinx_design",
     "sphinxcontrib.mermaid",
     "sphinx_togglebutton",
+    "plistsync_config",
+    "plistsync_install",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
@@ -59,8 +66,8 @@ autoapi_options = [
 ]
 autoapi_keep_files = True
 autodoc_typehints = "signature"
-autoapi_root = "api"
-autoapi_ignore = ["*services*", "*__main__*"]
+autoapi_root = "reference/api"
+autoapi_ignore = ["*cli*", "*services*", "*__main__*"]
 suppress_warnings = ["autoapi.python_import_resolution"]
 
 

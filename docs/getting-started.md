@@ -7,87 +7,37 @@
 
 ## Installation
 
-<!-- start installation -->
+`plistsync` is available on [PyPI](https://pypi.org/project/plistsync/). Pick the install method that matches how you want to use it:
 
-You can install `plistsync` from [PyPi](https://pypi.org/project/plistsync/).
-
-::::{tab-set}
-:sync-group: environment
-
-:::{tab-item} pip
-:sync: pip
-```bash
-pip install plistsync
+```{plistsync-install} allservices
 ```
-:::
 
-:::{tab-item} uv
-:sync: uv
-```bash
-uv add plistsync
-```
-:::
-
-::::
-
-To keep the package slim and flexible, all services (like spotify or tidal) are optional. But to get started, we recommend grabbing them:
-
-::::{tab-set}
-:sync-group: environment
-
-:::{tab-item} pip
-:sync: pip
-```bash
-pip install plistsync[allservices]
-```
-:::
-
-:::{tab-item} uv
-:sync: uv
-```bash
-uv add plistsync[allservices]
-```
-:::
-
-::::
-
-:::{admonition} **Pre-v1.0.0**
-:class: attention
-
-The library is currently pre-release (`<1.0.0`). While fully usable, **breaking changes to the public API (e.g., function signatures, module structure) may occur without deprecation warnings**. Once `v1.0.0` is released, we will follow semantic versioning strictly and properly deprecate public-facing methods before removal.
-:::
+To keep the package slim and flexible, all services (like Spotify or Tidal) are optional. The commands above include all of them via the `allservices` extra. Drop it to install only the core.
 
 ```{note}
 `plistsync` follows [Semantic Versioning](https://semver.org/). While we strive to maintain backward compatibility within the same major version, **we strongly recommend using a lockfile** (such as `requirements.txt` for pip or `uv.lock` for uv) to prevent unexpected breaking changes when upgrading between major versions.
 ```
 
-<!-- end installation -->
+## Choose your path
 
-## First steps
+The same core powers both the command line tool and the Python library. Pick whichever fits your workflow. You can always switch later. Both paths share the same vocabulary, explained in [Core concepts](core-concepts.md).
 
-To get started with plistsync, you have a few recommended paths:
+:::::{grid} 1 2 2 2
+:gutter: 3
 
-:::::{grid} 1 3 3 3
-:gutter: 2
+::::{grid-item-card} 💻 Using the CLI
+For everyday use in the terminal, with no coding required.
 
-::::{grid-item-card} Core Concepts
-:link: details/core-concepts
-:link-type: doc
-
-Understand the key abstractions and notation of `plistsync`. Learn about `Tracks`, `Collections`, `Matches`, and `Services`, which form the foundation of the library.
+- {doc}`Quickstart <cli/getting-started>`: authenticate a service and manage your first playlists.
+- {doc}`All commands <cli/commands>`: browse, search, match, and sync playlists.
+- {doc}`Settings & configuration <cli/configuration>`: credentials, config file, and logging.
 ::::
 
-::::{grid-item-card} Examples
-:link: examples/readme
-:link-type: doc
+::::{grid-item-card} 🐍 Using the Library
+For developers and advanced users who want to build scripts and tooling.
 
-Follow step-by-step guides to see `plistsync` in action. Great for hands-on learning and testing common workflows. TODO
-::::
-
-::::{grid-item-card} References
-:link: api/index
-:link-type: doc
-
-Find in-depth reference material, API documentation, and additional resources to deepen your understanding of `plistsync`.
+- {doc}`Quickstart <library/getting-started>`: install the package and write your first script.
+- {doc}`Examples <library/examples/readme>`: ready-to-run notebooks and scripts.
+- {doc}`API reference <reference/api/index>`: in-depth reference for every module and class.
 ::::
 :::::

@@ -19,7 +19,7 @@ The `sync` service itself requires **no configuration and no credentials**. It h
 
 A **SyncedPlaylist** is the unit of synchronisation: a virtual playlist that keeps a group of real playlists in sync. It consists of
 
-- an **internal track collection**, the single source of truth. Tracks are stored service-agnostic as global IDs (e.g. ISRC) plus metadata, with no service-specific objects attached; and
+- an **internal track collection**, the single source of truth. Tracks are stored service-agnostic as global IDs (e.g. ISRC) plus metadata, with no service-specific objects attached, and
 - **linked service playlists**, real playlists on your services (e.g. a Spotify playlist and a Tidal playlist) that are registered as _replicas_ of the SyncedPlaylist.
 
 ```{mermaid}

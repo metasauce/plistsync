@@ -1,59 +1,61 @@
 # Getting Started
 
-This guide will help you set up Tidal integration with `plistsync` from start to finish.
+This guide sets up the Tidal integration with `plistsync` from start to finish. Once
+connected, you can browse, search, create, and edit your Tidal playlists from the CLI or
+the library, and sync them with other services.
 
 ## Prerequisites
 
-### Installation
+- An active [Tidal account](https://tidal.com). Free accounts are sufficient for `plistsync`.
 
-First, install the Tidal optional dependencies:
+## Installation
 
-::::{tab-set}
-:sync-group: environment
+Install the Tidal optional dependencies:
 
-:::{tab-item} pip
-:sync: pip
-
-```bash
-pip install 'plistsync[tidal]'
+```{plistsync-install} tidal
 ```
-
-:::
-
-:::{tab-item} uv
-:sync: uv
-
-```bash
-uv add plistsync --extra tidal
-```
-
-:::
-::::
-
-### Tidal Account
-
-You'll need an active Tidal account. If you don't have one, sign up at [tidal.com](https://tidal.com).
-For tidal, free accounts are sufficient to use the API and `plistsync`.
 
 ## Configuration
 
-By default the `tidal` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+::::{tab-set}
+:sync-group: config-method
 
+:::{tab-item} CLI
+:sync: cli
 
-```yaml
-# ./config/config.yaml
-services:
-  tidal:
-    # The client ID for talking to the Tidal API. You can use the build-in one
-    # or obtain a new client ID by registering an Developer application.
-    client_id: XhEgdcjkjfqTqw1y
-    # The client secret for talking to the Tidal API. Not required unless you want to
-    # use your own client.
-    client_secret: null
-    # The country code for the Tidal API. This is required for some endpoints.
-    # It influences track availability slightly.
-    country_code: US
+By default the `tidal` service has a configuration section in your `plistsync` configuration file. If not, add the following snippet to your `config.yaml`:
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:service: tidal
 ```
+
+:::
+
+:::{tab-item} Library (inline)
+:sync: library
+
+Construct a tidal configuration in code from custom values you provide
+directly:
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:type: library
+```
+
+:::
+
+:::{tab-item} Library (from file)
+:sync: file
+
+Load the configuration from your user config directory, where the CLI stores the
+values you configured:
+
+```{plistsync-config} plistsync.services.tidal.config.TidalConfig
+:type: file
+```
+
+:::
+
+::::
 
 :::{dropdown} API Credentials
 
@@ -65,34 +67,35 @@ If you want to use your own credentials, you need to obtain API credentials:
 2. Log in with your Tidal account
 3. Create a new application
 4. Generate your `client_id` (and optionally `client_secret`)
+
 :::
 
 ## Authentication
 
-Once configured, authenticate `plistsync` with your Tidal account:
+Tidal uses OAuth: you log in once, after setting your `client_id` above. Start the
+browser flow with the CLI:
 
 ```bash
 plistsync tidal auth
 ```
 
-This will start an interactive authentication flow:
+On a machine without a browser, pass `--mode manual` and paste the redirected URL
+instead:
 
-1. You'll be prompted to open a browser to Tidal's authorization page
-2. Log in with your Tidal credentials
-3. Grant `plistsync` the requested permissions
-4. This will save an authentication token in the `config` folder
+```bash
+plistsync tidal auth --mode manual
+```
 
-To check whether the stored credentials are still valid without starting the flow
-again:
+The token is stored in your Tidal config and reused by all later commands. Check it at
+any time; `--check` prints `authenticated` and exits `0` when the token is valid, or
+`not authenticated` and exits non-zero otherwise:
 
 ```bash
 plistsync tidal auth --check
 ```
 
-This prints `authenticated` and exits with code `0` if the token is valid, or
-`not authenticated` with a non-zero exit code otherwise.
-
-### Authentication Preview
+To authenticate from Python instead of the CLI, see the
+[authentication guide](../../library/guides/authentication.md).
 
 ```{typer} plistsync.cli.app:app::tidal:auth
 ---
@@ -101,13 +104,20 @@ width: 80
 ---
 ```
 
-## Verification
+## Verify
 
-Test that everything is working by getting your user data:
+List the playlists `plistsync` can see for your account:
 
-```python
-from plistsync.services.tidal.api import TidalApi
-print(TidalApi().user.me())
+```bash
+plistsync tidal playlist list
 ```
 
-This should return your user's ID and email.
+If your playlists are printed, the service is installed, configured, and authenticated
+correctly.
+
+## Next steps
+
+- [CLI quickstart](../../cli/getting-started.md): create, edit, and search playlists from the terminal.
+- [CLI commands](../../cli/commands.md): the shared commands and conventions.
+- [Sync playlists](../sync/index.md): keep this service in step with the others.
+- [Core concepts](../../core-concepts.md): services, capabilities, playlists, and tracks.

@@ -1,102 +1,111 @@
 # Getting Started
 
-This guide will help you set up Spotify integration with `plistsync` from start to finish.
+This guide sets up the Spotify integration with `plistsync` from start to finish. Once
+connected, you can browse, search, create, and edit your Spotify playlists from the CLI
+or the library, and sync them with other services.
 
 ## Prerequisites
 
-### Installation
+### Spotify account
 
-First, install the Spotify optional dependencies:
-
-::::{tab-set}
-:sync-group: environment
-
-:::{tab-item} pip
-:sync: pip
-
-```bash
-pip install 'plistsync[spotify]'
-```
-
-:::
-
-:::{tab-item} uv
-:sync: uv
-
-```bash
-uv add plistsync --extra spotify
-```
-
-:::
-::::
-
-### Spotify Account
-
-You'll need an active and paid [Spotify account](https://accounts.spotify.com/).
+You need an active and paid [Spotify account](https://accounts.spotify.com/).
 
 ```{note}
 Since February 2026, Spotify
 - no longer allows access to its API for free accounts
 - and limits us to 5 users per App, even for paid accounts.
 
-This means we can no longer provide working API credentials for plistsync users. You have to create you own credentials.
+This means we can no longer provide working API credentials for plistsync users. You have to create your own credentials.
 ```
 
-### API Credentials
+### API credentials
 
 To authenticate with Spotify's API, you need to obtain API credentials:
 
 1. Visit the [Spotify Developer Portal](https://developer.spotify.com/)
 2. Log in with your paid Spotify account
 3. Create a new application
-4. Generate your `client_id` and `client_secret`
+4. Generate your `client_id` (the `client_secret` is not needed, `plistsync` uses PKCE)
 
 ![Create an app](assets/spotify_credentials_1.webp)
 
 ![Configure the app's callback, and get `client_id` and `client_secret`](assets/spotify_credentials_2.webp)
 
+## Installation
+
+Install the Spotify optional dependencies:
+
+```{plistsync-install} spotify
+```
+
 ## Configuration
 
-By default the `spotify` service should have a configuration option in your `plistsync` configuration file. If not, you can add the following snippet to your `config.yaml` file:
+::::{tab-set}
+:sync-group: config-method
 
-```yaml
-# ./config/config.yaml
-services:
-  spotify:
-    # The client ID for talking to the Spotify API. You can use the build-in one or
-    # obtain a new client ID by registering an Developer application.
-    client_id: your_spotify_client_id_here
-    # The client secret for talking to the Spotify API. Not required unless you want
-    # to use your own client.
-    client_secret: your_spotify_client_secret_here
+:::{tab-item} CLI
+:sync: cli
+
+By default the `spotify` service has a configuration section in your `plistsync` configuration file. If not, add the following snippet to your `config.yaml`:
+
+```{plistsync-config} plistsync.services.spotify.config.SpotifyConfig
+:service: spotify
 ```
+
+:::
+
+:::{tab-item} Library (inline)
+:sync: library
+
+Construct a spotify configuration in code from custom values you provide
+directly:
+
+```{plistsync-config} plistsync.services.spotify.config.SpotifyConfig
+:type: library
+```
+
+:::
+
+:::{tab-item} Library (from file)
+:sync: file
+
+Load the configuration from your user config directory, where the CLI stores the
+values you configured:
+
+```{plistsync-config} plistsync.services.spotify.config.SpotifyConfig
+:type: file
+```
+
+:::
+
+::::
 
 ## Authentication
 
-Once configured, authenticate `plistsync` with your Spotify account:
+Spotify uses OAuth: you log in once, after setting your `client_id` above. Start the
+browser flow with the CLI:
 
 ```bash
 plistsync spotify auth
 ```
 
-This will start an interactive authentication flow:
+On a machine without a browser, pass `--mode manual` and paste the redirected URL
+instead:
 
-1. You'll be prompted to open a browser to Spotify's authorization page
-2. Log in with your Spotify credentials
-3. Grant `plistsync` the requested permissions
-4. This will save an authentication token in the `config` folder
+```bash
+plistsync spotify auth --mode manual
+```
 
-To check whether the stored credentials are still valid without starting the flow
-again:
+The token is stored in your Spotify config and reused by all later commands. Check it
+at any time; `--check` prints `authenticated` and exits `0` when the token is valid, or
+`not authenticated` and exits non-zero otherwise:
 
 ```bash
 plistsync spotify auth --check
 ```
 
-This prints `authenticated` and exits with code `0` if the token is valid, or
-`not authenticated` with a non-zero exit code otherwise.
-
-### Authentication Preview
+To authenticate from Python instead of the CLI, see the
+[authentication guide](../../library/guides/authentication.md).
 
 ```{typer} plistsync.cli.app:app::spotify:auth
 ---
@@ -105,13 +114,20 @@ width: 80
 ---
 ```
 
-## Verification
+## Verify
 
-Test that everything is working by getting your user data:
+List the playlists `plistsync` can see for your account:
 
-```python
-from plistsync.services.spotify.api import SpotifyApi
-print(SpotifyApi().user.me())
+```bash
+plistsync spotify playlist list
 ```
 
-This should return your user's ID and email.
+If your playlists are printed, the service is installed, configured, and authenticated
+correctly.
+
+## Next steps
+
+- [CLI quickstart](../../cli/getting-started.md): create, edit, and search playlists from the terminal.
+- [CLI commands](../../cli/commands.md): the shared commands and conventions.
+- [Sync playlists](../sync/index.md): keep this service in step with the others.
+- [Core concepts](../../core-concepts.md): services, capabilities, playlists, and tracks.
