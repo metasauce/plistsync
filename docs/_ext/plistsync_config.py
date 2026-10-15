@@ -16,6 +16,9 @@ in the YAML and rendered as
 from __future__ import annotations
 
 import importlib
+import importlib.util
+import sys
+import types
 from dataclasses import MISSING, field, fields, is_dataclass, make_dataclass
 from typing import Any, ClassVar, get_args, get_origin, get_type_hints
 
@@ -35,12 +38,40 @@ def _indent(text: str, spaces: int = 2) -> str:
     return "\n".join(f"{prefix}{line}" if line else "" for line in text.splitlines())
 
 
+def _import_module_isolated(module_name: str) -> Any:
+    """Import a module without executing its service package's ``__init__``.
+
+    Config classes only depend on the core package, but importing
+    ``plistsync.services.<service>.config`` normally runs the service package's
+    ``__init__``, which imports optional runtime dependencies (for example
+    ``lxml`` for traktor). Rendering docs must not require every service extra,
+    so the package is temporarily replaced by a stub that only exposes its
+    search path. Relative imports inside the config module still resolve.
+    """
+    package_name, separator, _ = module_name.rpartition(".")
+    if not separator or package_name in sys.modules:
+        return importlib.import_module(module_name)
+
+    spec = importlib.util.find_spec(package_name)
+    if spec is None or spec.submodule_search_locations is None:
+        return importlib.import_module(module_name)
+
+    stub = types.ModuleType(package_name)
+    stub.__path__ = list(spec.submodule_search_locations)
+    sys.modules[package_name] = stub
+    try:
+        return importlib.import_module(module_name)
+    finally:
+        if sys.modules.get(package_name) is stub:
+            del sys.modules[package_name]
+
+
 def _load_class(path: str) -> type:
     module_name, separator, class_name = path.rpartition(".")
     if not separator:
         raise ValueError(f"expected a fully qualified class path: {path!r}")
 
-    cls = getattr(importlib.import_module(module_name), class_name)
+    cls = getattr(_import_module_isolated(module_name), class_name)
     if not isinstance(cls, type):
         raise TypeError(f"{path!r} is not a class")
 

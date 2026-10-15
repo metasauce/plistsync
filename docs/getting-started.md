@@ -36,7 +36,7 @@ For everyday use in the terminal, with no coding required.
 ::::{grid-item-card} 🐍 Using the Library
 For developers and advanced users who want to build scripts and tooling.
 
-- {doc}`Python quickstart <library/getting-started>`: install the package and write your first script.
+- {doc}`Quickstart <library/getting-started>`: install the package and write your first script.
 - {doc}`Examples <library/examples/readme>`: ready-to-run notebooks and scripts.
 - {doc}`API reference <reference/api/index>`: in-depth reference for every module and class.
 ::::

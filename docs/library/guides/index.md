@@ -7,6 +7,7 @@ In-depth guides for using `plistsync` from Python.
 
 configuration
 authentication
+playlists
 logging
 matching
 ```

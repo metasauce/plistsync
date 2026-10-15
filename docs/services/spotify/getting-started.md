@@ -1,6 +1,8 @@
 # Getting Started
 
-This guide sets up the Spotify integration with `plistsync` from start to finish.
+This guide sets up the Spotify integration with `plistsync` from start to finish. Once
+connected, you can browse, search, create, and edit your Spotify playlists from the CLI
+or the library, and sync them with other services.
 
 ## Prerequisites
 
@@ -28,10 +30,6 @@ To authenticate with Spotify's API, you need to obtain API credentials:
 ![Create an app](assets/spotify_credentials_1.webp)
 
 ![Configure the app's callback, and get `client_id` and `client_secret`](assets/spotify_credentials_2.webp)
-
-### Authentication
-
-`plistsync` must be authenticated with your Spotify account, see {ref}`the CLI authentication <spotify-cli-authenticate>` or {ref}`the library authentication <spotify-library-authenticate>`.
 
 ## Installation
 
@@ -81,3 +79,55 @@ values you configured:
 :::
 
 ::::
+
+## Authentication
+
+Spotify uses OAuth: you log in once, after setting your `client_id` above. Start the
+browser flow with the CLI:
+
+```bash
+plistsync spotify auth
+```
+
+On a machine without a browser, pass `--mode manual` and paste the redirected URL
+instead:
+
+```bash
+plistsync spotify auth --mode manual
+```
+
+The token is stored in your Spotify config and reused by all later commands. Check it
+at any time; `--check` prints `authenticated` and exits `0` when the token is valid, or
+`not authenticated` and exits non-zero otherwise:
+
+```bash
+plistsync spotify auth --check
+```
+
+To authenticate from Python instead of the CLI, see the
+[authentication guide](../../library/guides/authentication.md).
+
+```{typer} plistsync.cli.app:app::spotify:auth
+---
+prog: plistsync spotify auth
+width: 80
+---
+```
+
+## Verify
+
+List the playlists `plistsync` can see for your account:
+
+```bash
+plistsync spotify playlist list
+```
+
+If your playlists are printed, the service is installed, configured, and authenticated
+correctly.
+
+## Next steps
+
+- [CLI quickstart](../../cli/getting-started.md): create, edit, and search playlists from the terminal.
+- [CLI commands](../../cli/commands.md): the shared commands and conventions.
+- [Sync playlists](../sync/index.md): keep this service in step with the others.
+- [Core concepts](../../core-concepts.md): services, capabilities, playlists, and tracks.
