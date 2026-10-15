@@ -111,6 +111,7 @@ include = [
     "plistsync/**/*.py",
     "examples/**/*.py",
     "tests/**/*.py",
+    "tests_integration/**/*.py",
     "docs/**/*.ipynb",
 ]
 extend-include = ["*.ipynb"]
@@ -157,6 +158,13 @@ runtime-evaluated-base-classes = [
     "W",
     "E501", # long lines
 ]
+"tests_integration/**" = [
+    "D",
+    "I",
+    "S",
+    "W",
+    "E501", # long lines
+]
 "**__main__.py" = ["D103"]
 
 # ignore import order in init files
@@ -173,6 +181,7 @@ convention = "numpy"
 addopts = ["--import-mode=importlib", "--cov=.", "--benchmark-skip"]
 filterwarnings = ["error", "ignore::DeprecationWarning"]
 pythonpath = ["."]
+testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
