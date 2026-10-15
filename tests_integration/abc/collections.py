@@ -48,6 +48,9 @@ class CollectionsTestBase:
     must run in definition order.
     """
 
+    deletes_playlist: bool = True
+    """False when ``delete()`` only removes the playlist from a library."""
+
     @pytest.fixture(scope="class")
     def state(self, scenario: CollectionsScenario) -> Iterator[CollectionsState]:
         state = CollectionsState(scenario=scenario)
@@ -164,6 +167,10 @@ class CollectionsTestBase:
         playlist.delete()
         state.playlist = None  # avoid deleting it a second time in teardown
 
-        assert library.get_playlist(id=playlist_id) is None
-        with pytest.raises(ValueError):
-            library.get_playlist_or_raise(id=playlist_id)
+        if self.deletes_playlist:
+            assert library.get_playlist(id=playlist_id) is None
+            with pytest.raises(ValueError):
+                library.get_playlist_or_raise(id=playlist_id)
+        else:
+            # Not deleted, only removed from the library (Spotify).
+            assert library.get_playlist(id=playlist_id) is not None
