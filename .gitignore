@@ -44,5 +44,6 @@ docs/build
 docs/api
 docs/reference/api
 docs/_build
+docs/jupyter_execute
 
 htmlcov

@@ -60,6 +60,7 @@ The config can also be built inline instead of read from the user directory, see
 ## Where to go next
 
 - [Core concepts](../core-concepts.md): the vocabulary shared by all services.
+- [Editing playlists](guides/playlists.md): create, edit, reorder, and delete playlists.
 - [Configuration](guides/configuration.md): configs from a file or inline.
 - [Authentication](guides/authentication.md): token flows from Python.
 - [Logging](guides/logging.md): configure the `plistsync` logger.
