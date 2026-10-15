@@ -115,7 +115,7 @@ jobs:
 
       - name: Run ${{ matrix.service }} integration tests
         run: |
-          uv run pytest tests_integration/${{ matrix.service }} -vv -s
+          uv run pytest tests_integration/${{ matrix.service }} -vv -s --no-cov
 
       - name: Compute token checksum (updated)
         id: new_sha
