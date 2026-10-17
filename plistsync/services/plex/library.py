@@ -12,7 +12,7 @@ from plistsync.core.ids import ISRC, FilePath, PlaylistID
 from plistsync.logger import log
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
-from .api import PlexApi, PlexApiSession
+from .api import PlexApi, PlexApiSession, matches_track_info
 from .config import PlexConfig
 from .track import PlexTrack, PlexTrackID
 
@@ -261,64 +261,32 @@ class PlexLibrary(
     # --------------------------- InfoLookup protocol ---------------------------- #
 
     def find_by_info(self, info: TrackInfo) -> Iterable[PlexTrack]:
-        """Find Plex tracks via meta data."""
+        """Find Plex tracks matching the given metadata.
 
-        # PS 2026-10-01: I kept both implementations around, so we can decide later
-        # Both have their Pros and Cons, and depending on how the Plex API develops
-        # we might favor one. (Or if we build plex lib index caching)
-        return self._find_by_info_via_search(info)
+        Raises
+        ------
+        ValueError
+            If none of ``title``, ``artists`` or ``albums`` is provided.
+        """
+        title = info.get("title")
+        artists = info.get("artists") or []
+        albums = info.get("albums") or []
+        if not (title or artists or albums):
+            raise ValueError("Provide at least one of artist, album, or title.")
 
-    def _find_by_info_via_search(self, info: TrackInfo) -> Iterable[PlexTrack]:
-        """Find Plex tracks by expanding only relevant search hubs."""
-        artists = info.get("artists")
-        albums = info.get("albums")
+        if self._fetched and self._tracks is not None:
+            return [
+                PlexTrack(track.data)
+                for track in self._tracks
+                if matches_track_info(track.data, info)
+            ]
+
         return [
             PlexTrack(track)
-            for track in self.api.track.search(
+            for track in self.api.track.fetch_tracks_by_info(
                 section_id=self.id,
-                title=info.get("title"),
+                title=title,
                 artist=artists[0] if artists else None,
                 album=albums[0] if albums else None,
             )
         ]
-
-    def _find_by_info_via_all(self, info: TrackInfo) -> Iterable[PlexTrack]:
-        """Find Plex tracks via the `/all/` endpoint."""
-        artists = info.get("artists")
-        albums = info.get("albums")
-        expected = {
-            "title": info.get("title"),
-            "artists": artists[0] if artists else None,
-            "albums": albums[0] if albums else None,
-        }
-        expected = {
-            field: value.casefold() for field, value in expected.items() if value
-        }
-        if not expected:
-            raise ValueError("Provide at least one of artist, album, or title.")
-
-        def matches(track: PlexTrack) -> bool:
-            expected_title = expected.get("title")
-            if expected_title:
-                actual_title = track.info.get("title", "").casefold()
-                if expected_title not in actual_title:
-                    return False
-
-            for expected_value, actual_values in (
-                (expected.get("artists"), track.info.get("artists", [])),
-                (expected.get("albums"), track.info.get("albums", [])),
-            ):
-                if expected_value is None:
-                    continue
-
-                if not any(
-                    expected_value in value.casefold() for value in actual_values
-                ):
-                    return False
-
-            return True
-
-        matches_from_library = (
-            PlexTrack(track) for track in self.api.track.fetch_tracks(self.id)
-        )
-        return [track for track in matches_from_library if matches(track)]

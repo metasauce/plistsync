@@ -85,46 +85,92 @@ class TestPlexLibrary(LibraryCollectionTestBase):
 
     def test_preload(self):
         """Test that preloading the library collection works."""
-        library_collection = next(iter(self.create_collection()))
-        assert isinstance(library_collection, PlexLibrary)
-        library_collection.preload()
-        assert library_collection._fetched is True, (
+        library = self.collection
+        assert isinstance(library, PlexLibrary)
+        library.preload()
+        assert library._fetched is True, (
             "Library collection should be marked as fetched after preload()"
         )
-        assert library_collection._tracks is not None, (
+        assert library._tracks is not None, (
             "Library collection should have tracks loaded after preload()"
         )
 
-        tracks = list(library_collection.tracks)
+        tracks = list(library.tracks)
         assert len(tracks) > 0, "Library collection should yield tracks after preload()"
 
     def test_locations_property(self):
         """Test that the locations property returns the expected results."""
-        for library_collection in self.create_collection():
-            locations = library_collection.locations
-            assert isinstance(locations, Iterable), "Locations should be iterable"
-            assert len(list(locations)) > 0, "Locations should not be empty"
-            assert all(isinstance(loc, Path) for loc in locations), (
-                "All locations should be Path instances"
-            )
+        locations = self.collection.locations
+        assert isinstance(locations, Iterable), "Locations should be iterable"
+        assert len(list(locations)) > 0, "Locations should not be empty"
+        assert all(isinstance(loc, Path) for loc in locations), (
+            "All locations should be Path instances"
+        )
 
     def test_get_playlist_raise(self):
         """Get playlist via path not allowed."""
         with pytest.raises(ValueError):
-            for library_collection in self.create_collection():
-                library_collection.get_playlist(name="foo", id=121)
+            self.collection.get_playlist(name="foo", id=121)
 
-    def test_find_by_info(self):
-        """Find tracks through Plex's hub search endpoint."""
-        library = next(iter(self.create_collection()))
-        raw_track = library.api.track.fetch_tracks.return_value[0]
-        library.api.track.search.return_value = [raw_track]
+    @pytest.mark.parametrize(
+        ("info", "expected_titles", "expected_call"),
+        [
+            (
+                {
+                    "title": "Test Track",
+                    "artists": ["Test Original Title"],
+                    "albums": ["Test Album"],
+                },
+                ["Test Track"],
+                {
+                    "title": "Test Track",
+                    "artist": "Test Original Title",
+                    "album": "Test Album",
+                },
+            ),
+            (
+                {"title": "Test Track", "artists": ["Test Artist"]},
+                ["Test Track"],
+                {"title": "Test Track", "artist": "Test Artist", "album": None},
+            ),
+            (
+                {"artists": ["Test Artist"]},
+                ["Test Track"],
+                {"title": None, "artist": "Test Artist", "album": None},
+            ),
+        ],
+    )
+    def test_find_by_info(self, info, expected_titles, expected_call):
+        """Find tracks through the server-side media query filter."""
+        library = self.collection
+        library.api.track.fetch_tracks_by_info.return_value = [
+            library.api.track.fetch_tracks.return_value[0]
+        ]
 
-        tracks = list(
-            library.find_by_info(
-                {"title": "Test", "artists": ["Artist"], "albums": ["Album"]}
-            )
+        tracks = list(library.find_by_info(info))
+
+        assert [track.title for track in tracks] == expected_titles
+        library.api.track.fetch_tracks_by_info.assert_called_once_with(
+            section_id=library.id, **expected_call
         )
 
-        assert len(tracks) == 1
-        assert tracks[0].title == "Test Track"
+    @pytest.mark.parametrize(
+        ("info", "expected_titles"),
+        [
+            ({"title": "Test Track", "albums": ["Test Album"]}, ["Test Track"]),
+            ({"title": "Test Track", "artists": ["Someone Else"]}, []),
+        ],
+    )
+    def test_find_by_info_uses_cached_tracks(self, info, expected_titles):
+        """After iterating, the in-memory tracks are matched without a request."""
+        library = self.collection
+        library.preload()
+
+        tracks = list(library.find_by_info(info))
+
+        assert [track.title for track in tracks] == expected_titles
+        library.api.track.fetch_tracks_by_info.assert_not_called()
+
+    def test_find_by_info_requires_metadata(self):
+        with pytest.raises(ValueError, match="at least one"):
+            self.collection.find_by_info({})
