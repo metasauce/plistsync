@@ -19,15 +19,16 @@ from plistsync.logger import log
 from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
 from plistsync.utils.session import PlistsyncSession
 
-from .api_types import (
-    PlexMediaTypes,
-)
+from .api_types import PlexMediaTypes
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
 
+    from plistsync.core import TrackInfo
+
     from .api_types import (
         PlexApiConnection,
+        PlexApiMediaContainer,
         PlexApiPlaylistResponse,
         PlexApiPlaylistTrackResponse,
         PlexApiResourcesResponse,
@@ -140,6 +141,10 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
             server_url = config.server_url
         elif config.server_name:
             server_url = _resolve_server_name(config.server_name)
+        else:
+            raise ValueError(
+                "Plex requires either server_url or server_name to be configured."
+            )
 
         return cls(
             config.app_name,
@@ -535,6 +540,32 @@ class PlaylistApi:
         return response.json()["MediaContainer"]["Metadata"][0]
 
 
+def matches_track_info(track: PlexApiTrackResponse, info: TrackInfo) -> bool:
+    """Whether a Plex track matches the given metadata.
+
+    Matching is case-insensitive containment, and the artist may be stored in
+    either `grandparentTitle` (album artist) or `originalTitle` (track artist,
+    e.g. for compilations).
+    """
+    title = info.get("title")
+    if title and title.casefold() not in (track.get("title") or "").casefold():
+        return False
+
+    artists = [artist.casefold() for artist in info.get("artists", [])]
+    if artists:
+        names = [
+            (track.get("grandparentTitle") or "").casefold(),
+            (track.get("originalTitle") or "").casefold(),
+        ]
+        if not any(artist in name for artist in artists for name in names):
+            return False
+
+    albums = [album.casefold() for album in info.get("albums", [])]
+    return not albums or any(
+        album in (track.get("parentTitle") or "").casefold() for album in albums
+    )
+
+
 class TrackApi:
     """Track-specific Plex API client."""
 
@@ -553,45 +584,111 @@ class TrackApi:
         section_id : str | int
             The id of the Plex library (section).
         page_size : int
-            Number of tracks to fetch per request (default: 1000).
+            Number of tracks to fetch per request (default: 5000).
 
         Returns
         -------
         list[dict]: List of track metadata dicts.
         """
+        yield from self._iter_all(
+            section_id, {"type": PlexMediaTypes.TRACK.value}, page_size
+        )
 
+    def fetch_tracks_by_info(
+        self,
+        section_id: str | int,
+        *,
+        title: str | None = None,
+        artist: str | None = None,
+        album: str | None = None,
+        page_size: int = 500,
+    ) -> list[PlexApiTrackResponse]:
+        """Fetch tracks matching the given metadata, filtered by the server.
+
+        Parameters
+        ----------
+        section_id : str | int
+            The id of the Plex library (section).
+        title : str | None
+            Track title to filter by, by default None.
+        artist : str | None
+            Artist to match against, by default None.
+        album : str | None
+            Album title to filter by, by default None.
+        page_size : int
+            Number of tracks to fetch per request (default: 500).
+
+        Dev Note:
+        ---------
+
+        Only title, album and (for artist-only lookups) `artist.title` are sent
+        to the server. Plex's artist filter targets the album artist, while a
+        track's artist may only be stored in `originalTitle`, so the returned
+        tracks are additionally matched locally against all given metadata.
+
+        Raises
+        ------
+        ValueError
+            If none of ``title``, ``artist`` or ``album`` is provided.
+        """
+        info: TrackInfo = {}
+        if title:
+            info["title"] = title
+        if artist:
+            info["artists"] = [artist]
+        if album:
+            info["albums"] = [album]
+        if not info:
+            raise ValueError("Provide at least one of artist, album, or title.")
+
+        params: dict[str, str | int] = {"type": PlexMediaTypes.TRACK.value}
+        if title:
+            params["title"] = title
+        if album:
+            params["album.title"] = album
+        if artist and not title and not album:
+            params["artist.title"] = artist
+
+        return [
+            track
+            for track in self._iter_all(section_id, params, page_size)
+            if matches_track_info(track, info)
+        ]
+
+    def _iter_all(
+        self,
+        section_id: str | int,
+        params: Mapping[str, str | int],
+        page_size: int,
+    ) -> Iterable[PlexApiTrackResponse]:
+        """Iterate a section's `/all` endpoint, paginated, applying filters."""
         start = 0
-        total_size = 0
         num_fetched = 0
         while True:
             response = self.session.request(
                 "GET",
                 f"{self.session.server_url}/library/sections/{section_id}/all",
                 params={
-                    "type": PlexMediaTypes.TRACK.value,
+                    **params,
                     "X-Plex-Container-Start": start,
                     "X-Plex-Container-Size": page_size,
                 },
             )
-            response.raise_for_status()
-            tracks = response.json()["MediaContainer"].get("Metadata", [])
+            container: PlexApiMediaContainer = response.json().get("MediaContainer", {})
+            tracks = container.get("Metadata", [])
+            yield from tracks
             if len(tracks) < page_size:
-                yield from tracks
-                break
+                return
             num_fetched += len(tracks)
             start += page_size
 
             # log some progress
-            total_size = response.json()["MediaContainer"].get("totalSize", 0)
+            total_size = container.get("totalSize", 0)
             if total_size != 0:
                 log.debug(
                     f"Fetched {num_fetched} of {total_size} tracks"
                     f" from section {section_id}."
                 )
-
-            yield from tracks
-
-        return
 
     def fetch_tracks_by_path(
         self,
