@@ -13,6 +13,7 @@ import typer
 from plistsync.cli.context import (
     ServiceCommandContext,  # noqa: TC001 (typer resolves it at runtime)
 )
+from plistsync.core.config import DataIO
 from plistsync.errors import AuthenticationError, HowTheForkDidYouEndUpHereError
 from plistsync.logger import log
 from plistsync.utils.auth import safe_webbrowser_open
@@ -133,11 +134,15 @@ def auth_command_factory(auth_provider: type[AuthProvider]) -> Callable[..., Non
             return
 
         token: Token = auth_provider(config).authenticate(CLIInteraction(mode=mode))
-        token.file_path = config.token_path
-        token.save()
-        typer.echo(
-            f"Authentication successful! Token saved to {str(token.file_path)!r}."
-        )
+
+        # The token field must be a DataIO so that the assignment below persists
+        # it (ServiceConfig.__setattr__ routes DataIO fields through __set__).
+        if not isinstance(vars(config).get("token"), DataIO):
+            raise HowTheForkDidYouEndUpHereError(
+                f"{type(config).__name__} has no DataIO for 'token'. Cannot persist it!"
+            )
+        setattr(config, "token", token)
+        typer.echo("Authentication successful! Token saved.")
 
     auth.__doc__ = (
         f"Authenticate with {auth_provider.service()} or check the"

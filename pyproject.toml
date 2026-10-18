@@ -4,6 +4,7 @@ version = "0.8.0"
 requires-python = ">=3.11"
 dependencies = [
     "eyconf[pydantic,cli]>=0.8.0",
+    "pydantic>=2.0",
     "requests>=2.32.5",
     "levenshtein>=0.27.3",
     "typer>=0.21.1",
@@ -35,8 +36,8 @@ Changelog = "https://github.com/metasauce/plistsync/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
 traktor = ["lxml>=6.0.2"]
-spotify = ["requests_oauth2client>=1.8.0"]
-tidal = ["requests_oauth2client>=1.8.0"]
+spotify = []
+tidal = []
 local = ["tinytag>=2.2.0"]
 beets = ["sqlalchemy>=2.0.45"]
 plex = ["nest-asyncio>=1.6.0", "plistsync[local]"]
@@ -78,9 +79,6 @@ typed = [
     "types-requests>=2.32.4.20260107",
     "types-tqdm>=4.67.0.20250809",
     "types-pyyaml>=6.0.12.20260724",
-    # FIXME: maybe we can remove this somehow as this is needed to full
-    # run mypy on the src (optional dependencies need types)
-    "requests_oauth2client>=1.8.0",
     "tinytag>=2.2.0",
 ]
 
@@ -143,6 +141,14 @@ ignore = [
 ]
 fixable = ["ALL"]
 
+[tool.ruff.lint.flake8-type-checking]
+# Pydantic resolve (field) annotations at runtime, so those types must
+# stay importable even though `from __future__ import annotations` makes them lazy.
+runtime-evaluated-base-classes = [
+    "pydantic.BaseModel",
+    "plistsync.core.config.ServiceConfig",
+]
+
 [tool.ruff.lint.per-file-ignores]
 "**/tests/**" = [
     "D",
@@ -179,6 +185,7 @@ exclude_lines = ["if TYPE_CHECKING"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 check_untyped_defs = true
 disallow_untyped_decorators = true
 allow_redefinition = true

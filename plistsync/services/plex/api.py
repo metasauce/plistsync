@@ -14,10 +14,12 @@ from typing import TYPE_CHECKING, Any, ClassVar, Self
 from urllib.parse import quote
 
 import requests
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_serializer
 
+from plistsync.core.auth import Token
+from plistsync.errors import InvalidTokenError
 from plistsync.logger import log
-from plistsync.utils.auth.bearer_token import InvalidTokenError, Token, TokenSession
-from plistsync.utils.session import PlistsyncSession
+from plistsync.utils.session import PlistsyncSession, TokenSession
 
 from .api_types import (
     PlexMediaTypes,
@@ -37,31 +39,34 @@ if TYPE_CHECKING:
     from .config import PlexConfig
 
 
-class PlexToken(Token):
-    x_plex_token: str
-    validated: bool
+class PlexToken(BaseModel, Token):
+    """A Plex auth token, usable as a ``requests`` auth object."""
+
+    model_config = ConfigDict(hide_input_in_errors=True)
+
+    x_plex_token: SecretStr
+    validated: bool = Field(default=False, exclude=True)
+    """Whether the token was validated against plex.tv (transient, not persisted)."""
 
     validation_endpoint: ClassVar[str] = "https://plex.tv/api/v2/user"
     """Endpoint used to validate the token."""
 
-    def __init__(self, x_plex_token: str, file_path: Path | None):
-        super().__init__(file_path)
-        self.x_plex_token = x_plex_token
-        self.validated = False
+    @field_serializer("x_plex_token", when_used="always")
+    def _reveal_token(self, value: SecretStr) -> str:
+        """Expose the plaintext on serialization so the token can be persisted."""
+        return value.get_secret_value()
 
-    def as_dict(self) -> dict[str, Any]:
-        return {"X-Plex-Token": self.x_plex_token}
-
-    @classmethod
-    def from_dict(cls, token_dict):
-        return cls(token_dict["X-Plex-Token"], None)
+    @property
+    def is_expired(self) -> bool:
+        """Plex tokens cannot be refreshed, so they never expire locally."""
+        return False
 
     def __call__(self, request: requests.PreparedRequest) -> requests.PreparedRequest:
         """Prepare the request to use the authentication."""
-        request.headers["X-Plex-Token"] = self.x_plex_token
+        request.headers["X-Plex-Token"] = self.x_plex_token.get_secret_value()
         return request
 
-    def validate(self, headers: Mapping[str, str | bytes] | None = None) -> None:
+    def validate_remote(self, headers: Mapping[str, str | bytes] | None = None) -> None:
         """Check the token against plex.tv.
 
         Plex tokens cannot be refreshed, so this only verifies that plex.tv
@@ -116,6 +121,9 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
         Loads the stored token unless one is passed in, and resolves the
         server URL from `server_url` or by looking up `server_name`.
         """
+        token = config.token
+        if not isinstance(token, PlexToken):
+            raise InvalidTokenError(None)
 
         def _resolve_server_name(server_name: str):
             # we need a temporary session for plex.tv, but later want one that uses the
@@ -128,7 +136,7 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
                 config.app_name,
                 config.client_identifier,
                 "https://plex.tv",
-                PlexToken.from_file(config.token_path),
+                token,
             )
 
             conns = PlexApi.get_server_connections_for_name(temp_session, server_name)
@@ -145,7 +153,7 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
             config.app_name,
             config.client_identifier,
             server_url,
-            PlexToken.from_file(config.token_path),
+            token,
         )
 
     def _validate_token(self) -> None:
@@ -155,7 +163,7 @@ class PlexApiSession(PlistsyncSession, TokenSession[PlexToken]):
         to refresh with the current flow.
         """
         try:
-            self.token.validate(headers=self.headers)
+            self.token.validate_remote(headers=self.headers)
         except requests.exceptions.RequestException as e:
             raise ValueError(
                 f"Plex token validation failed due to network error: {e!s}"

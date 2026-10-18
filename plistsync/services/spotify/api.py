@@ -5,18 +5,13 @@ from time import sleep
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, overload
 from urllib.parse import urlencode
 
-import requests
-
 from plistsync.logger import log
 from plistsync.utils import chunk_list
-from plistsync.utils.auth.bearer_token import (
-    InvalidTokenError,
-    Oauth2Token,
-    TokenSession,
-)
-from plistsync.utils.session import PlistsyncSession
+from plistsync.utils.auth.oauth2 import OAuth2Token
+from plistsync.utils.session import PlistsyncSession, TokenSession
 
 if TYPE_CHECKING:
+    import requests
     from requests.structures import CaseInsensitiveDict
 
     from .api_types import (
@@ -29,14 +24,13 @@ if TYPE_CHECKING:
     )
 
 
-class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
+class SpotifyApiSession(PlistsyncSession, TokenSession[OAuth2Token]):
     """A requests Session configured for Spotify.
 
     Automatically attaches the auth token and refreshes
     it as needed. Use for making multiple requests to the API.
     """
 
-    # Used in BearerTokenSession
     status_codes_expired: ClassVar[list[int]] = [401]
     status_codes_rate_limit: ClassVar[list[int]] = [429]
 
@@ -47,35 +41,19 @@ class SpotifyApiSession(PlistsyncSession, TokenSession[Oauth2Token]):
     def __init__(
         self,
         client_id: str,
-        token: Oauth2Token,
+        token: OAuth2Token,
     ):
         super().__init__(token=token)
         self.client_id = client_id
         self.headers["Accept"] = "application/json"
 
     def _refresh_token(self) -> None:
-        """Validate the spotify token by making a test request.
-
-        According to API docs, one should use the /api/v2/user endpoint
-        to validate tokens.
-        """
+        """Refresh the Spotify access token in place."""
         log.debug("Refreshing expired Spotify token...")
-        res = requests.post(
-            "https://accounts.spotify.com/api/token",
-            data={
-                "grant_type": "refresh_token",
-                "client_id": self.client_id,
-                "refresh_token": self.token.as_dict()["refresh_token"],
-            },
+        self.token.refresh(
+            token_endpoint="https://accounts.spotify.com/api/token",
+            client_id=self.client_id,
         )
-        try:
-            res.raise_for_status()
-        except requests.HTTPError as e:
-            log.error(res.text, stack_info=False)
-            raise InvalidTokenError(self.token) from e
-
-        token_data = res.json()
-        self.token.update(token_data)
 
     def _handle_rate_limit(self, headers: CaseInsensitiveDict) -> None:
         remaining = int(headers.get("Retry-After", 0))

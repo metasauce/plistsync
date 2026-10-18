@@ -8,9 +8,8 @@ from urllib.parse import urlencode
 import requests
 
 from plistsync.core.auth import AuthProvider
-from plistsync.errors import AuthenticationError
+from plistsync.errors import AuthenticationError, InvalidTokenError
 from plistsync.logger import log
-from plistsync.utils.auth.bearer_token import InvalidTokenError
 from plistsync.utils.session import PlistsyncSession
 
 from .api import PlexToken
@@ -106,7 +105,7 @@ class PlexAuth(AuthProvider[PlexAuthRequest, str | None, PlexToken]):
         while True:
             auth_token = self._fetch_auth_token(request.pin_id)
             if auth_token:
-                return PlexToken(auth_token, None)
+                return PlexToken(x_plex_token=auth_token)
             if time.monotonic() >= deadline:
                 raise AuthenticationError(
                     "Timed out waiting for Plex authentication. Please try again."
@@ -118,9 +117,11 @@ class PlexAuth(AuthProvider[PlexAuthRequest, str | None, PlexToken]):
 
         Loads the persisted token and verifies it against plex.tv.
         """
+        token = self.config.token
+        if not isinstance(token, PlexToken):
+            return False
         try:
-            token = PlexToken.from_file(self.config.token_path)
-            token.validate(headers=self._headers())
+            token.validate_remote(headers=self._headers())
         except (InvalidTokenError, requests.RequestException) as e:
             log.debug("Plex authentication check failed: %s", e)
             return False

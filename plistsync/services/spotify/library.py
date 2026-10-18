@@ -10,8 +10,9 @@ from plistsync.core.collection import (
     Library,
 )
 from plistsync.core.ids import ISRC, PlaylistID
+from plistsync.errors import InvalidTokenError
 from plistsync.logger import log
-from plistsync.utils.auth.bearer_token import Oauth2Token
+from plistsync.utils.auth.oauth2 import OAuth2Token
 
 from .api import SpotifyApi, SpotifyApiSession
 from .config import SpotifyConfig
@@ -44,15 +45,14 @@ class SpotifyLibrary(
     @classmethod
     def from_config(cls, config: SpotifyConfig) -> Self:
         """Construct a Spotify library from a service config."""
+        token = config.token
+        if not isinstance(token, OAuth2Token):
+            raise InvalidTokenError(None)
 
-        return cls(
-            SpotifyApi(
-                SpotifyApiSession(
-                    client_id=config.client_id,
-                    token=Oauth2Token.from_file(config.token_path),
-                )
-            )
-        )
+        session = SpotifyApiSession(client_id=config.client_id, token=token)
+        # Persist refreshed tokens back through the config's token DataIO.
+        session.on_refresh = lambda refreshed: setattr(config, "token", refreshed)
+        return cls(SpotifyApi(session))
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 

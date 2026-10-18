@@ -9,8 +9,9 @@ from plistsync.core.collection import (
     Library,
 )
 from plistsync.core.ids import ISRC, PlaylistID
+from plistsync.errors import InvalidTokenError
 from plistsync.logger import log
-from plistsync.utils.auth.bearer_token import Oauth2Token
+from plistsync.utils.auth.oauth2 import OAuth2Token
 
 from .api import TidalApi, TidalApiSession
 from .config import TidalConfig
@@ -38,14 +39,14 @@ class TidalLibrary(
     @classmethod
     def from_config(cls, config: TidalConfig) -> Self:
         """Construct a Tidal library from a service config."""
-        return cls(
-            TidalApi(
-                TidalApiSession(
-                    client_id=config.client_id,
-                    token=Oauth2Token.from_file(config.token_path),
-                )
-            )
-        )
+        token = config.token
+        if not isinstance(token, OAuth2Token):
+            raise InvalidTokenError(None)
+
+        session = TidalApiSession(client_id=config.client_id, token=token)
+        # Persist refreshed tokens back through the config's token DataIO.
+        session.on_refresh = lambda refreshed: setattr(config, "token", refreshed)
+        return cls(TidalApi(session))
 
     # ------------------------ LibraryCollection protocol ------------------------ #
 
