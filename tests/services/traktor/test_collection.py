@@ -79,6 +79,26 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
+    def test_find_by_path_builds_index_once(
+        self, collection: NMLLibrary, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Repeated path lookups reuse the index instead of rescanning the tree."""
+        scans = 0
+        scan_tracks = NMLLibrary.tracks.fget
+        assert scan_tracks is not None
+
+        def counting_tracks(library: NMLLibrary):
+            nonlocal scans
+            scans += 1
+            return scan_tracks(library)
+
+        monkeypatch.setattr(NMLLibrary, "tracks", property(counting_tracks))
+
+        collection.find_by_traktor_path(NMLPath("D:/:Music/:a.flac"))
+        collection.find_by_traktor_path(NMLPath("D:/:Music/:b.flac"))
+
+        assert scans == 1
+
     def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
@@ -222,6 +242,9 @@ class TestNMLPlaylist(CollectionTestBase):
         inserted = self.collection.insert_track(playlist_track)
         assert inserted is not None
         assert inserted.traktor_path == traktor_path
+        found = self.collection.find_by_traktor_path(traktor_path)
+        assert found is not None
+        assert found.traktor_path == traktor_path
 
         collection_node = self.collection.tree.find("COLLECTION")
         assert collection_node is not None
