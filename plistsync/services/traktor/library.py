@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
-from plistsync.core.collection import IDLookup, Library, TrackStream
+from plistsync.core.collection import IDLookup, InfoLookup, Library, TrackStream
 from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from lxml.etree import _Element, _ElementTree
 
-    from plistsync.core import TrackID
+    from plistsync.core import TrackID, TrackInfo
 
     from .track import NMLPlaylistTrack
 
@@ -33,6 +33,7 @@ class NMLLibrary(
     Library[NMLTrack, NMLPlaylist, TraktorConfig],
     TrackStream[NMLTrack],
     IDLookup[NMLTrack],
+    InfoLookup[NMLTrack],
 ):
     """A Traktor NML Library.
 
@@ -236,6 +237,37 @@ class NMLLibrary(
         The volume id is ignored, playlist paths only contain the volume name.
         """
         return self._track_index().get(traktor_path)
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[NMLTrack]:
+        """Find tracks by metadata, scanning the collection.
+
+        Every supplied, non-empty field must match as a case-insensitive substring;
+        artists and albums match if any requested value is contained in any value of
+        the track. Results preserve collection order.
+
+        TODO: make this behaviour consistent across services.
+        """
+        title = (info.get("title") or "").casefold()
+        artists = {a.casefold() for a in info.get("artists") or [] if a}
+        albums = {a.casefold() for a in info.get("albums") or [] if a}
+
+        if not (title or artists or albums):
+            return
+
+        def matches(needles: set[str], candidates: Iterable[str]) -> bool:
+            folded = [c.casefold() for c in candidates]
+            return any(n in c for n in needles for c in folded)
+
+        for track in self.tracks:
+            if title and title not in (track.title or "").casefold():
+                continue
+            if artists and not matches(artists, track.artists):
+                continue
+            if albums and not matches(albums, track.albums):
+                continue
+            yield track
 
     # --------------------------- TrackStream protocol --------------------------- #
 
