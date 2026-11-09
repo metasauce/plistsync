@@ -157,6 +157,16 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         assert list(collection.find_by_info({"title": "not in the collection"})) == []
         assert list(collection.find_by_info({})) == []
 
+    def test_playlist_tracks_include_library_metadata(self, collection: NMLLibrary):
+        playlist = collection.get_playlist_or_raise(
+            id="6868ecd66b354d37a33b965dae7a82e7"
+        )
+
+        track = playlist.tracks[0]
+
+        assert track.title
+        assert track.artists
+
     @pytest.mark.parametrize(
         [
             "backup",
@@ -381,6 +391,17 @@ class TestNMLPlaylist(CollectionTestBase):
         with p1.edit():
             p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
         assert len(p1) == 1
+
+    def test_overwrite_tracks_preserves_library_link(self):
+        """Replacing playlist tracks keeps the owning library reference."""
+        p1 = self.collection.get_playlist(name=self.name)
+        assert p1 is not None
+        track = p1.tracks[0]
+
+        with p1.edit():
+            p1.tracks = [track]
+
+        assert p1.tracks[0].library is self.collection
 
     @pytest.mark.skipif(
         sys.platform == "linux",
