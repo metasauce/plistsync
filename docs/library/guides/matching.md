@@ -156,6 +156,11 @@ Metadata and fuzzy matching are the fallback when no identifier produces a relia
 
 Each {class}`~plistsync.core.track.Track` exposes its metadata through the {py:attr}`~plistsync.core.track.Track.info` property. This layer is purely metadata based.
 
+How a collection searches depends on the service: Spotify searches its own catalog,
+Traktor scans its local collection and treats each supplied field as a case-insensitive
+substring. See the {doc}`service overview <../../services/index>` for which services
+support metadata lookups at all.
+
 Collections without {class}`~plistsync.core.collection.IDLookup` or {class}`~plistsync.core.collection.InfoLookup` fall back to streaming every track through the same comparison, which is much slower.
 
 ```{note}
