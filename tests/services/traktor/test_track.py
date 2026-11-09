@@ -7,6 +7,7 @@ from plistsync.services.traktor.path import NMLPath
 from plistsync.services.traktor.track import NMLPlaylistTrack
 
 from tests.abc.tracks import TestTrack
+from tests.core.mock_track import MockTrack
 
 
 class TestNMLTrack(TestTrack):
@@ -31,6 +32,40 @@ class TestNMLTrack(TestTrack):
 
 
 class TestNMLPlaylistTrackToNMLTrack:
+    def test_info_is_empty_without_library(self):
+        playlist_track = NMLPlaylistTrack.from_traktor_path(
+            NMLPath("D:/:Music/:missing.flac")
+        )
+
+        assert playlist_track.info == {}
+
+    def test_info_uses_linked_library(self, collection):
+        traktor_path = NMLPath(
+            "D:/:SYNC/:library/:Amoss, Fre4knc/:Watermark Volume 2/"
+            ":04 Dragger [1028kbps].flac"
+        )
+        playlist_track = NMLPlaylistTrack.from_traktor_path(
+            traktor_path, library=collection
+        )
+
+        assert playlist_track.info.get("title") == "Dragger"
+
+    def test_info_is_empty_when_library_has_no_track(self, collection):
+        playlist_track = NMLPlaylistTrack.from_traktor_path(
+            NMLPath("D:/:Music/:missing.flac"), library=collection
+        )
+
+        assert playlist_track.info == {}
+
+    def test_from_track_preserves_library_link(self, collection, sample_track):
+        playlist_track = NMLPlaylistTrack.from_track(sample_track, library=collection)
+
+        assert playlist_track.library is collection
+
+    def test_from_track_requires_path(self):
+        with pytest.raises(ValueError, match="does not have a path"):
+            NMLPlaylistTrack.from_track(MockTrack())
+
     def test_to_nml_track_returns_existing(self, collection):
         traktor_path = NMLPath.from_path(
             "D:/SYNC/library/Amoss, Fre4knc/Watermark Volume 2/04 Dragger [1028kbps].flac"
