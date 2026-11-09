@@ -1,6 +1,8 @@
-# CLI
+# Command line
 
-The sync workflow is available as `plistsync sync` commands, for interactive use and scripting. This page walks through each command; if you are new to synced playlists, start with [Getting started](getting-started).
+The sync commands live under `plistsync sync`. If you are new to synced playlists,
+start with {doc}`Getting started <getting-started>`. For the Python side, see
+{doc}`the Python library page <python>`.
 
 All commands below identify a SyncedPlaylist by its _name_ or its _ID_. Names are convenient but not guaranteed to be unique, so when in doubt (or when two playlists share a name) use the ID.
 
@@ -23,7 +25,7 @@ The SyncedPlaylist is saved as a JSON file in your user config directory (`~/.co
 
 ## Link playlists
 
-Register "real" playlists from your services as replicas of the SyncedPlaylist. The playlist argument accepts a URL, URI, serial, or raw ID; the owning service is detected automatically:
+Register "real" playlists from your services as replicas of the SyncedPlaylist. The playlist argument accepts a URL, URI, serial, or raw ID. The owning service is detected automatically:
 
 ```bash
 plistsync sync register "My Mix" "https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
@@ -105,11 +107,14 @@ You are prompted for confirmation.
 The linked playlists on your services are left untouched.
 Only the bookkeeping for the SyncedPlaylist is deleted from the local disk.
 
-## Full command reference
+:::{dropdown} Full command reference
 
 ```{typer} plistsync.cli.commands.sync:sync_app
 ---
 prog: plistsync sync
 width: 80
+show-nested:
 ---
 ```
+
+:::

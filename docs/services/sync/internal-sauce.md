@@ -1,4 +1,4 @@
-# How it Works
+# Internal sauce
 
 The sync service is built around one idea: give a group of playlists on different services a **single, service-agnostic source of truth**, and express every update to that source of truth as an operation on a _conflict-free replicated data type_ (CRDT). That way, edits made in one service, or directly in a service's own app, can be merged without a central coordinator and without manual conflict resolution.
 
@@ -23,7 +23,7 @@ Track membership and ordering live in a **Fugue**, a list CRDT from [_The Art of
 
 ### LWW register: the playlist metadata
 
-Name and description live in an op-based **last-writer-wins register**. Each field keeps the value of the operation with the highest version, where versions are ordered Lamport-style by counter first and replica ID as a tie-breaker; concurrent updates therefore converge to the same winner on every replica. The full operation history is retained so replicas merge by replaying the operations they have not seen yet.
+Name and description live in an op-based **last-writer-wins register**. Each field keeps the value of the operation with the highest version, where versions are ordered Lamport-style by counter first and replica ID as a tie-breaker. Concurrent updates therefore converge to the same winner on every replica. The full operation history is retained so replicas merge by replaying the operations they have not seen yet.
 
 Note that the register has no deletion semantics: clearing a description is an explicit write of `None`, while fields a service does not report at all are left untouched.
 

@@ -9,10 +9,6 @@ hide-toc: true
 :end-before: <!-- end intro -->
 ```
 
-```{note}
-We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](contribution.md), improvements to both code and documentation are welcome!
-```
-
 ## Features
 
 ```{include} ../README.md
@@ -20,24 +16,19 @@ We are always happy for contributions, whether small or big. Feel free to check 
 :end-before: <!-- end features -->
 ```
 
-## Installation
+## Getting started
 
-```{include} ./getting-started.md
-:start-after: <!-- start installation -->
-:end-before: <!-- end installation -->
+New to `plistsync`? The [Getting started guide](getting-started.md) covers installation and helps you choose between the CLI and the library.
+
+```{note}
+We are always happy for contributions, whether small or big. Feel free to check out our [contribution guide](reference/contribution.md), improvements to both code and documentation are welcome!
 ```
-
-If this is your first time using `plistsync`, we recommend reading the [getting started guide](getting-started.md) to familiarize yourself with the core concepts and functionalities of the library.
 
 ```{toctree}
 :hidden:
-:caption: 📚 Usage
 
 getting-started.md
-details/index.md
-details/configuration.md
-details/advanced/index.md
-examples/readme.md
+core-concepts.md
 ```
 
 ```{toctree}
@@ -45,19 +36,42 @@ examples/readme.md
 :hidden:
 :caption: 🛠️ Services
 
-services/sync/index
-services/local/index
-services/tidal/index
+services/index
 services/spotify/index
+services/tidal/index
 services/plex/index
 services/traktor/index
+services/local/index
+services/sync/index
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: 💻 Command line
+
+cli/getting-started.md
+cli/commands.md
+cli/configuration.md
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: 🐍 Python library
+
+library/getting-started.md
+library/guides/index.md
+library/examples/readme.md
 ```
 
 ```{toctree}
 :hidden:
 :caption: 📖 Reference
 
-changelog.md
-contribution.md
-api/index.md
+reference/changelog.md
+reference/architecture.md
+reference/contribution.md
+reference/api/index.md
+reference/api/cli.md
 ```
