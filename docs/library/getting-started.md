@@ -19,7 +19,7 @@ plistsync spotify auth
 
 ```{note}
 Spotify requires your own API credentials and a paid account. See the
-[Spotify setup guide](../services/spotify/getting-started.md) for details.
+[Spotify setup guide](../services/spotify/index.md) for details.
 ```
 
 To obtain a token without the CLI, see the [Authentication](guides/authentication.md)
@@ -59,7 +59,8 @@ The config can also be built inline instead of read from the user directory, see
 
 ## Where to go next
 
-- [Core concepts](../core-concepts.md): the vocabulary shared by all services.
+- {doc}`Core concepts <../core-concepts>`: the vocabulary shared by all services.
+- {doc}`Services <../services/index>`: connect a service, and see what it supports.
 - [Editing playlists](guides/playlists.md): create, edit, reorder, and delete playlists.
 - [Configuration](guides/configuration.md): configs from a file or inline.
 - [Authentication](guides/authentication.md): token flows from Python.

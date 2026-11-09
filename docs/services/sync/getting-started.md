@@ -4,8 +4,8 @@ This guide walks you through the full lifecycle of a synced playlist: creating o
 
 `plistsync` exposes the same workflow through two interfaces, each covered on its own page:
 
-- [Using the CLI](cli): shell commands for interactive use and scripting.
-- [Using the Python API](api): the same steps as direct function calls, for embedding in your own code.
+- {doc}`Using the CLI <cli>`: shell commands for interactive use and scripting.
+- {doc}`Using the Python library <python>`: the same steps as direct function calls, for embedding in your own code.
 
 ## Prerequisites
 
@@ -37,11 +37,11 @@ Every synchronisation is an exchange:
 the current contents of each linked playlist are **merged** into the internal collection, and the reconciled collection is then **pushed** back to all of them.
 The merge is expressed as conflict-free (CRDT) operations rather than "last write wins" overwrites.
 Therefore, edits made in a service's own app between sync runs combine reproducibly, instead of clobbering each other.
-See [How it works](how-it-works) for the details.
+See [Internal sauce](internal-sauce) for the details.
 
 ## Next steps
 
-- [Using the sync CLI](cli): the full command walkthrough, from creating a synced playlist to removing it.
-- [Using the Python API](api): the same workflow as calls on `SyncedPlaylist`.
-- [How it works](how-it-works): the merge and push mechanics, replicas, and the CRDT design in depth.
-- The service getting-started guides: configure and authenticate the services you want to link.
+- {doc}`Using the sync CLI <cli>`: the full command walkthrough, from creating a synced playlist to removing it.
+- {doc}`Using the Python library <python>`: the same workflow as calls on `SyncedPlaylist`.
+- [Internal sauce](internal-sauce): the merge and push mechanics, replicas, and the CRDT design in depth.
+- The {doc}`service setup pages <../index>`: configure and authenticate the services you want to link.

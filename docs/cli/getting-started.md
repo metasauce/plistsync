@@ -1,41 +1,34 @@
 ```{warning}
-The CLI guide is work in progress and may be missing some parts. Feel free to open an
-issue or PR if you find something missing or unclear.
+The command line documentation is work in progress and may be missing some parts.
+Feel free to open an issue or PR if you find something missing or unclear.
 ```
 
 # Quickstart
 
-This guide assumes `plistsync` is installed. See the [Getting started guide](../getting-started.md) for installation.
+This guide assumes `plistsync` is installed. See the {doc}`Getting started guide <../getting-started>`
+for installation.
 
 ## Connect a service
 
-Spotify, Tidal, and Plex use a browser login before `plistsync` can manage their
-playlists:
+`plistsync` can only use services that are installed and connected. That setup is done
+once per service, and it is described in one place: {doc}`Services <../services/index>`
+has a table of what each service supports and a page per service with the exact steps.
+
+For services that use a browser login, the command is always the same:
 
 ```bash
 plistsync spotify auth
 plistsync tidal auth
-plistsync plex auth
 ```
 
-A browser window opens and asks you to log in. On a remote machine without a browser,
-use `--mode manual` to paste the redirected URL instead:
+A browser window opens and asks you to log in. The token is stored in your user
+configuration directory and reused by all following commands. On a machine without a
+browser, add `--mode manual` and paste the redirected URL instead, and `--check` tells
+you whether the stored token is still valid.
 
-```bash
-plistsync spotify auth --mode manual
-```
-
-The token is stored in your user configuration directory and reused by all following
-commands. Check it at any time:
-
-```bash
-plistsync spotify auth --check
-```
-
-Not every service works this way. Plex also needs your server settings in the
-configuration, Traktor only needs a path to its NML file, and the `local` and `beets`
-services are track sources without playlist commands. The service guides cover the
-specifics.
+Services that read local files, such as `traktor` and `local`, need no login. They only
+need their configuration. So check the {doc}`service page <../services/index>` for the
+service you want to use before continuing.
 
 ## Explore the CLI
 
@@ -97,8 +90,8 @@ plistsync spotify playlist remove "Road Trip"
 
 ## Where to go next
 
-- [Core concepts](../core-concepts.md): services, capabilities, playlists, and tracks.
-- [CLI guide](commands.md): all commands and shared conventions.
-- [Configuration](configuration.md): service settings, credentials, and logging.
-- [Sync guide](../services/sync/index.md): keep playlists on different services in sync.
-- Service guides: service-specific setup and commands in the sidebar.
+- {doc}`Services <../services/index>`: connect a service and check what it supports.
+- {ref}`Editing playlists <cli_playlist_editing>`: list, create, change, and delete playlists.
+- {doc}`Core concepts <../core-concepts>`: services, capabilities, playlists, and tracks.
+- {doc}`Configuration <configuration>`: the config file, credentials, and logging.
+- {doc}`Sync <../services/sync/index>`: keep playlists on different services in sync.

@@ -17,7 +17,12 @@ language = "en"
 
 
 templates_path = ["_templates"]
-exclude_patterns: list[str] = ["build", "_build", "jupyter_execute"]
+exclude_patterns: list[str] = [
+    "build",
+    "_build",
+    "jupyter_execute",
+    "**/.ipynb_checkpoints",
+]
 
 import sys  # noqa: E402
 from pathlib import Path  # noqa: E402
@@ -38,6 +43,7 @@ extensions = [
     "sphinx_togglebutton",
     "plistsync_config",
     "plistsync_install",
+    "plistsync_cli",
 ]
 autosummary_generate = True  # Turn on sphinx.ext.autosummary
 intersphinx_mapping = {
@@ -49,6 +55,8 @@ myst_enable_extensions = [
     "colon_fence",
     "deflist",
 ]
+# Make heading slugs available as link targets, e.g. `page.md#some-heading`.
+myst_heading_anchors = 3
 
 
 # -- Options for HTML output -------------------------------------------------

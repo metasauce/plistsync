@@ -7,13 +7,16 @@
 
 This guide shows how to create, edit, and delete playlists on a service from Python,
 using the {py:class}`~plistsync.core.playlist.ServicePlaylist` interface. The examples
-use Spotify; every service that provides a library works the same way. Which operations
+use Spotify. Every service that provides a library works the same way. Which operations
 are available depends on the service, see [Core concepts](../../core-concepts.md).
 
 ## Set up a library
 
 Build the library from a service config, see the [Configuration](configuration.md) guide
-for the different ways to obtain one:
+for the different ways to obtain one. The examples use `SpotifyLibrary` throughout, but
+it is only an example: any service library works the same way. Swap the class and its
+config for the service you use, for example `TidalLibrary` with `TidalConfig`,
+`PlexLibrary` with `PlexConfig`, or `NMLLibrary` with `TraktorConfig`:
 
 ```python
 from plistsync.cli.config import UserDirConfigIO
@@ -109,6 +112,12 @@ with playlist.edit():
     playlist.tracks = [*playlist.tracks, track]
 ```
 
+```{note}
+Some services keep catalog tracks and playlist items apart. There, appending a track
+needs the playlist's own track type, for example `SpotifyPlaylistTrack(track)` or
+`TidalPlaylistTrack(track)`. Assigning a whole list, as above, converts for you.
+```
+
 Remove tracks:
 
 ```python
@@ -159,7 +168,7 @@ After deletion the playlist is gone from the service:
 assert library.get_playlist(id=playlist.id) is None
 ```
 
-Do not keep using the deleted `playlist` object; switch to the returned `offline` one.
+Do not keep using the deleted `playlist` object. Switch to the returned `offline` one.
 Its tracks are plain
 {py:class}`OfflineTrack <plistsync.core.track.OfflineTrack>` objects, which you can use
 to recreate the playlist on the same or another service.

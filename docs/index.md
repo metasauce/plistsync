@@ -32,8 +32,23 @@ core-concepts.md
 ```
 
 ```{toctree}
+:maxdepth: 1
 :hidden:
-:caption: 💻 CLI
+:caption: 🛠️ Services
+
+services/index
+services/spotify/index
+services/tidal/index
+services/plex/index
+services/traktor/index
+services/local/index
+services/sync/index
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: 💻 Command line
 
 cli/getting-started.md
 cli/commands.md
@@ -43,24 +58,11 @@ cli/configuration.md
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: 🐍 Library
+:caption: 🐍 Python library
 
 library/getting-started.md
 library/guides/index.md
 library/examples/readme.md
-```
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-:caption: 🛠️ Services
-
-services/sync/index
-services/local/index
-services/tidal/index
-services/spotify/index
-services/plex/index
-services/traktor/index
 ```
 
 ```{toctree}
@@ -71,4 +73,5 @@ reference/changelog.md
 reference/architecture.md
 reference/contribution.md
 reference/api/index.md
+reference/api/cli.md
 ```

@@ -6,11 +6,15 @@ Running a synchronisation pulls the current contents of every linked playlist, m
 
 Unlike the other services, `sync` is not backed by an external API: it needs no configuration or credentials of its own, only the services whose playlists you link, which must be configured and authenticated as usual.
 
+The examples use Spotify and Tidal. Any other service with playlists works the same way.
+
+The commands are also in the {doc}`CLI reference <../../reference/api/cli>`.
+
 ```{toctree}
-:maxdepth: 2
+:maxdepth: 1
 
 getting-started
-cli
-api
-how-it-works
+Command line <cli>
+Python library <python>
+internal-sauce
 ```

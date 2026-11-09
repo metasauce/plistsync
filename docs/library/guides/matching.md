@@ -128,6 +128,7 @@ This two-phase batching avoids touching the library for tracks already resolved 
 ## Matching order
 
 Matching works through three layers, from most to least reliable:
+(global_identifiers)=
 
 ### 1. Global identifiers
 
@@ -135,11 +136,19 @@ Global identifiers are intended to identify a track across services and librarie
 
 Each {class}`~plistsync.core.track.Track` exposes its identifiers through the {py:attr}`~plistsync.core.track.Track.ids` property. Every {class}`~plistsync.core.ids.TrackID` carries a {class}`~plistsync.core.ids.Scope`, and global identifiers use `Scope.GLOBAL`.
 
+(local_identifiers)=
+
 ### 2. Local identifiers
 
 Local identifiers are scoped to one context, such as a device or a particular library. They identify tracks reliably within that context but can produce false positives across contexts. A file path is only meaningful on the device or network share where it exists, and a library-specific ID is only valid in its originating library, for example one Plex server out of several.
 
 Local identifiers use `Scope.LOCAL` and include {class}`~plistsync.core.ids.FilePath`.
+
+Which identifiers a service understands differs: Spotify and Tidal accept their own track
+ID and an ISRC, Plex an ISRC plus its rating key or a file path, Traktor only a file path,
+and `local` a file path plus an ISRC from the file's tags.
+
+(metadata_lookup)=
 
 ### 3. Metadata and fuzzy matching
 
@@ -148,3 +157,10 @@ Metadata and fuzzy matching are the fallback when no identifier produces a relia
 Each {class}`~plistsync.core.track.Track` exposes its metadata through the {py:attr}`~plistsync.core.track.Track.info` property. This layer is purely metadata based.
 
 Collections without {class}`~plistsync.core.collection.IDLookup` or {class}`~plistsync.core.collection.InfoLookup` fall back to streaming every track through the same comparison, which is much slower.
+
+```{note}
+Equality between tracks is decided by identifiers and metadata, not by sound. A service
+that lists the same recording as several releases or versions therefore produces tracks
+that are not equal, even when they share an ISRC. Tidal is a common source of this: the
+same song can exist as several distinct tracks, each with its own ID.
+```

@@ -5,9 +5,9 @@
 
 # Core concepts
 
-This page explains the words used throughout the `plistsync` documentation. The same
-terms apply whether you use the command line or the Python library. Together they form
-the layer that maps every service onto the same libraries, playlists, and tracks.
+The words used throughout the documentation, whether you use the command line or the
+Python library. Together they form the layer that maps every service onto the same
+libraries, playlists, and tracks.
 
 ## Services
 
@@ -103,7 +103,7 @@ rather than identical twins.
 Interested in the technical details? When you sync, plistsync fetches every linked
 playlist, merges the changes, and pushes the result back to all of them. Conflicts are
 resolved automatically, so the linked playlists converge on the same tracks in the same
-order. See [how syncing works](services/sync/how-it-works.md) for the details.
+order. See [how syncing works](services/sync/internal-sauce.md) for the details.
 ```
 
 ## Quick reference

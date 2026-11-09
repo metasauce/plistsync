@@ -98,7 +98,7 @@ consecutive inserts and deletes.
 :::
 
 `SyncedPlaylist` is the sync service's playlist. It links playlists across services and
-merges changes with a CRDT. See [How syncing works](../services/sync/how-it-works.md) for
+merges changes with a CRDT. See [How syncing works](../services/sync/internal-sauce.md) for
 the details.
 
 ## Tracks
@@ -144,7 +144,7 @@ best available identifier for reliability, and falls back to metadata for covera
 
 A `Library` is the top-level entry point for a service that manages playlists. It extends
 `Collection` with playlist management. Services that only provide tracks, such as local
-files and beets, register a plain `Collection` instead.
+files, register a plain `Collection` instead.
 
 Libraries provide the following abstractions:
 

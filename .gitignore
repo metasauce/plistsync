@@ -41,6 +41,7 @@ dist-ssr
 
 # Docs
 docs/build
+.ipynb_checkpoints
 docs/api
 docs/reference/api
 docs/_build

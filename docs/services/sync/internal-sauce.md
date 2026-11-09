@@ -1,4 +1,4 @@
-# How it Works
+# Internal sauce
 
 The sync service is built around one idea: give a group of playlists on different services a **single, service-agnostic source of truth**, and express every update to that source of truth as an operation on a _conflict-free replicated data type_ (CRDT). That way, edits made in one service, or directly in a service's own app, can be merged without a central coordinator and without manual conflict resolution.
 

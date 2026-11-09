@@ -1,16 +1,16 @@
 ```{eval-rst}
 .. meta::
-   :description: Configuration guide for plistsync library.
+   :description: The plistsync configuration file: location, structure, CLI commands, and logging.
 ```
 
 ```{warning}
-The CLI guide is work in progress and may be missing some parts. Feel free to open an
-issue or PR if you find something missing or unclear.
+The command line documentation is work in progress and may be missing some parts.
+Feel free to open an issue or PR if you find something missing or unclear.
 ```
 
-# Configuration
+# Configuration file
 
-`plistsync` uses a YAML configuration file to manage service settings, logging, and other options. We use the [EYConf](https://eyconf.readthedocs.io/en/latest/) library for configuration management. This guide explains the configuration file location, structure, and how to manage it using the CLI.
+`plistsync` uses a YAML configuration file to manage service settings, logging, and other options, through the [EYConf](https://eyconf.readthedocs.io/en/latest/) library. Service settings themselves are described on the {doc}`service pages <../services/index>`. For the Python side, see {doc}`Configuration in code <../library/guides/configuration>`.
 
 ## Config File Location
 

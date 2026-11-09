@@ -41,3 +41,43 @@ button.toggle-button {
     cursor: inherit;
     color: inherit;
 }
+
+/* Capability matrix (services overview) */
+.capability-table table.docutils {
+    width: 100%;
+    margin-bottom: 0.25rem;
+}
+
+.capability-table table.docutils td,
+.capability-table table.docutils th {
+    padding: 0.4rem 0.5rem;
+    vertical-align: middle;
+}
+
+.capability-table table.docutils tbody tr:hover td {
+    background: var(--color-background-hover);
+}
+
+.capability-table .cap {
+    font-size: 1.15em;
+    line-height: 1;
+}
+
+.capability-table .cap.yes {
+    color: #2e8b57;
+}
+
+.capability-table .cap.no {
+    color: var(--color-foreground-muted);
+    opacity: 0.5;
+}
+
+body[data-theme="dark"] .capability-table .cap.yes {
+    color: #5cc98a;
+}
+
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) .capability-table .cap.yes {
+        color: #5cc98a;
+    }
+}
