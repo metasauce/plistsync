@@ -60,8 +60,8 @@ Create a playlist:
 plistsync spotify playlist create --name "Road Trip" --description "Songs for the road" --yes
 ```
 
-Find a track to add. Spotify can search by title, artist, and album. Other services
-accept an ID:
+Find a track to add. Where a service supports metadata search, `--title`, `--artist`,
+and `--album` are available. Elsewhere, give an ID or URL:
 
 ```bash
 plistsync spotify search track --title "Song" --artist "Artist"

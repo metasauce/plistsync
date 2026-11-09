@@ -77,6 +77,17 @@ class PlexApiTrackImage(TypedDict, total=False):
     url: str  # '/library/metadata/55906/thumb/1713284398'
 
 
+# -------------------------------- Container -------------------------------- #
+
+
+class PlexApiMediaContainer(TypedDict, total=False):
+    """Fields of the `MediaContainer` envelope read by the typed endpoints."""
+
+    size: int  # 2
+    totalSize: int  # 2
+    Metadata: list[PlexApiTrackResponse]  # tracks
+
+
 # --------------------------------- Playlist --------------------------------- #
 
 

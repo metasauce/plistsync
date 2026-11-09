@@ -25,7 +25,7 @@ you can check whether a service fits what you want to do before setting it up.
 | --- | :---: | :---: | :---: | :---: |
 | {doc}`Spotify <spotify/index>` | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> |
 | {doc}`Tidal <tidal/index>` | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap no">—</span> |
-| {doc}`Plex <plex/index>` | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap no">—</span> |
+| {doc}`Plex <plex/index>` | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> |
 | {doc}`Traktor <traktor/index>` | <span class="cap no">—</span> | <span class="cap yes">✓</span> | <span class="cap yes">✓</span> | <span class="cap no">—</span> |
 | {doc}`Local <local/index>` | <span class="cap no">—</span> | <span class="cap no">—</span> | <span class="cap yes">✓</span> | <span class="cap no">—</span> |
 ```

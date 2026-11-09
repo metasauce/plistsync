@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, overload
 from requests import HTTPError
 
 from plistsync.core import Library
-from plistsync.core.collection import IDLookup, TrackStream
+from plistsync.core.collection import IDLookup, InfoLookup, TrackStream
 from plistsync.core.ids import ISRC, FilePath, PlaylistID
 from plistsync.logger import log
 from plistsync.services.plex.playlist import PlexPlaylist, PlexPlaylistID
 
-from .api import PlexApi, PlexApiSession
+from .api import PlexApi, PlexApiSession, matches_track_info
 from .config import PlexConfig
 from .track import PlexTrack, PlexTrackID
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from typing import Self
 
-    from plistsync.core import PathRewrite, TrackID
+    from plistsync.core import PathRewrite, TrackID, TrackInfo
     from plistsync.services.local.track import FileCache
 
 
@@ -28,6 +28,7 @@ class PlexLibrary(
     Library[PlexTrack, PlexPlaylist, PlexConfig],
     TrackStream[PlexTrack],
     IDLookup[PlexTrack],
+    InfoLookup[PlexTrack],
 ):
     """A collection of all tracks in a Plex library section.
 
@@ -256,3 +257,36 @@ class PlexLibrary(
                     return track
 
         return None
+
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[PlexTrack]:
+        """Find Plex tracks matching the given metadata.
+
+        Raises
+        ------
+        ValueError
+            If none of ``title``, ``artists`` or ``albums`` is provided.
+        """
+        title = info.get("title")
+        artists = info.get("artists") or []
+        albums = info.get("albums") or []
+        if not (title or artists or albums):
+            raise ValueError("Provide at least one of artist, album, or title.")
+
+        if self._fetched and self._tracks is not None:
+            return [
+                PlexTrack(track.data)
+                for track in self._tracks
+                if matches_track_info(track.data, info)
+            ]
+
+        return [
+            PlexTrack(track)
+            for track in self.api.track.fetch_tracks_by_info(
+                section_id=self.id,
+                title=title,
+                artist=artists[0] if artists else None,
+                album=albums[0] if albums else None,
+            )
+        ]
