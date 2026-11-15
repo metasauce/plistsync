@@ -17,8 +17,8 @@ has a table of what each service supports and a page per service with the exact 
 For services that use a browser login, the command is always the same:
 
 ```bash
-plistsync spotify auth
 plistsync tidal auth
+plistsync spotify auth
 ```
 
 A browser window opens and asks you to log in. The token is stored in your user
@@ -36,54 +36,54 @@ service you want to use before continuing.
 
 ```bash
 plistsync --help
-plistsync spotify --help
-plistsync spotify playlist --help
+plistsync tidal --help
+plistsync tidal playlist --help
 ```
 
 List the playlists of a service and inspect one:
 
 ```bash
-plistsync spotify playlist list
-plistsync spotify playlist show "My Playlist"
+plistsync tidal playlist list
+plistsync tidal playlist show "My Playlist"
 ```
 
 Playlist commands accept a playlist by name, serial, URL, or URI.
 
 ## Create your first playlist
 
-The examples use Spotify. The same commands work for every service with playlist
+The examples use tidal. The same commands work for every service with playlist
 support.
 
 Create a playlist:
 
 ```bash
-plistsync spotify playlist create --name "Road Trip" --description "Songs for the road" --yes
+plistsync tidal playlist create --name "Road Trip" --description "Songs for the road" --yes
 ```
 
-Find a track to add. Spotify can search by title, artist, and album. Other services
+Find a track to add. Tidal can search by title, artist, and album. Other services
 accept an ID:
 
 ```bash
-plistsync spotify search track --title "Song" --artist "Artist"
+plistsync tidal search track --title "Song" --artist "Artist"
 ```
 
 Add the track by URL, serial, or ISRC:
 
 ```bash
-plistsync spotify playlist update "Road Trip" --add "https://open.spotify.com/track/<id>" --yes
+plistsync tidal playlist update "Road Trip" --add "https://tidal.com/track/571470960/u" --yes
 ```
 
 Show the result:
 
 ```bash
-plistsync spotify playlist show "Road Trip"
+plistsync tidal playlist show "Road Trip"
 ```
 
 Remove the first track, or the whole playlist:
 
 ```bash
-plistsync spotify playlist update "Road Trip" --remove 0 --yes
-plistsync spotify playlist remove "Road Trip"
+plistsync tidal playlist update "Road Trip" --remove 0 --yes
+plistsync tidal playlist remove "Road Trip"
 ```
 
 `--yes` skips the confirmation prompt.

@@ -21,9 +21,10 @@ To keep the package slim and flexible, all services (like Spotify or Tidal) are 
 
 ## Connect a service first
 
-Both the CLI and the library work with the same **services**. Connect one once and it
-works from either. The {doc}`Services <services/index>` overview shows what each service
-supports and how to set it up.
+Both the CLI and the python library work with the same **services**.
+Once configured, a service is available in both.
+The {doc}`Services <services/index>` overview illustrates how to set each service up
+and lists the features it supports.
 
 ## Choose your path
 
