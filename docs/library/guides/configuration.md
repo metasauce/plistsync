@@ -37,7 +37,7 @@ from plistsync.utils.auth.oauth2 import OAuth2Token
 config = SpotifyConfig(
     client_id="<your client id>",
     redirect_port=20556,
-    token=JsonFileIO[OAuth2Token](Path("spotify_token.json")),
+    token=JsonFileIO[OAuth2Token](Path("/path/to/spotify_token.json")),
 )
 library = SpotifyLibrary.from_config(config)
 ```

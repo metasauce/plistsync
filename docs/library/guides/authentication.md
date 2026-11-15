@@ -16,10 +16,19 @@ An auth provider runs the flow for a service and only needs an implementation of
 {py:class}`Interaction <plistsync.core.auth.Interaction>` for the user-facing parts:
 
 ```python
-from plistsync.cli.service_commands.auth import CLIInteraction
-from plistsync.services.spotify import SpotifyAuth, SpotifyConfig, SpotifyLibrary
+from pathlib import Path
 
-config = SpotifyConfig()
+from plistsync.core.config import JsonFileIO
+from plistsync.services.spotify import SpotifyAuth, SpotifyConfig, SpotifyLibrary
+from plistsync.utils.auth.oauth2 import OAuth2Token
+from plistsync.cli.service_commands.auth import CLIInteraction
+
+
+config = SpotifyConfig(
+    client_id="<your client id>",
+    redirect_port=20556,
+    token = JsonFileIO[OAuth2Token](Path("/path/to/spotify_token.json"))
+)
 config.token = SpotifyAuth(config).authenticate(CLIInteraction())
 library = SpotifyLibrary.from_config(config)
 ```
@@ -27,6 +36,20 @@ library = SpotifyLibrary.from_config(config)
 `CLIInteraction` is the implementation the CLI uses. It opens the URL in a browser and
 prompts on the terminal, and on a remote machine you can use
 `CLIInteraction(mode="manual")` to paste a URL instead.
+
+The {py:class}`JsonFileIO <plistsync.core.config.JsonFileIO>` makes sure to token is automatically saved at the given file path. It overwrites the file whenever you set
+`config.token`.
+
+To use the saved token later:
+
+```python
+config = SpotifyConfig(
+    client_id="<your client id>",
+    redirect_port=20556,
+    token=JsonFileIO[OAuth2Token](Path("/path/to/spotify_token.json")),
+)
+library = SpotifyLibrary.from_config(config)
+```
 
 ## Custom interactions
 

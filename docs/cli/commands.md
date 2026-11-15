@@ -103,3 +103,13 @@ plistsync config validate  # check it against the schema
 ```
 
 Most services work out of the box. If a service needs settings like a client ID or a file path, its {doc}`service page <../services/index>` tells you what to put in. See the {doc}`configuration page <configuration>` for details, including logging.
+
+## Increasing the log level
+
+To get a glance behind the scenes, you can add `-v`.
+This has to be done _before_ getting into subcommands:
+
+```bash
+plistsync -v spotify playlist list
+plistsync -vv spotify playlist list
+```
