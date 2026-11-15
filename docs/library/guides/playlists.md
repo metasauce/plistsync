@@ -104,18 +104,19 @@ with playlist.edit():
     playlist.description = "Updated description"
 ```
 
-Add tracks. Assigning a list goes through the playlist's track conversion, so plain
-service tracks are accepted:
+Add a track:
 
 ```python
 with playlist.edit():
-    playlist.tracks = [*playlist.tracks, track]
+    already_present = playlist.tracks
+    with_new_track = [*already_present, track]
+    playlist.tracks = with_new_track
 ```
 
 ```{note}
 Some services keep catalog tracks and playlist items apart. There, appending a track
 needs the playlist's own track type, for example `SpotifyPlaylistTrack(track)` or
-`TidalPlaylistTrack(track)`. Assigning a whole list, as above, converts for you.
+`TidalPlaylistTrack(track)`. However, assigning a whole list, as above, converts for you.
 ```
 
 Remove tracks:
@@ -133,26 +134,13 @@ with playlist.edit():
 ```
 
 ```{note}
-Tracks are only sent to the service when the `edit()` block exits successfully. Make
-all of your changes inside the block.
-```
-
-## Force the service to match a local playlist
-
-{py:meth}`update() <plistsync.core.playlist.ServicePlaylist.update>` re-fetches the
-playlist from the service and commits your local state to it, so the service matches the
-object you edited. Use it when a playlist object may have diverged from the service, for
-example after you changed it elsewhere. For the usual case of a few targeted changes,
-prefer `edit()`, which produces fewer API calls:
-
-```python
-playlist.description = "Updated description"
-playlist.update()
+Changes are only sent to the service API when the `edit()` block exits successfully. Make
+all of your changes inside one block to keep this efficient.
 ```
 
 ## Delete a playlist
 
-{py:meth}`delete() <plistsync.core.playlist.ServicePlaylist.delete>` removes the
+{py:meth}`playlist.delete() <plistsync.core.playlist.ServicePlaylist.delete>` removes the
 playlist from the service and returns an
 {py:class}`OfflinePlaylist <plistsync.core.playlist.OfflinePlaylist>` holding the last
 known state, so you do not lose the data:
