@@ -79,6 +79,26 @@ class TestNMLLibrary(LibraryCollectionTestBase):
         track = self.collection.find_by_traktor_path(tp_nonexistent)
         assert track is None
 
+    def test_find_by_path_builds_index_once(
+        self, collection: NMLLibrary, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Repeated path lookups reuse the index instead of rescanning the tree."""
+        scans = 0
+        scan_tracks = NMLLibrary.tracks.fget
+        assert scan_tracks is not None
+
+        def counting_tracks(library: NMLLibrary):
+            nonlocal scans
+            scans += 1
+            return scan_tracks(library)
+
+        monkeypatch.setattr(NMLLibrary, "tracks", property(counting_tracks))
+
+        collection.find_by_traktor_path(NMLPath("D:/:Music/:a.flac"))
+        collection.find_by_traktor_path(NMLPath("D:/:Music/:b.flac"))
+
+        assert scans == 1
+
     def test_write_persists(self, collection: NMLLibrary) -> None:
         """Calling write should persist the collection"""
         new_name = "Updated name"
@@ -104,6 +124,48 @@ class TestNMLLibrary(LibraryCollectionTestBase):
 
         track = collection.find_by_ids(set())
         assert track is None
+
+    def test_find_by_info(self, collection: NMLLibrary):
+        tracks = list(
+            collection.find_by_info(
+                {
+                    "title": "drag",
+                    "artists": ["amos"],
+                    "albums": ["watermark volume"],
+                }
+            )
+        )
+
+        assert len(tracks) == 1
+        assert tracks[0].title == "Dragger"
+
+        # A single field is enough to search
+        assert [t.title for t in collection.find_by_info({"title": "dragger"})] == [
+            "Dragger"
+        ]
+
+        # But every field that is supplied has to match
+        assert (
+            list(collection.find_by_info({"title": "Dragger", "artists": ["nope"]}))
+            == []
+        )
+        assert (
+            list(collection.find_by_info({"title": "Dragger", "albums": ["nope"]}))
+            == []
+        )
+
+        assert list(collection.find_by_info({"title": "not in the collection"})) == []
+        assert list(collection.find_by_info({})) == []
+
+    def test_playlist_tracks_include_library_metadata(self, collection: NMLLibrary):
+        playlist = collection.get_playlist_or_raise(
+            id="6868ecd66b354d37a33b965dae7a82e7"
+        )
+
+        track = playlist.tracks[0]
+
+        assert track.title
+        assert track.artists
 
     @pytest.mark.parametrize(
         [
@@ -222,6 +284,9 @@ class TestNMLPlaylist(CollectionTestBase):
         inserted = self.collection.insert_track(playlist_track)
         assert inserted is not None
         assert inserted.traktor_path == traktor_path
+        found = self.collection.find_by_traktor_path(traktor_path)
+        assert found is not None
+        assert found.traktor_path == traktor_path
 
         collection_node = self.collection.tree.find("COLLECTION")
         assert collection_node is not None
@@ -326,6 +391,17 @@ class TestNMLPlaylist(CollectionTestBase):
         with p1.edit():
             p1.tracks = [NMLPlaylistTrack.from_path(track_path)]
         assert len(p1) == 1
+
+    def test_overwrite_tracks_preserves_library_link(self):
+        """Replacing playlist tracks keeps the owning library reference."""
+        p1 = self.collection.get_playlist(name=self.name)
+        assert p1 is not None
+        track = p1.tracks[0]
+
+        with p1.edit():
+            p1.tracks = [track]
+
+        assert p1.tracks[0].library is self.collection
 
     @pytest.mark.skipif(
         sys.platform == "linux",

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, overload
 
 from lxml import etree
 
-from plistsync.core.collection import IDLookup, Library, TrackStream
+from plistsync.core.collection import IDLookup, InfoLookup, Library, TrackStream
 from plistsync.core.ids import FilePath, PlaylistID
 from plistsync.logger import log
 
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from lxml.etree import _Element, _ElementTree
 
-    from plistsync.core import TrackID
+    from plistsync.core import TrackID, TrackInfo
 
     from .track import NMLPlaylistTrack
 
@@ -33,19 +33,20 @@ class NMLLibrary(
     Library[NMLTrack, NMLPlaylist, TraktorConfig],
     TrackStream[NMLTrack],
     IDLookup[NMLTrack],
+    InfoLookup[NMLTrack],
 ):
     """A Traktor NML Library.
 
     Allows to parse and interact with a Traktor NML file. I.e. traktor export playlist
 
-    Sadly nml files do not contain unique identifiers for tracks, thus we need to
-    iterate over all tracks to find a match. Might be less efficient than other
-    collections.
+    NML files have no unique track identifiers, so track lookups use the file path
+    (indexed lazily) or a metadata scan.
     """
 
     path: Path
     tree: _ElementTree
     backup_before_write: bool
+    _track_index_cache: dict[NMLPath, NMLTrack] | None
 
     def __init__(self, path: Path | str, backup_before_write: bool):
         self.path = Path(path)
@@ -54,6 +55,7 @@ class NMLLibrary(
         self.backup_before_write = backup_before_write
         # An NML file is a XML file
         self.tree = etree.parse(self.path)
+        self._track_index_cache = None
 
     @classmethod
     def from_config(cls, config: TraktorConfig) -> Self:
@@ -232,22 +234,40 @@ class NMLLibrary(
     def find_by_traktor_path(self, traktor_path: NMLPath) -> NMLTrack | None:
         """Find a track by its file path.
 
-        Parameter
-        ---------
-        traktor_path : TraktorPath
-            The file path of the track to find. This should be the full path including
-            the filename. In traktor notation /:foo/:bar.mp3. If a volume is specified,
-            it should will be ignored for the search.
+        The volume id is ignored, playlist paths only contain the volume name.
         """
-        entry = self._collection.xpath(
-            f".//ENTRY/LOCATION[@DIR={xpath_string_escape(traktor_path.directories)}]"
-            f"[@FILE={xpath_string_escape(traktor_path.file)}]"
-            f"[@VOLUME={xpath_string_escape(traktor_path.volume)}]/.."
-        )
-        if len(entry) == 0:
-            return None
+        return self._track_index().get(traktor_path)
 
-        return NMLTrack(entry[0])
+    # --------------------------- InfoLookup protocol ---------------------------- #
+
+    def find_by_info(self, info: TrackInfo) -> Iterable[NMLTrack]:
+        """Find tracks by metadata, scanning the collection.
+
+        Every supplied, non-empty field must match as a case-insensitive substring;
+        artists and albums match if any requested value is contained in any value of
+        the track. Results preserve collection order.
+
+        TODO: make this behaviour consistent across services.
+        """
+        title = (info.get("title") or "").casefold()
+        artists = {a.casefold() for a in info.get("artists") or [] if a}
+        albums = {a.casefold() for a in info.get("albums") or [] if a}
+
+        if not (title or artists or albums):
+            return
+
+        def matches(needles: set[str], candidates: Iterable[str]) -> bool:
+            folded = [c.casefold() for c in candidates]
+            return any(n in c for n in needles for c in folded)
+
+        for track in self.tracks:
+            if title and title not in (track.title or "").casefold():
+                continue
+            if artists and not matches(artists, track.artists):
+                continue
+            if albums and not matches(albums, track.albums):
+                continue
+            yield track
 
     # --------------------------- TrackStream protocol --------------------------- #
 
@@ -266,6 +286,15 @@ class NMLLibrary(
         return int(n_str)
 
     # ---------------------------------- Helper ---------------------------------- #
+
+    def _track_index(self) -> dict[NMLPath, NMLTrack]:
+        """Return a path index for the collection, building the cache on first use."""
+        if self._track_index_cache is None:
+            index: dict[NMLPath, NMLTrack] = {}
+            for track in self.tracks:
+                index.setdefault(track.traktor_path, track)
+            self._track_index_cache = index
+        return self._track_index_cache
 
     @property
     def _collection(self):
@@ -317,6 +346,8 @@ class NMLLibrary(
         count = int(collection.get("ENTRIES", "0"))
         collection.set("ENTRIES", str(count + 1))
         inserted = NMLTrack(entry)
+        if self._track_index_cache is not None:
+            self._track_index_cache.setdefault(inserted.traktor_path, inserted)
 
         log.debug(f"Inserted track into COLLECTION: {inserted.traktor_path}")
         return inserted

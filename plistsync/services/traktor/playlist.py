@@ -9,10 +9,7 @@ from lxml.etree import Element, SubElement
 
 from plistsync.core.collection import IDLookup
 from plistsync.core.ids import FilePath, PlaylistID
-from plistsync.core.playlist import (
-    PlaylistInfo,
-    ServicePlaylist,
-)
+from plistsync.core.playlist import PlaylistInfo, ServicePlaylist
 from plistsync.logger import log
 
 from .config import TraktorConfig
@@ -30,9 +27,7 @@ if TYPE_CHECKING:
     from lxml.etree import _Element
 
     from plistsync.core import TrackID
-    from plistsync.core.playlist import (
-        Snapshot,
-    )
+    from plistsync.core.playlist import Snapshot
 
     from .library import NMLLibrary
     from .track import NMLTrack
@@ -161,9 +156,9 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack, TraktorConfig], IDLookup):
         def convert(t: NMLPlaylistTrack | NMLTrack):
             # convert tracks to playlist tracks
             if isinstance(t, NMLPlaylistTrack):
-                return t
+                return NMLPlaylistTrack(t.entry, library=self.library)
             else:
-                return NMLPlaylistTrack.from_track(t)
+                return NMLPlaylistTrack.from_track(t, library=self.library)
 
         self._tracks = list(map(convert, value))
 
@@ -210,10 +205,11 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack, TraktorConfig], IDLookup):
         # Append new entries (avoid reusing Elements that may already have parents)
         for track in tracks:
             self.playlist_node.append(
-                NMLPlaylistTrack.from_traktor_path(track.traktor_path).entry
+                NMLPlaylistTrack.from_traktor_path(
+                    track.traktor_path, library=self.library
+                ).entry
             )
-            if self.library.find_by_traktor_path(track.traktor_path) is None:
-                self.library.insert_track(track)
+            self.library.insert_track(track)
 
         self.playlist_node.set("ENTRIES", str(len(tracks)))
 
@@ -221,7 +217,9 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack, TraktorConfig], IDLookup):
 
     def _fetch_tracks(self):
         entries = self.playlist_node.xpath(".//ENTRY/PRIMARYKEY[@TYPE='TRACK']/..")
-        self._tracks = [NMLPlaylistTrack(entry) for entry in entries]
+        self._tracks = [
+            NMLPlaylistTrack(entry, library=self.library) for entry in entries
+        ]
         return self._tracks
 
     # --------------------------- IDLookup protocol ------------------------------ #
@@ -258,4 +256,4 @@ class NMLPlaylist(ServicePlaylist[NMLPlaylistTrack, TraktorConfig], IDLookup):
                 ", using first one."
             )
 
-        return NMLPlaylistTrack(entries[0])
+        return NMLPlaylistTrack(entries[0], library=self.library)
