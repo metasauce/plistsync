@@ -5,12 +5,16 @@ on:
   pull_request:
     branches: ["main"]
   schedule:
+    # Nightly run. GitHub emails failures of scheduled workflows to the user who
+    # last modified this cron line.
     - cron: "27 4 * * *" # 4:27 every night
 env:
   PSYNC_CONFIG_DIR: ${{ github.workspace }}/tests/data/integration_config
+  # In CI we never skip: missing credentials or tracks fail the run.
+  PLISTSYNC_INTEGRATION_STRICT: "1"
 
 jobs:
-  test-notebooks:
+  integration-tests:
     runs-on: [self-hosted, linux]
     environment: integration_tests # only scope where our secrets are defined
     strategy:
@@ -31,7 +35,7 @@ jobs:
           INTEGRATION_CONFIG_YAML: ${{ secrets.INTEGRATION_CONFIG_YAML }}
         run: |
           mkdir -p $PSYNC_CONFIG_DIR
-          f="$PSYNC_CONFIG_DIR/config.yml"
+          f="$PSYNC_CONFIG_DIR/config.yaml"
           echo "$INTEGRATION_CONFIG_YAML" > "$f"
           echo "bytes=$(wc -c < "$f" | tr -d ' ')"
           sha256sum "$f" | awk '{print "sha256="$1}'
@@ -39,7 +43,7 @@ jobs:
           uv run python - <<'PY'
           import os, yaml, pathlib, collections.abc
 
-          p = pathlib.Path(os.environ["PSYNC_CONFIG_DIR"]) / "config.yml"
+          p = pathlib.Path(os.environ["PSYNC_CONFIG_DIR"]) / "config.yaml"
           data = yaml.safe_load(p.read_text(encoding="utf-8"))
 
           def mask(v):
@@ -109,19 +113,9 @@ jobs:
           echo "token_sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "Token Checksum: $SHA"
 
-      - name: Test ${{ matrix.service }} notebooks
-        id: nbmake_tests
+      - name: Run ${{ matrix.service }} integration tests
         run: |
-          uv run pytest --nbmake --nbmake-timeout=600 -vv -s --overwrite docs/services/${{ matrix.service }}/*.ipynb
-
-      - name: Upload executed notebooks on failure (${{ matrix.service }})
-        if: failure() && steps.nbmake_tests.outcome == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: nbmake-notebooks-${{ matrix.service }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: docs/services/${{ matrix.service }}/*.ipynb
-          if-no-files-found: error
-          retention-days: 14
+          uv run pytest tests_integration/${{ matrix.service }} -vv -s --no-cov
 
       - name: Compute token checksum (updated)
         id: new_sha

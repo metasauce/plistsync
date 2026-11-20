@@ -1,0 +1,162 @@
+```{eval-rst}
+.. meta::
+   :description: Create, edit, reorder, and delete service playlists from the plistsync Python library.
+```
+
+# Editing Playlists
+
+This guide shows how to create, edit, and delete playlists on a service from Python,
+using the {py:class}`~plistsync.core.playlist.ServicePlaylist` interface. The examples
+use Spotify. Every service that provides a library works the same way. Which operations
+are available depends on the service, see [Core concepts](../../core-concepts.md).
+
+## Set up a library
+
+Build the library from a service config, see the [Configuration](configuration.md) guide
+for the different ways to obtain one. The examples use `SpotifyLibrary` throughout, but
+it is only an example: any service library works the same way. Swap the class and its
+config for the service you use, for example `TidalLibrary` with `TidalConfig`,
+`PlexLibrary` with `PlexConfig`, or `NMLLibrary` with `TraktorConfig`:
+
+```python
+from plistsync.cli.config import UserDirConfigIO
+from plistsync.services.spotify import SpotifyConfig, SpotifyLibrary
+
+library = SpotifyLibrary.from_config(UserDirConfigIO().load(SpotifyConfig))
+```
+
+## Retrieve playlists
+
+Iterate over all playlists of the authenticated user:
+
+```python
+for playlist in library.playlists:
+    print(f"{playlist.name} ({len(playlist)} tracks)")
+```
+
+Fetch a single playlist by name, id, URL, or URI. Which of these are supported depends
+on the service:
+
+```python
+playlist = library.get_playlist(name="My Playlist")
+```
+
+{py:meth}`get_playlist <plistsync.core.collection.Library.get_playlist>` returns `None`
+when nothing matches. Use
+{py:meth}`get_playlist_or_raise <plistsync.core.collection.Library.get_playlist_or_raise>`
+if you would rather have it raise a `ValueError`:
+
+```python
+playlist = library.get_playlist_or_raise(id="<playlist id>")
+```
+
+## Create a playlist
+
+Playlists are always created through a library:
+
+```python
+playlist = library.create_playlist(
+    name="My New Playlist",
+    description="Created via plistsync",
+)
+```
+
+Pass `tracks=` to seed the new playlist right away:
+
+```python
+playlist = library.create_playlist(
+    name="My New Playlist",
+    tracks=[track_a, track_b],
+)
+```
+
+## Find tracks to add
+
+Look up tracks by their identifiers, for example an ISRC or a service-specific id:
+
+```python
+from plistsync.core.ids import ISRC
+
+track = library.find_by_ids([ISRC("GBBZH9601601")])
+if track is None:
+    print("Track not found")
+```
+
+{py:meth}`find_by_ids <plistsync.core.collection.IDLookup.find_by_ids>` returns the
+first track carrying any of the given identifiers. For many tracks at once, use
+{py:meth}`find_many_by_ids <plistsync.core.collection.IDLookup.find_many_by_ids>`, which
+batches the lookups. To search by title, artist, or album instead, see the
+[Matching tracks](matching.md) guide.
+
+## Edit a playlist
+
+Wrap every change in the
+{py:meth}`edit() <plistsync.core.playlist.ServicePlaylist.edit>` context manager.
+plistsync takes a snapshot on entry, and on exit computes the minimal diff and writes
+only what changed to the service. If an exception is raised inside the block, the local
+changes are rolled back and the exception propagates.
+
+Name and description:
+
+```python
+with playlist.edit():
+    playlist.name = "New name"
+    playlist.description = "Updated description"
+```
+
+Add a track:
+
+```python
+with playlist.edit():
+    already_present = playlist.tracks
+    with_new_track = [*already_present, track]
+    playlist.tracks = with_new_track
+```
+
+```{note}
+Some services keep catalog tracks and playlist items apart. There, appending a track
+needs the playlist's own track type, for example `SpotifyPlaylistTrack(track)` or
+`TidalPlaylistTrack(track)`. However, assigning a whole list, as above, converts for you.
+```
+
+Remove tracks:
+
+```python
+with playlist.edit():
+    playlist.tracks.pop()  # remove the last track
+```
+
+Reorder tracks by mutating the list inside the block:
+
+```python
+with playlist.edit():
+    playlist.tracks.insert(0, playlist.tracks.pop())  # move the last track to the front
+```
+
+```{note}
+Changes are only sent to the service API when the `edit()` block exits successfully. Make
+all of your changes inside one block to keep this efficient.
+```
+
+## Delete a playlist
+
+{py:meth}`playlist.delete() <plistsync.core.playlist.ServicePlaylist.delete>` removes the
+playlist from the service and returns an
+{py:class}`OfflinePlaylist <plistsync.core.playlist.OfflinePlaylist>` holding the last
+known state, so you do not lose the data:
+
+```python
+offline = playlist.delete()
+print(offline.name, len(offline))
+```
+
+After deletion the playlist is gone from the service:
+
+```python
+assert library.get_playlist(id=playlist.id) is None
+```
+
+Do not keep using the deleted `playlist` object. Switch to the returned `offline` one.
+Its tracks are plain
+{py:class}`OfflineTrack <plistsync.core.track.OfflineTrack>` objects, which you can use
+to recreate the playlist on the same or another service.

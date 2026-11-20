@@ -117,15 +117,19 @@ class TidalLibrary(
                 return None
 
         try:
-            return TidalPlaylist(
-                self,
-                *self.api.playlist.get(str(playlist_id)),
-            )
+            data, data_lookup = self.api.playlist.get(str(playlist_id))
         except HTTPError as e:
             log.debug(
                 f"Failed to get playlist for {playlist_id=}, likely invalid id: {e}"
             )
             return None
+        except ValueError as e:
+            # Tidal answers with an empty result (not an HTTP error) for a
+            # deleted or otherwise unknown playlist; treat that as "not found".
+            log.debug(f"No playlist found for {playlist_id=}: {e}")
+            return None
+
+        return TidalPlaylist(self, data, data_lookup)
 
     def create_playlist(
         self,

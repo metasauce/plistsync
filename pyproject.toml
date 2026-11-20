@@ -111,6 +111,7 @@ include = [
     "plistsync/**/*.py",
     "examples/**/*.py",
     "tests/**/*.py",
+    "tests_integration/**/*.py",
     "docs/**/*.ipynb",
 ]
 extend-include = ["*.ipynb"]
@@ -157,6 +158,13 @@ runtime-evaluated-base-classes = [
     "W",
     "E501", # long lines
 ]
+"tests_integration/**" = [
+    "D",
+    "I",
+    "S",
+    "W",
+    "E501", # long lines
+]
 "**__main__.py" = ["D103"]
 
 # ignore import order in init files
@@ -173,14 +181,16 @@ convention = "numpy"
 addopts = ["--import-mode=importlib", "--cov=.", "--benchmark-skip"]
 filterwarnings = ["error", "ignore::DeprecationWarning"]
 pythonpath = ["."]
+testpaths = ["tests"]
 asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.run]
 branch = true
 source = ["plistsync"]
+omit = ["*/tests_integration/*"]
 
 [tool.coverage.report]
-omit = ["*/tests/*"]
+omit = ["*/tests/*", "*/tests_integration/*"]
 exclude_lines = ["if TYPE_CHECKING"]
 exclude_also = ["raise NotImplementedError", "@(abc\\.)?abstractmethod"]
 
@@ -200,6 +210,11 @@ exclude = "(docs/examples)"
 [[tool.mypy.overrides]]
 module = ["nest_asyncio.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Sphinx/docutils ship no type stubs
+module = ["plistsync_config"]
+disable_error_code = ["import-untyped"]
 
 [[tool.mypy.overrides]]
 # If tests/ is a package => tests.*
