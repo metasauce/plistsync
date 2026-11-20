@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Registering playlists to a synced playlists now has a `mode`, to select which source takes priority.
   CLI: `plistsync sync register --mode`. Supported Modes are `append|skip-duplicates|take-incoming|take-existing`.
 - traktor: `NMLLibrary` now implements `InfoLookup` (`find_by_info`), allowing metadata searches; playlist tracks resolve their metadata through the linked library. File-path lookups are backed by a lazily built index.
+- plex: Now implements the `find_by_info` protocol, this allows to search for tracks via metadata.
 
 ### Changes
 
