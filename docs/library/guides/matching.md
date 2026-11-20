@@ -35,7 +35,7 @@ tracks = [LocalTrack(f"./track_{i}.mp3") for i in range(100)]
 
 for matches in library.match_many(tracks):
     if matches.best_match is not None:
-        print(f"{matches.truth.title}: {matches.best_match.title} ({matches.similarity:.2f})")
+        print(f"{matches.truth.title}: {matches.best_match.uri} ({matches.similarity:.2f})")
     else:
         print(f"{matches.truth.title}: no match")
 ```
@@ -97,7 +97,7 @@ local = LocalCollection("./my_music")
 # Batch-match every local track against the Spotify library
 for result in spotify.match_many(local):
     if result.best_match is not None:
-        print(f"{result.truth.title}: {result.best_match.title}")
+        print(f"{result.truth.title}: {result.best_match.uri}")
     else:
         print(f"{result.truth.title}: no match")
 ```
@@ -111,10 +111,15 @@ for result in spotify.match_many(local):
 A common pattern is to try a smaller, faster collection first (for example a playlist) and fall back to a larger one (for example the full library) for tracks that were not found:
 
 ```python
-# Try the playlist first, then the library for misses
-results = list(playlist.match_many(queries))
+# Assuming you have some:
+playlist : Playlist
+library : Library
+tracks : list[Track]
 
-unmatched = [(i, queries[i]) for i, r in enumerate(results) if r.best_match is None]
+# Try the playlist first, then the library for misses
+results = list(playlist.match_many(tracks))
+
+unmatched = [(i, tracks[i]) for i, r in enumerate(results) if r.best_match is None]
 if unmatched:
     indices, remaining = zip(*unmatched)
     for idx, match in zip(indices, library.match_many(remaining)):

@@ -27,14 +27,6 @@ import logging
 log = logging.getLogger("plistsync")
 ```
 
-The `log_level_offset` parameter shifts the configured level by multiples of 10 for
-fine-grained control (the CLI uses the same mechanism for its `-v` verbosity flags):
-
-```python
-# Reduce the configured level by one step (e.g. INFO → DEBUG)
-init_logging(LoggingConfig(level="INFO"), log_level_offset=1)
-```
-
 ## Attach a handler to the plistsync logger
 
 Add a handler directly to the `plistsync` logger to keep it separate from the root
