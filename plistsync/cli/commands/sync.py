@@ -17,6 +17,7 @@ from platformdirs import user_config_dir
 from rich.console import Console
 from rich.table import Table
 
+from plistsync.cli.context import ServiceContext
 from plistsync.logger import log
 from plistsync.services import ServiceLoader
 from plistsync.services.sync import RegisterMode, SyncedPlaylist
@@ -115,7 +116,7 @@ def create(
     """
     sync_dir = __sync_dir()
 
-    # Warn if a playlist with the same name already exists; IDs disambiguate.
+    # Note duplicate names without making the default CLI output noisy.
     for path in sync_dir.glob("*.json"):
         try:
             existing = SyncedPlaylist.load_from(path)
@@ -123,7 +124,7 @@ def create(
             log.warning("Skipping unreadable sync file '%s'.", path.name)
             continue
         if existing.name == name:
-            log.warning(
+            log.debug(
                 "A synced playlist named '%s' already exists (ID '%s').",
                 name,
                 existing.id,
@@ -371,9 +372,10 @@ def register(
     service, playlist_id = id_matches.pop()
 
     # Create live playlists from id
-    if (library := service.library()) is None:
+    library = ServiceContext(service).library
+    if library is None:
         raise ValueError(f"Service {service.name} does not support library operations.")
-    service_playlist = library().get_playlist_or_raise(id=playlist_id)
+    service_playlist = library.get_playlist_or_raise(id=playlist_id)
 
     # Register the service playlist with the synced playlist and update on disk
     playlist_name = service_playlist.name
