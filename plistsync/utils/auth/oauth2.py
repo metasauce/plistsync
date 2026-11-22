@@ -206,6 +206,12 @@ class OAuth2Provider(AuthProvider[OAuth2Request, str | None, OAuth2Token], ABC):
         code = query.get("code", [None])[0]
         state = query.get("state", [None])[0]
         if not code or not state:
+            if "code_challenge" in query or "redirect_uri" in query:
+                raise AuthenticationError(
+                    "That is the authorization URL, not the redirect URL. "
+                    "Complete the login in the browser and use the URL you were "
+                    "redirected to."
+                )
             raise AuthenticationError("Missing 'code' or 'state' in callback URL.")
         if state != request.state:
             raise AuthenticationError("OAuth state mismatch; aborting authentication.")
@@ -255,7 +261,25 @@ class OAuth2Provider(AuthProvider[OAuth2Request, str | None, OAuth2Token], ABC):
             )
         except requests.RequestException as e:
             raise AuthenticationError(f"Failed to obtain token: {e}") from e
-        return response.json()
+
+        try:
+            payload = response.json()
+        except ValueError as e:
+            raise AuthenticationError(
+                f"Token endpoint returned HTTP {response.status_code}: "
+                f"{response.text[:300]}"
+            ) from e
+
+        if not response.ok:
+            detail = (
+                payload.get("error_description")
+                or payload.get("error")
+                or response.text[:300]
+            )
+            raise AuthenticationError(
+                f"Token exchange failed with HTTP {response.status_code}: {detail}"
+            )
+        return payload
 
     @staticmethod
     def _generate_pkce() -> tuple[str, str]:
