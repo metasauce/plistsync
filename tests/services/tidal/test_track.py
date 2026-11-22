@@ -35,6 +35,15 @@ class TestTidalTrackID:
                 "https://tidal.com/browse/track/123456789",
                 "123456789",
             ),
+            # Album track URL
+            (
+                "https://tidal.com/album/480225831/track/480225833",
+                "480225833",
+            ),
+            (
+                "https://tidal.com/browse/album/480225831/track/480225833",
+                "480225833",
+            ),
             # URLs with query parameters
             (
                 "https://listen.tidal.com/track/123456789?foo=bar",

@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from plistsync.core.config import ConfigIO, ServiceConfig
 from plistsync.core.ids import ISRC
 from plistsync.core.playlist import PlaylistInfo
 from plistsync.core.track import OfflineTrack
@@ -21,10 +22,30 @@ if TYPE_CHECKING:
 
 
 class _FakeLibrary:
-    """Minimal library stub returning a mock playlist."""
+    """Minimal library stub that must be built through from_config."""
+
+    def __init__(self, config):
+        self.config = config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config)
 
     def get_playlist_or_raise(self, id):
         return _make_service_playlist(id, "Chill Vibes")
+
+
+T = TypeVar("T", bound=ServiceConfig)
+
+
+class _FakeConfigIO(ConfigIO):
+    """Config IO that never needs to load real user configuration."""
+
+    def load(self, service_config_cls: type[T]) -> T:
+        raise AssertionError("test service has no config")
+
+    def save(self, service_config: ServiceConfig) -> None:
+        pass
 
 
 class _FakeService:
@@ -34,6 +55,9 @@ class _FakeService:
 
     def playlist_ids(self):
         return [MockPlaylistID]
+
+    def config(self):
+        return None
 
     def library(self):
         return _FakeLibrary
@@ -129,13 +153,13 @@ class TestSyncCreate(_CliTest):
         loaded = SyncedPlaylist.load_from(payload["path"])
         assert str(loaded.id) == payload["id"]
 
-    def test_create_duplicate_name_warns(self, sync_dir, synced):
-        """Creating a playlist with an existing name logs a warning."""
+    def test_create_duplicate_name_is_quiet(self, sync_dir, synced):
+        """Creating a playlist with an existing name is allowed without a warning."""
         with patch("plistsync.cli.commands.sync.log.warning") as mock_warning:
             result = self.runner.invoke(self.cli_app, ["sync", "create", "Party Mix"])
 
         assert result.exit_code == 0
-        assert any(
+        assert not any(
             "already exists" in str(call.args[0])
             for call in mock_warning.call_args_list
         )
@@ -336,6 +360,14 @@ class TestSyncList(_CliTest):
 
 class TestSyncRegister(_CliTest):
     """Test the ``plistsync sync register`` command."""
+
+    @pytest.fixture(autouse=True)
+    def _config_io(self):
+        with patch(
+            "plistsync.cli.commands.sync.get_config_io",
+            return_value=_FakeConfigIO(),
+        ):
+            yield
 
     @staticmethod
     def _patch_service():

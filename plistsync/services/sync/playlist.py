@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from plistsync.core import Track
+    from plistsync.core.config import ConfigIO
     from plistsync.core.matching import Matches
     from plistsync.core.playlist import (
         ServicePlaylist,
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from plistsync.services.sync.crdt import DeleteOp as CRDTDeleteOp
     from plistsync.services.sync.crdt import InsertOp as CRDTInsertOp
     from plistsync.services.sync.crdt import RegisterOp
+
 
 ReplicaID = int
 
@@ -448,8 +450,17 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
             json.dump(serializable, f, indent=4)
 
     @classmethod
-    def load_from(cls, path: Path | str) -> SyncedPlaylist:
-        """Load a synced playlist from a JSON-serializable object."""
+    def load_from(
+        cls,
+        path: Path | str,
+        *,
+        config_io: ConfigIO | None = None,
+    ) -> SyncedPlaylist:
+        """Load a synced playlist from a JSON-serializable object.
+
+        Linked service playlists are re-resolved through *config_io*. Without
+        one, saved playlists with linked playlists cannot be loaded.
+        """
         import json
 
         from .serialize import SyncedPlaylistSerializer
@@ -458,4 +469,5 @@ class SyncedPlaylist(Playlist[OfflineTrack]):
             serializable = json.load(f)
 
         serializer = SyncedPlaylistSerializer()
-        return serializer.load(serializable)
+        resolver = config_io.resolve_library_playlist if config_io is not None else None
+        return serializer.load(serializable, library_resolver=resolver)

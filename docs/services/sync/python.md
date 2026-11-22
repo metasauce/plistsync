@@ -23,13 +23,19 @@ synced = SyncedPlaylist(name="My Mix", description="The tracks we both like")
 Fetch real playlists from your services and register them as replicas:
 
 ```python
+from plistsync.cli.config import UserDirConfigIO
+from plistsync.services.spotify.config import SpotifyConfig
 from plistsync.services.spotify.library import SpotifyLibrary
+from plistsync.services.tidal.config import TidalConfig
 from plistsync.services.tidal.library import TidalLibrary
 
-spotify_playlist = SpotifyLibrary().get_playlist_or_raise(
+spotify = SpotifyLibrary.from_config(UserDirConfigIO().load(SpotifyConfig))
+tidal = TidalLibrary.from_config(UserDirConfigIO().load(TidalConfig))
+
+spotify_playlist = spotify.get_playlist_or_raise(
     url="https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M"
 )
-tidal_playlist = TidalLibrary().get_playlist_or_raise(
+tidal_playlist = tidal.get_playlist_or_raise(
     url="https://tidal.com/playlist/..."
 )
 
@@ -69,13 +75,18 @@ synced.sync()
 ## Persist and reload
 
 ```python
+from plistsync.cli.config import UserDirConfigIO
+
 synced.save_to("my-mix.json")
 
 # ...later, in another process or on another machine...
-synced = SyncedPlaylist.load_from("my-mix.json")
+config_io = UserDirConfigIO()
+synced = SyncedPlaylist.load_from("my-mix.json", config_io=config_io)
 ```
 
 `save_to()`/`load_from()` persist and restore the full state, including the CRDT operation history, not just a snapshot, so a restored synced playlist can keep merging with operations produced later. Loading re-resolves the linked playlists from their services, so those services must be installed and configured.
+
+The sync module does not decide how your application loads service configs, so pass a `ConfigIO`. `ConfigIO` provides `resolve_library_playlist()`. The CLI passes the same config IO. Playlists without linked playlists load without one.
 
 To remove a synced playlist programmatically, just delete the file:
 

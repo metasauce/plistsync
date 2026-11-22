@@ -550,3 +550,49 @@ class TestSync:
         assert isrcs(playlist.tracks) == isrcs([track_a, track_c])
         assert isrcs(first.tracks) == isrcs([track_a, track_c])
         assert isrcs(second.tracks) == isrcs([track_a, track_c])
+
+
+class TestSyncedPlaylistSerialization:
+    """Loading saved playlists with linked service playlists."""
+
+    def test_load_resolves_linked_playlists(self, tmp_path):
+        service = make_playlist()
+        playlist = SyncedPlaylist("x")
+        playlist.register(service)
+
+        path = tmp_path / "sync.json"
+        playlist.save_to(path)
+
+        config_io = Mock()
+        config_io.resolve_library_playlist.return_value = playlist._linked_playlists[1]
+
+        service_obj = Mock()
+        service_obj.playlist_ids.return_value = [SpotifyPlaylistID]
+        with patch(
+            "plistsync.services.sync.serialize.ServiceLoader.get",
+            return_value=service_obj,
+        ):
+            loaded = SyncedPlaylist.load_from(path, config_io=config_io)
+
+        assert loaded._linked_playlists == {1: playlist._linked_playlists[1]}
+        config_io.resolve_library_playlist.assert_called_once()
+        assert config_io.resolve_library_playlist.call_args.args[1] == SPOTIFY_ID
+
+    def test_load_without_resolver_requires_one(self, tmp_path):
+        service = make_playlist()
+        playlist = SyncedPlaylist("x")
+        playlist.register(service)
+
+        path = tmp_path / "sync.json"
+        playlist.save_to(path)
+
+        service_obj = Mock()
+        service_obj.playlist_ids.return_value = [SpotifyPlaylistID]
+        with (
+            patch(
+                "plistsync.services.sync.serialize.ServiceLoader.get",
+                return_value=service_obj,
+            ),
+            pytest.raises(ValueError, match="library_resolver"),
+        ):
+            SyncedPlaylist.load_from(path)

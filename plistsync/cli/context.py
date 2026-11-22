@@ -3,15 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cache, cached_property
 from typing import TYPE_CHECKING
 
 import typer
 
 if TYPE_CHECKING:
     from plistsync.core import Library
-    from plistsync.core.config import ServiceConfig
+    from plistsync.core.config import ConfigIO, ServiceConfig
     from plistsync.services import Service
+
+
+@cache
+def get_config_io() -> ConfigIO:
+    """Return the shared CLI config loader."""
+    from plistsync.cli.config import UserDirConfigIO
+
+    return UserDirConfigIO()
 
 
 @dataclass(frozen=True)
@@ -19,6 +27,11 @@ class ServiceContext:
     """Service of the current CLI invocation."""
 
     service: Service
+
+    @property
+    def config_io(self) -> ConfigIO:
+        """Shared config loader for this CLI invocation."""
+        return get_config_io()
 
     @cached_property
     def library(self) -> Library | None:
@@ -32,12 +45,10 @@ class ServiceContext:
     @cached_property
     def config(self) -> ServiceConfig | None:
         """Resolve the service's config, if it supports one."""
-        from plistsync.cli.config import UserDirConfigIO
-
         config_cls = self.service.config()
         if config_cls is None:
             return None
-        return UserDirConfigIO().load(config_cls)
+        return self.config_io.load(config_cls)
 
     @property
     def name(self) -> str:

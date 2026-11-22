@@ -39,7 +39,11 @@ class TidalTrackID(TrackID):
         value = value.strip()
 
         # URL (https://listen.tidal.com/track/<id>)
-        if m := re.search(r"tidal\.com/(?:browse/)?track/([a-f0-9-]+)", value):
+        # URL (https://tidal.com/album/<album-id>/track/<id>)
+        if m := re.search(
+            r"tidal\.com/(?:browse/)?(?:album/[a-f0-9-]+/)?track/([a-f0-9-]+)",
+            value,
+        ):
             return cls(m.group(1))
 
         # URI (tidal:track:<id>)
