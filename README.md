@@ -18,6 +18,16 @@ CLI and Library for transferring, converting, matching and inspecting music coll
 <img  src="./docs/_static/v2/ios_squircle.webp" alt="plistsync logo" width="80" align="center">
 </p>
 
+<p align="center">
+  <a href="docs/_static/demo.mp4">
+    <img src="docs/_static/demo-preview.png" alt="Watch the plistsync demo" width="400">
+  </a>
+</p>
+
+<p align="center">
+  <a href="docs/_static/demo.mp4"><strong>Watch the demo</strong></a> · 2:37 · 1280×720
+</p>
+
 ## Overview
 
 <!-- start overview -->

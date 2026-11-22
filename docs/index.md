@@ -16,6 +16,14 @@ hide-toc: true
 :end-before: <!-- end features -->
 ```
 
+## Demo
+
+<a href="_static/demo.mp4">
+  <img src="_static/demo-preview.png" alt="Watch the plistsync demo" width="400">
+</a>
+
+[Watch the demo](_static/demo.mp4) · 2:37 · 1280×720
+
 ## Getting started
 
 New to `plistsync`? The [Getting started guide](getting-started.md) covers installation and helps you choose between the CLI and the library.
