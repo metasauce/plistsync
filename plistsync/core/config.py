@@ -20,6 +20,10 @@ from plistsync.services.registry import Registry
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from plistsync.core.ids import PlaylistID
+    from plistsync.core.playlist import ServicePlaylist
+    from plistsync.services import Service
+
 T = TypeVar("T", bound="ServiceConfig")
 D = TypeVar("D")
 M = TypeVar("M", bound=BaseModel)
@@ -125,6 +129,19 @@ class ConfigIO(ABC):
     @abstractmethod
     def save(self, service_config: ServiceConfig) -> None:
         """Save the authentication token of ``service_config``."""
+
+    def resolve_library_playlist(
+        self,
+        service: Service,
+        playlist_id: PlaylistID,
+    ) -> ServicePlaylist | None:
+        """Resolve a linked service playlist through its service library."""
+        library_cls = service.library()
+        if library_cls is None:
+            return None
+        config_cls = service.config()
+        config = self.load(config_cls) if config_cls is not None else None
+        return library_cls.from_config(config).get_playlist_or_raise(id=playlist_id)
 
 
 @dataclass

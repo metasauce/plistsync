@@ -17,7 +17,7 @@ from platformdirs import user_config_dir
 from rich.console import Console
 from rich.table import Table
 
-from plistsync.cli.context import ServiceContext
+from plistsync.cli.context import get_config_io
 from plistsync.logger import log
 from plistsync.services import ServiceLoader
 from plistsync.services.sync import RegisterMode, SyncedPlaylist
@@ -60,7 +60,7 @@ def __iter_all() -> Iterable[SyncedPlaylist]:
 
     for id_path in sync_dir.glob("*.json"):
         try:
-            yield SyncedPlaylist.load_from(id_path)
+            yield SyncedPlaylist.load_from(id_path, config_io=get_config_io())
         except Exception:
             log.debug("Skipping unreadable sync file '%s'.", id_path.name)
             continue
@@ -119,7 +119,7 @@ def create(
     # Note duplicate names without making the default CLI output noisy.
     for path in sync_dir.glob("*.json"):
         try:
-            existing = SyncedPlaylist.load_from(path)
+            existing = SyncedPlaylist.load_from(path, config_io=get_config_io())
         except Exception:
             log.warning("Skipping unreadable sync file '%s'.", path.name)
             continue
@@ -372,10 +372,9 @@ def register(
     service, playlist_id = id_matches.pop()
 
     # Create live playlists from id
-    library = ServiceContext(service).library
-    if library is None:
+    service_playlist = get_config_io().resolve_library_playlist(service, playlist_id)
+    if service_playlist is None:
         raise ValueError(f"Service {service.name} does not support library operations.")
-    service_playlist = library.get_playlist_or_raise(id=playlist_id)
 
     # Register the service playlist with the synced playlist and update on disk
     playlist_name = service_playlist.name

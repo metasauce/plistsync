@@ -6,7 +6,7 @@ round-trip dump/load via plain TypedDict states.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Generic, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Generic, Protocol, TypedDict, TypeVar
 
 from plistsync.core import PlaylistID, TrackID
 from plistsync.core.track import OfflineTrack
@@ -23,13 +23,24 @@ from plistsync.services.sync.playlist import (
 )
 
 if TYPE_CHECKING:
-    from plistsync.core.playlist import PlaylistInfo
+    from plistsync.core.playlist import PlaylistInfo, ServicePlaylist
+    from plistsync.services import Service
     from plistsync.services.sync.crdt.serialize import (
         FugueState,
         LWWRegisterState,
     )
 
 S = TypeVar("S")  # serialized track format (e.g. dict or str)
+
+
+class LibraryResolver(Protocol):
+    """Resolve a linked service playlist from a service instance and ID."""
+
+    def __call__(
+        self,
+        service: Service,
+        playlist_id: PlaylistID,
+    ) -> ServicePlaylist | None: ...
 
 
 class SyncedPlaylistState(TypedDict, Generic[S]):
@@ -112,6 +123,8 @@ class SyncedPlaylistSerializer(Serializer[SyncedPlaylist, SyncedPlaylistState[di
     def load(
         self,
         data: SyncedPlaylistState[dict],
+        *,
+        library_resolver: LibraryResolver | None = None,
     ) -> SyncedPlaylist:
         sp = SyncedPlaylist(
             name="",
@@ -137,18 +150,18 @@ class SyncedPlaylistSerializer(Serializer[SyncedPlaylist, SyncedPlaylistState[di
                     f" maybe the service is not installed or configured?"
                 )
 
-            if not (library_cls := service.library()):
+            if library_resolver is None:
                 raise ValueError(
-                    f"Service {service_pl_id.service()!r} has no library"
-                    f" maybe the service is not installed or configured?"
+                    "Loading linked playlists requires a library_resolver; "
+                    "the caller must provide one."
                 )
 
-            # TODO:
-            # Currently libraries are a bit of annoying as in theory
-            # a library can be created with different config options
-            # we assume that the config is the same as when the playlist
-            # was serialized. This may or may not be wrong...
-            playlist = library_cls().get_playlist_or_raise(id=service_pl_id)
+            playlist = library_resolver(service, service_pl_id)
+            if playlist is None:
+                raise ValueError(
+                    f"Service {service_pl_id.service()!r} could not resolve"
+                    f" playlist {service_pl_id.serial!r}."
+                )
             sp._linked_playlists[int(rid_str)] = playlist
 
         return sp
