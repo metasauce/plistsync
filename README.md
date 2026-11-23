@@ -19,13 +19,13 @@ CLI and Library for transferring, converting, matching and inspecting music coll
 </p>
 
 <p align="center">
-  <a href="docs/_static/demo.mp4">
+  <a href="https://docs.plistsync.com/#demo">
     <img src="docs/_static/demo-preview.png" alt="Watch the plistsync demo" width="400">
   </a>
 </p>
 
 <p align="center">
-  <a href="docs/_static/demo.mp4"><strong>Watch the demo</strong></a> · 2:37 · 1280×720
+  <a href="https://docs.plistsync.com/#demo"><strong>Watch the demo</strong></a> · 2:37 · 1280×720
 </p>
 
 ## Overview
