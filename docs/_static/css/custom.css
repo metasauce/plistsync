@@ -81,3 +81,17 @@ body[data-theme="dark"] .capability-table .cap.yes {
         color: #5cc98a;
     }
 }
+
+/* Inline demo player on the landing page. */
+.plistsync-demo {
+    margin: 1rem 0 0.5rem;
+}
+
+.plistsync-demo video {
+    display: block;
+    width: 100%;
+    max-width: 800px;
+    height: auto;
+    border-radius: 6px;
+    background: var(--color-background-secondary);
+}

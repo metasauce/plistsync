@@ -18,11 +18,14 @@ hide-toc: true
 
 ## Demo
 
-<a href="_static/demo.mp4">
-  <img src="_static/demo-preview.png" alt="Watch the plistsync demo" width="400">
-</a>
+<div class="plistsync-demo">
+<video controls preload="metadata" playsinline poster="_static/demo-preview.png">
+  <source src="_static/demo.mp4" type="video/mp4">
+  Your browser cannot play inline video. <a href="_static/demo.mp4">Download the demo</a> instead.
+</video>
+</div>
 
-[Watch the demo](_static/demo.mp4) · 2:37 · 1280×720
+_2:37 · setting up a synced playlist and keeping Tidal and Spotify in sync._
 
 ## Getting started
 
